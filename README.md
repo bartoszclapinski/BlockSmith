@@ -79,8 +79,8 @@ This project demonstrates:
 
 | Phase | Status |
 |-------|--------|
-| Sprint 0: Project Setup | 🟡 In Progress |
-| Sprint 1: Fundamentals | ⬜ Not Started |
+| Sprint 0: Project Setup | ✅ Complete |
+| Sprint 1: Fundamentals | ✅ Complete |
 | Sprint 2: Proof-of-Work | ⬜ Not Started |
 | Sprint 3: Blockchain | ⬜ Not Started |
 | Sprint 4: Transactions | ⬜ Not Started |
