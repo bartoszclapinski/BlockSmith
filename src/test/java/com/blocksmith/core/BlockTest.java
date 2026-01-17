@@ -8,6 +8,7 @@ import org.junit.jupiter.api.Test;
 /**
  * Tests for Block class functionality.
  */
+@DisplayName("Block Tests")
 public class BlockTest {
     
     @Test
