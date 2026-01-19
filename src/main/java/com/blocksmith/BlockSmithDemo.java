@@ -1,6 +1,7 @@
 package com.blocksmith;
 
 import com.blocksmith.core.Block;
+import com.blocksmith.core.Blockchain;
 import com.blocksmith.util.BlockchainConfig;
 
 /**
@@ -77,6 +78,60 @@ public class BlockSmithDemo {
         System.out.println("═══════════════════════════════════════════════════════════");
         System.out.println("  Notice: Each +1 difficulty = ~16x more work (on average)");
         System.out.println("═══════════════════════════════════════════════════════════");
+
+        // Blockchain demo
+        System.out.println("═══════════════════════════════════════════════════════════");
+        System.out.println("                    BLOCKCHAIN DEMO                         ");
+        System.out.println("═══════════════════════════════════════════════════════════");
+        System.out.println();
+        
+        System.out.println("▶ Creating blockchain with automatic Genesis block...");
+        Blockchain blockchain = new Blockchain();
+        System.out.println();
+        
+        System.out.println("▶ Adding blocks to the chain...");
+        blockchain.addBlock("Alice sends 50 BSM to Bob");
+        blockchain.addBlock("Bob sends 25 BSM to Charlie");
+        System.out.println();
+        
+        System.out.println("▶ Blockchain state:");
+        blockchain.printChain();
+        
+        System.out.println("▶ Validating chain integrity...");
+        System.out.println("  Chain valid: " + blockchain.isChainValid());
+        System.out.println();
+        
+        // Tamper detection
+        System.out.println("═══════════════════════════════════════════════════════════");
+        System.out.println("                  TAMPER DETECTION DEMO                     ");
+        System.out.println("═══════════════════════════════════════════════════════════");
+        System.out.println();
+        System.out.println("▶ Simulating attack on Block #1...");
+        System.out.println("  Original: \"Alice sends 50 BSM to Bob\"");
+        System.out.println("  Tampered: \"Alice sends 5000 BSM to Hacker\"");
+        System.out.println();
+        
+        // Tamper using reflection
+        try {
+            java.lang.reflect.Field dataField = Block.class.getDeclaredField("data");
+            dataField.setAccessible(true);
+            dataField.set(blockchain.getBlock(1), "Alice sends 5000 BSM to Hacker");
+        } catch (Exception e) {
+            System.out.println("  Tamper failed: " + e.getMessage());
+        }
+        
+        System.out.println("▶ Re-validating chain after tampering...");
+        boolean isValid = blockchain.isChainValid();
+        System.out.println("  Chain valid: " + isValid);
+        System.out.println();
+        
+        if (!isValid) {
+            System.out.println("┌─────────────────────────────────────────────────────────┐");
+            System.out.println("│  ⚠ ATTACK DETECTED! Blockchain integrity compromised!  │");
+            System.out.println("│  This demonstrates why blockchain is tamper-evident.   │");
+            System.out.println("└─────────────────────────────────────────────────────────┘");
+        }
+        System.out.println();        
     }
 
     private static void printBlockSummary(Block block) {
@@ -87,5 +142,6 @@ public class BlockSmithDemo {
         System.out.println("└─ PrevHash: " + block.getPreviousHash().substring(0, Math.min(16, block.getPreviousHash().length())) + "...");
         System.out.println();
     }
+    
     
 }
