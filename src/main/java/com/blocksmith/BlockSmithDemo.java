@@ -142,6 +142,7 @@ public class BlockSmithDemo {
         System.out.println("└─ PrevHash: " + block.getPreviousHash().substring(0, Math.min(16, block.getPreviousHash().length())) + "...");
         System.out.println();
     }
-    
+
+        
     
 }
