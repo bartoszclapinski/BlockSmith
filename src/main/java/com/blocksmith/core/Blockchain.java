@@ -18,19 +18,23 @@ import java.util.List;
  * prevHash=0   prevHash=    prevHash=           prevHash=
  *              genesis.hash  block1.hash        blockN-1.hash
  * 
- * IMMUTABILITY: If any block is modified, its hash changes,
- * which breaks the link from the next block (prevHash mismatch).
- * This invalidates that block AND all subsequent blocks.
+ * TRANSACTION FLOW:
+ * 1. User creates a transaction
+ * 2. Transaction is added to the PENDING POOL
+ * 3. Miner collects pending transactions
+ * 4. Miner creates a new block with those transactions
+ * 5. Miner mines the block (Proof-of-Work)
+ * 6. Block is added to chain, transactions are confirmed
  * 
- * SECURITY: To tamper with block N, attacker must:
- * 1. Modify block N
- * 2. Re-mine block N (find new valid nonce)
- * 3. Re-mine ALL blocks after N
- * 4. Do this faster than honest network adds new blocks
+ * MINING REWARD:
+ * When a miner successfully mines a block, they receive a reward.
+ * This is implemented as a special "coinbase" transaction from
+ * the system to the miner's address. 
  */
 public class Blockchain {
 
     private final List<Block> chain;
+    private final List<Transaction> pendingTransactions;
 
     /**
      * Creates a new blockchain with the Genesis block.
@@ -48,6 +52,7 @@ public class Blockchain {
      */
     public Blockchain() {
         this.chain = new ArrayList<>();
+        this.pendingTransactions = new ArrayList<>();
 
         // Create and mine the Genesis block
         Block genesis = Block.createGenesisBlock();
@@ -65,11 +70,7 @@ public class Blockchain {
     }
 
     /**
-     * Adds a new block to the blockchain.
-     * 
-     * The block is automatically:
-     * 1. Assigned the correct previousHash (from latest block)
-     * 2. Mined with the configured difficulty
+     * Adds a new block to the blockchain (Legacy method for string data).    
      * 
      * @param data The data to store in the new block
      * @return The newly created and mined block
@@ -84,6 +85,137 @@ public class Blockchain {
         chain.add(newBlock);
         
         return newBlock;
+    }
+
+    /**
+     * Adds a transaction to the pending pool.
+     * 
+     * THEORY: MEMPOOL (Memory Pool)
+     * 
+     * In real blockchains, pending transactions wait in a "mempool"
+     * until a miner includes them in a block. Miners typically
+     * prioritize transactions wiht higher fees.
+     * 
+     * VALIDATION: We only accept valid transactions.
+     * Invalid transactions are rejected immediately.
+     * 
+     * @param transaction The transaction to add
+     * @return true if transaction was added, false if invalid
+     */
+    public boolean addTransaction(Transaction transaction) {
+        // Validate the transaction
+        if (transaction == null || !transaction.isValid()) {
+            System.out.println("Transaction rejected: Invalid transaction");
+            return false;
+        }
+
+        // Add to pending pool
+        pendingTransactions.add(transaction);
+        System.out.println("Transaction added to pending pool: " + transaction);
+        return true;
+    }
+
+    /**
+     * Mines all pending transactions into a new block.
+     * 
+     * THEORY: MINING PROCESS
+     * 
+     * 1. Collect pending transactions
+     * 2. Add a COINBASE transaction (mining reward)
+     * 3. Create a new block with all transactions
+     * 4. Mine the block (find valid nonce)
+     * 5. Add block to chain
+     * 6. Clear pending transactions
+     * 
+     * COINBASE TRANSACTION:
+     * A special transaction with no sender (from "COINBASE")
+     * that rewards the miner. This is how new coins are created.
+     * 
+     * @param minerAddress Address to receive mining reward
+     * @return The newly mined block, or null if no transactions
+     */
+    public Block minePendingTransactions(String minerAddress) {
+        // Create coinbase (reward) transaction
+        Transaction rewardTx = new Transaction(
+            BlockchainConfig.COINBASE_ADDRESS,
+            minerAddress,
+            BlockchainConfig.MINING_REWARD
+        );
+
+        // Create transaction list with reward + pending transactions
+        List<Transaction> blockTransactions = new ArrayList<>();
+        blockTransactions.add(rewardTx);
+        blockTransactions.addAll(pendingTransactions);
+
+        // Create and mine the new block
+        Block latestBlock = getLatestBlock();
+        int newIndex = latestBlock.getIndex() + 1;
+
+        Block newBlock = new Block (newIndex, blockTransactions, latestBlock.getHash());
+
+        System.out.println("\n⛏️  Mining block #" + newIndex + " with " + blockTransactions.size() + " transactions...");
+        newBlock.mineBlock(BlockchainConfig.MINING_DIFFICULTY);
+
+        // Add block to chain
+        chain.add(newBlock);
+
+        // Clear pending transactions (they're now in a block)
+        pendingTransactions.clear();
+
+        System.out.println("✅ Block mined and added to chain!");
+        System.out.println("   Miner " + minerAddress + " received " + 
+            BlockchainConfig.MINING_REWARD + " " + BlockchainConfig.CURRENCY_SYMBOL);
+        
+        return newBlock;        
+    }
+
+    /**
+     * Calculates the balance of an address.
+     * 
+     * THEORY: ACCOUNT BALANCE
+     * 
+     * In our simple model, balance = incoming - outgoing.
+     * We scan ALL transactions in ALL blocks to calculate this.
+     * 
+     * BITCOIN uses UTXO (Unspent Transaction Outputs) instead,
+     * which is more efficient for large chains but more complex.
+     * 
+     * @param address The addres to check
+     * @return The current balance
+     */
+    public double getBalance(String address) {
+        double balance = 0;
+
+        // Scan all blocks
+        for (Block block : chain) {
+            // scan all transactions in block
+            for (Transaction tx : block.getTransactions()) {
+                // if address is sender, substract amount
+                if (tx.getSender().equals(address)) balance -= tx.getAmount();
+
+                // if address is recipient, add amount
+                if (tx.getRecipient().equals(address)) balance += tx.getAmount();                       
+            }
+        }
+        return balance;
+    }
+
+    /**
+     * Return the pending transaction pool.
+     * 
+     * @return Unmodifiable list of pending transactions
+     */
+    public List<Transaction> getPendingTransactions() {
+        return Collections.unmodifiableList(pendingTransactions);
+    }
+
+    /**
+     * Returns the number of pending transactions.
+     * 
+     * @return Number of transactions waiting to be mined
+     */
+    public int getPendingCount() {
+        return pendingTransactions.size();
     }
 
     /**
@@ -173,12 +305,20 @@ public class Blockchain {
         System.out.println("                     BLOCKCHAIN STATE                        ");
         System.out.println("═══════════════════════════════════════════════════════════");
         System.out.println("Chain length: " + chain.size() + " blocks");
+        System.out.println("Pending transactions: " + pendingTransactions.size());
         System.out.println("Chain valid: " + (isChainValid() ? "✓ YES" : "✗ NO"));
         System.out.println("───────────────────────────────────────────────────────────");
 
         for (Block block : chain) {
             System.out.println("Block #" + block.getIndex());
-            System.out.println("  Data: " + block.getData());
+            if (block.getTransactions().size() > 0) {
+                System.out.println("  Transactions: " + block.getTransactionCount());
+                for (Transaction tx : block.getTransactions()) {
+                    System.out.println("    " + tx);
+                }
+            } else {
+                System.out.println("  Data: " + block.getData());
+            }            
             System.out.println("  Nonce: " + block.getNonce());
             System.out.println("  Hash: " + block.getHash().substring(0, 16) + "...");
             System.out.println("  Prev: " + block.getPreviousHash().substring(0, Math.min(16, block.getPreviousHash().length())) + "...");
@@ -190,6 +330,7 @@ public class Blockchain {
     public String toString() {
         return "Blockchain{" +
             "chainSize= " + chain.size() +
+            ", pendingTx= " + pendingTransactions.size() +
             ", isValid= " + isChainValid() +
             ", latestBlockHash= " + getLatestBlock().getHash().substring(0, 16) + "..." +
             "}";
