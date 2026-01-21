@@ -132,17 +132,18 @@ public class BlockchainTest {
         blockchain.addBlock("Original data");
         blockchain.addBlock("More data");
         
-        // Tamper with block 1's data using reflection
+        // Tamper with block 1's merkleRoot using reflection
+        // (merkleRoot is now used in hash calculation instead of data)
         Block block1 = blockchain.getBlock(1);
         try {
-            java.lang.reflect.Field dataField = Block.class.getDeclaredField("data");
-            dataField.setAccessible(true);
-            dataField.set(block1, "HACKED DATA!");
+            java.lang.reflect.Field merkleField = Block.class.getDeclaredField("merkleRoot");
+            merkleField.setAccessible(true);
+            merkleField.set(block1, "HACKED_MERKLE_ROOT_12345678901234567890123456789012");
         } catch (Exception e) {
             fail("Reflection failed: " + e.getMessage());
         }
         
-        assertFalse(blockchain.isChainValid(), "Chain with tampered data should be invalid");
+        assertFalse(blockchain.isChainValid(), "Chain with tampered merkle root should be invalid");
     }
 
     @Test
@@ -162,6 +163,86 @@ public class BlockchainTest {
         }
         
         assertFalse(blockchain.isChainValid(), "Chain with broken link should be invalid");
+    }
+
+    // ===== TRANSACTION POOL TESTS =====
+
+    @Test
+    @DisplayName("addTransaction should accept valid transaction")
+    void addTransactionShouldAcceptValidTransaction() {
+        Transaction tx = new Transaction("Alice", "Bob", 50.0);
+        
+        assertTrue(blockchain.addTransaction(tx), "Valid transaction should be accepted");
+        assertEquals(1, blockchain.getPendingCount(), "Pending count should be 1");
+    }
+
+    @Test
+    @DisplayName("addTransaction should reject null transaction")
+    void addTransactionShouldRejectNull() {
+        assertFalse(blockchain.addTransaction(null), "Null transaction should be rejected");
+        assertEquals(0, blockchain.getPendingCount(), "Pending count should be 0");
+    }
+    
+    @Test
+    @DisplayName("addTransaction should reject invalid transaction")
+    void addTransactionShouldRejectInvalid() {
+        Transaction invalidTx = new Transaction("Alice", "Bob", -100.0);
+        
+        assertFalse(blockchain.addTransaction(invalidTx), "Invalid transaction should be rejected");
+        assertEquals(0, blockchain.getPendingCount(), "Pending count should be 0");
+    }
+    
+    @Test
+    @DisplayName("minePendingTransactions should create block with transactions")
+    void minePendingTransactionsShouldCreateBlock() {
+        blockchain.addTransaction(new Transaction("Alice", "Bob", 50.0));
+        blockchain.addTransaction(new Transaction("Bob", "Charlie", 25.0));
+        
+        int initialSize = blockchain.getChainSize();
+        Block minedBlock = blockchain.minePendingTransactions("Miner1");
+        
+        assertEquals(initialSize + 1, blockchain.getChainSize(), "Chain should grow by 1");
+        assertEquals(3, minedBlock.getTransactionCount(), "Block should have 3 transactions (reward + 2)");
+        assertEquals(0, blockchain.getPendingCount(), "Pending pool should be empty");
+    }
+    
+    @Test
+    @DisplayName("minePendingTransactions should include mining reward")
+    void minePendingTransactionsShouldIncludeReward() {
+        Block minedBlock = blockchain.minePendingTransactions("Miner1");
+        
+        Transaction rewardTx = minedBlock.getTransactions().get(0);
+        assertEquals("COINBASE", rewardTx.getSender(), "First tx should be from COINBASE");
+        assertEquals("Miner1", rewardTx.getRecipient(), "Reward should go to miner");
+        assertEquals(50.0, rewardTx.getAmount(), "Reward should be 50 BSC");
+    }
+    
+    @Test
+    @DisplayName("getBalance should calculate correct balance")
+    void getBalanceShouldCalculateCorrectBalance() {
+        // Mine a block so Miner1 gets 50 BSC
+        blockchain.minePendingTransactions("Miner1");
+        
+        // Miner1 sends 20 to Alice
+        blockchain.addTransaction(new Transaction("Miner1", "Alice", 20.0));
+        blockchain.minePendingTransactions("Miner2");
+        
+        // Miner1: 50 (reward) - 20 (sent) = 30
+        assertEquals(30.0, blockchain.getBalance("Miner1"), 0.001, "Miner1 balance should be 30");
+        // Alice: 0 + 20 (received) = 20
+        assertEquals(20.0, blockchain.getBalance("Alice"), 0.001, "Alice balance should be 20");
+        // Miner2: 50 (reward)
+        assertEquals(50.0, blockchain.getBalance("Miner2"), 0.001, "Miner2 balance should be 50");
+    }
+    
+    @Test
+    @DisplayName("getPendingTransactions should return unmodifiable list")
+    void getPendingTransactionsShouldReturnUnmodifiableList() {
+        blockchain.addTransaction(new Transaction("Alice", "Bob", 50.0));
+        
+        assertThrows(UnsupportedOperationException.class, () -> {
+            blockchain.getPendingTransactions().clear();
+        }, "Should not be able to modify pending transactions");
     }
 
 }
