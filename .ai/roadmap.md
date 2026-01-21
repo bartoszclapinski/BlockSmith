@@ -13,12 +13,12 @@ Transform BlockSmith from an educational blockchain into a **fully functional di
 │                        BLOCKSMITH ROADMAP                           │
 ├─────────────────────────────────────────────────────────────────────┤
 │                                                                     │
-│  PHASE 1: Core Blockchain (Sprint 0-7)          ███░░░░░░░░░░ 20%   │
+│  PHASE 1: Core Blockchain (Sprint 0-7)          ███████░░░░░░ 60%   │
 │  ├── Project Setup                               ✅ Complete        │
 │  ├── Fundamentals (Hash, Block)                  ✅ Complete        │
-│  ├── Proof-of-Work                               ⬜ Sprint 2        │
-│  ├── Blockchain Management                       ⬜ Sprint 3        │
-│  ├── Transactions                                ⬜ Sprint 4        │
+│  ├── Proof-of-Work                               ✅ Complete        │
+│  ├── Blockchain Management                       ✅ Complete        │
+│  ├── Transactions                                ✅ Complete        │
 │  ├── Wallets & Signatures                        ⬜ Sprint 5        │
 │  ├── Economic System                             ⬜ Sprint 6        │
 │  └── Demo & Documentation                        ⬜ Sprint 7        │
@@ -59,10 +59,10 @@ Transform BlockSmith from an educational blockchain into a **fully functional di
 |--------|-------|------------------|--------|
 | 0 | Project Setup | Maven, structure, placeholders | ✅ Complete |
 | 1 | Fundamentals | HashUtil, Block, BlockchainConfig | ✅ Complete |
-| 2 | Proof-of-Work | Mining, nonce, difficulty | ⬜ Next |
-| 3 | Blockchain | Chain management, validation | ⬜ Pending |
-| 4 | Transactions | Transaction model, Merkle tree | ⬜ Pending |
-| 5 | Wallets | ECDSA keys, signatures | ⬜ Pending |
+| 2 | Proof-of-Work | Mining, nonce, difficulty | ✅ Complete |
+| 3 | Blockchain | Chain management, validation | ✅ Complete |
+| 4 | Transactions | Transaction model, Merkle tree | ✅ Complete |
+| 5 | Wallets | ECDSA keys, signatures | ⬜ Next |
 | 6 | Economics | Mining rewards, balances | ⬜ Pending |
 | 7 | Demo | BlockExplorer, full demo | ⬜ Pending |
 
