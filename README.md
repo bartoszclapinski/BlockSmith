@@ -4,18 +4,26 @@
 
 BlockSmith is a comprehensive blockchain project that goes beyond tutorials - implementing a fully functional distributed cryptocurrency system with P2P networking, REST API, web dashboard, and basic smart contracts. Built to deeply understand how Bitcoin and Ethereum work under the hood.
 
+[![Java](https://img.shields.io/badge/Java-20+-orange.svg)](https://openjdk.org/)
+[![Maven](https://img.shields.io/badge/Maven-3.9+-blue.svg)](https://maven.apache.org/)
+[![Tests](https://img.shields.io/badge/Tests-56%20passing-brightgreen.svg)](#)
+[![Phase](https://img.shields.io/badge/Phase-1%20Core%20Blockchain-yellow.svg)](#)
+
 ---
 
 ## 🚀 Features
 
-### Phase 1: Core Blockchain ✅ In Progress
-- SHA-256 cryptographic hashing
-- Proof-of-Work mining with adjustable difficulty
-- ECDSA digital signatures (secp256r1)
-- Merkle tree for transaction verification
-- Wallet with key pair generation
-- Mining rewards and balance tracking
-- Chain validation and tamper detection
+### Phase 1: Core Blockchain ✅ In Progress (60% Complete)
+- ✅ SHA-256 cryptographic hashing
+- ✅ Proof-of-Work mining with adjustable difficulty
+- ✅ Merkle tree for transaction verification
+- ✅ Transaction model with validation
+- ✅ Pending transaction pool (mempool)
+- ✅ Mining rewards (50 BSC from COINBASE)
+- ✅ Balance tracking for addresses
+- ✅ Chain validation and tamper detection
+- 🔜 ECDSA digital signatures (Sprint 5)
+- 🔜 Wallet with key pair generation (Sprint 5)
 
 ### Phase 2: Network Layer 🔜 Planned
 - P2P networking with TCP sockets
@@ -36,96 +44,121 @@ BlockSmith is a comprehensive blockchain project that goes beyond tutorials - im
 
 ---
 
+## 🎮 Demo Output
+
+```
+═══════════════════════════════════════════════════════════
+                    BLOCKSMITH v1.0.0                       
+              Proof-of-Work Mining Demo                     
+═══════════════════════════════════════════════════════════
+
+▶ Creating Genesis Block...
+    Mining with difficulty 4...
+Block mined! Nonce: 8208 | Time: 103ms
+Hash: 0000aeaf2928201f80df08494337a342bf04c5f72a33442db24f58ee7e76ee75
+
+═══════════════════════════════════════════════════════════
+                   TRANSACTION DEMO                         
+═══════════════════════════════════════════════════════════
+
+▶ Miner1 mines the first block (receives 50 BSC reward)...
+⛏️  Mining block #1 with 1 transactions...
+Block mined! Nonce: 45049 | Time: 43ms
+✅ Block mined and added to chain!
+   Miner Miner1 received 50.0 BSC
+
+▶ Creating transactions...
+  Transaction{id=964904f5..., Miner1 -> Alice: 30.00}
+  Transaction{id=69df15dc..., Miner1 -> Bob: 15.00}
+
+▶ Final balances:
+  Miner1: 55.0 BSC (mined 2 blocks)
+  Alice:  20.0 BSC
+  Bob:    25.0 BSC
+```
+
+---
+
 ## 🏛️ Architecture
 
-### How Blockchain Works
+### Core Classes
 
 ```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                            BLOCKCHAIN STRUCTURE                             │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                             │
-│   ┌─────────────┐      ┌─────────────┐      ┌─────────────┐                 │
-│   │  BLOCK #0   │      │  BLOCK #1   │      │  BLOCK #2   │                 │
-│   │  (Genesis)  │      │             │      │             │                 │
-│   ├─────────────┤      ├─────────────┤      ├─────────────┤                 │
-│   │ prevHash: 0 │◄─────│ prevHash ───│◄─────│ prevHash ───│◄── ...          │
-│   │ timestamp   │      │ timestamp   │      │ timestamp   │                 │
-│   │ data/txs    │      │ data/txs    │      │ data/txs    │                 │
-│   │ nonce       │      │ nonce       │      │ nonce       │                 │
-│   │ hash ───────│─────►│ hash ───────│─────►│ hash        │                 │
-│   └─────────────┘      └─────────────┘      └─────────────┘                 │
-│                                                                             │
-│   Each block contains the hash of the previous block, creating an           │
-│   immutable chain. Changing any block invalidates all following blocks.     │
-│                                                                             │
-└─────────────────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────┐
+│                         BLOCKSMITH                              │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│  ┌─────────────┐    ┌─────────────┐    ┌─────────────┐         │
+│  │   Wallet    │───▶│ Transaction │───▶│   Block     │         │
+│  │  (Portfel)  │    │ (Transakcja)│    │   (Blok)    │         │
+│  └─────────────┘    └─────────────┘    └─────────────┘         │
+│        │                   │                  │                 │
+│        │ creates           │ contains         │ links           │
+│        ▼                   ▼                  ▼                 │
+│  ┌─────────────────────────────────────────────────────────┐   │
+│  │                    BLOCKCHAIN                            │   │
+│  │  ┌───────┐   ┌───────┐   ┌───────┐   ┌───────┐          │   │
+│  │  │Block 0│──▶│Block 1│──▶│Block 2│──▶│Block n│          │   │
+│  │  │Genesis│   │       │   │       │   │       │          │   │
+│  │  └───────┘   └───────┘   └───────┘   └───────┘          │   │
+│  └─────────────────────────────────────────────────────────┘   │
+│                                                                 │
+│  ┌─────────────┐  ┌──────────────────┐  ┌─────────────────┐    │
+│  │  HashUtil   │  │ BlockchainConfig │  │  BlockExplorer  │    │
+│  │  (SHA-256)  │  │   (Constants)    │  │   (Viewer)      │    │
+│  └─────────────┘  └──────────────────┘  └─────────────────┘    │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
-### Transaction Flow
+### Blockchain Structure
 
 ```
-┌──────────────┐     ┌──────────────┐     ┌──────────────┐     ┌──────────────┐
-│    WALLET    │     │  TRANSACTION │     │   MEMPOOL    │     │    BLOCK     │
-│              │     │              │     │  (Pending)   │     │              │
-│  Private Key │────►│ Sign with    │────►│ Validate &   │────►│ Mine with    │
-│  Public Key  │     │ Private Key  │     │ Queue        │     │ Proof-of-Work│
-│  Address     │     │              │     │              │     │              │
-└──────────────┘     └──────────────┘     └──────────────┘     └──────────────┘
-                                                                      │
-                                                                      ▼
-                                                               ┌──────────────┐
-                                                               │  BLOCKCHAIN  │
-                                                               │  Add Block   │
-                                                               │  Update      │
-                                                               │  Balances    │
-                                                               └──────────────┘
+┌─────────────┐      ┌─────────────┐      ┌─────────────┐
+│  BLOCK #0   │      │  BLOCK #1   │      │  BLOCK #2   │
+│  (Genesis)  │      │             │      │             │
+├─────────────┤      ├─────────────┤      ├─────────────┤
+│ prevHash: 0 │◄─────│ prevHash ───│◄─────│ prevHash ───│◄── ...
+│ timestamp   │      │ timestamp   │      │ timestamp   │
+│ merkleRoot  │      │ merkleRoot  │      │ merkleRoot  │
+│ nonce       │      │ nonce       │      │ nonce       │
+│ hash ───────│─────►│ hash ───────│─────►│ hash        │
+└─────────────┘      └─────────────┘      └─────────────┘
 ```
 
-### Full System Architecture (After Phase 3)
+### Merkle Tree
 
 ```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                              BLOCKSMITH NETWORK                             │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                             │
-│    ┌─────────────┐         ┌─────────────┐         ┌─────────────┐          │
-│    │   NODE A    │◄───────►│   NODE B    │◄───────►│   NODE C    │          │
-│    │             │   P2P   │             │   P2P   │             │          │
-│    │ Blockchain  │         │ Blockchain  │         │ Blockchain  │          │
-│    │ Mempool     │         │ Mempool     │         │ Mempool     │          │
-│    │ Wallet      │         │ Wallet      │         │ Wallet      │          │
-│    └──────┬──────┘         └──────┬──────┘         └──────┬──────┘          │
-│           │                       │                       │                 │
-│           │ REST API              │ REST API              │ REST API        │
-│           ▼                       ▼                       ▼                 │
-│    ┌─────────────┐         ┌─────────────┐         ┌─────────────┐          │
-│    │ Web Client  │         │ Web Client  │         │ Mobile App  │          │
-│    │ Dashboard   │         │ Dashboard   │         │ (Future)    │          │
-│    └─────────────┘         └─────────────┘         └─────────────┘          │
-│                                                                             │
-└─────────────────────────────────────────────────────────────────────────────┘
+                    ┌──────────────────┐
+                    │   Merkle Root    │
+                    │  (in block hash) │
+                    └────────┬─────────┘
+                             │
+              ┌──────────────┴──────────────┐
+              │                             │
+        ┌─────┴─────┐                 ┌─────┴─────┐
+        │ Hash(AB)  │                 │ Hash(CD)  │
+        └─────┬─────┘                 └─────┬─────┘
+              │                             │
+       ┌──────┴──────┐               ┌──────┴──────┐
+       │             │               │             │
+   ┌───┴───┐     ┌───┴───┐       ┌───┴───┐     ┌───┴───┐
+   │ Tx A  │     │ Tx B  │       │ Tx C  │     │ Tx D  │
+   └───────┘     └───────┘       └───────┘     └───────┘
 ```
 
 ### Proof-of-Work Mining
 
 ```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                           PROOF-OF-WORK MINING                              │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                             │
-│   Target: Hash must start with "0000" (difficulty = 4)                      │
-│                                                                             │
-│   nonce = 0  ──► hash("...0") = "8a3f2b..."  ✗ Invalid                     │
-│   nonce = 1  ──► hash("...1") = "c7e9f1..."  ✗ Invalid                     │
-│   nonce = 2  ──► hash("...2") = "1d4a8c..."  ✗ Invalid                     │
-│      ...                                                                    |
-│   nonce = 52847 ──► hash("...52847") = "0000a8b2..."  ✓ VALID!             │
-│                                                                             │
-│   Average attempts for difficulty 4: ~65,536 hashes                         │
-│   Higher difficulty = More zeros = Exponentially harder                     │
-│                                                                             │
-└─────────────────────────────────────────────────────────────────────────────┘
+Target: Hash must start with "0000" (difficulty = 4)
+
+nonce = 0     → hash = "8a3f2b..."      ✗ Invalid
+nonce = 1     → hash = "c7e9f1..."      ✗ Invalid
+nonce = 2     → hash = "1d4a8c..."      ✗ Invalid
+    ...
+nonce = 52847 → hash = "0000a8b2..."    ✓ VALID!
+
+Average attempts: ~16^difficulty (~65,536 for difficulty 4)
 ```
 
 ---
@@ -144,7 +177,7 @@ BlockSmith is a comprehensive blockchain project that goes beyond tutorials - im
 mvn clean compile
 ```
 
-### Run tests
+### Run all tests (56 tests)
 ```bash
 mvn test
 ```
@@ -166,14 +199,44 @@ java -jar target/blocksmith-1.0.0.jar
 
 ```
 BlockSmith/
+├── .ai/                    # Project documentation for AI/LLMs
+│   ├── ONBOARDING.md       # Quick start guide
+│   ├── ARCHITECTURE.md     # Class descriptions
+│   ├── CONVENTIONS.md      # Code style guide
+│   ├── STATUS.md           # Current sprint status
+│   ├── prd.md              # Product requirements
+│   ├── tech-stack.md       # Technologies used
+│   ├── roadmap.md          # Full project roadmap
+│   └── sprints/            # Sprint plans and logs
 ├── src/main/java/com/blocksmith/
-│   ├── core/           # Block, Blockchain, Transaction, Wallet
-│   ├── util/           # HashUtil, BlockchainConfig, BlockExplorer
-│   └── BlockSmithDemo.java
-├── src/test/java/      # Unit tests
-├── data/               # Blockchain persistence (JSON)
-└── pom.xml             # Maven configuration
+│   ├── core/
+│   │   ├── Block.java          # Block with transactions & Merkle root
+│   │   ├── Blockchain.java     # Chain management & mining
+│   │   ├── Transaction.java    # Value transfers
+│   │   └── Wallet.java         # Keys & signing (TODO)
+│   ├── util/
+│   │   ├── HashUtil.java       # SHA-256 hashing
+│   │   ├── BlockchainConfig.java # Configuration constants
+│   │   └── BlockExplorer.java  # Chain viewer (TODO)
+│   └── BlockSmithDemo.java     # Main demo application
+├── src/test/java/              # 56 unit tests
+├── data/                       # Blockchain persistence (JSON)
+├── pom.xml                     # Maven configuration
+└── README.md
 ```
+
+---
+
+## 🧪 Test Coverage
+
+| Test Class | Tests | Description |
+|------------|-------|-------------|
+| HashUtilTest | 2 | SHA-256 hashing |
+| BlockTest | 16 | Block creation, mining, transactions |
+| BlockchainTest | 20 | Chain management, validation |
+| MiningTest | 6 | Proof-of-Work mechanics |
+| TransactionTest | 12 | Transaction validation |
+| **Total** | **56** | All passing ✅ |
 
 ---
 
@@ -181,66 +244,62 @@ BlockSmith/
 
 ### Core Blockchain
 - Cryptographic hashing (SHA-256)
-- Digital signatures (ECDSA)
+- Digital signatures (ECDSA) - upcoming
 - Proof-of-Work consensus
 - Merkle trees & data structures
+- Transaction pools (mempool)
 
-### Networking
-- TCP socket programming
-- P2P protocols
-- Distributed systems
-- Concurrent programming
-
-### Full-Stack
-- REST API design (Javalin)
-- Web development (HTML/JS)
-- Database design (SQLite)
+### Java
+- Java Cryptography Architecture (JCA)
+- Collections framework
+- Object-oriented design
+- Reflection (for testing)
 
 ### Software Engineering
 - Clean architecture
 - Unit testing (JUnit 5)
-- Documentation
-- Git workflow
+- Maven build system
+- Git workflow with branches
+- Comprehensive documentation
 
 ---
 
 ## 🏗️ Development Status
 
-### Phase 1: Core Blockchain
-| Sprint | Status |
-|--------|--------|
-| Sprint 0: Project Setup | ✅ Complete |
-| Sprint 1: Fundamentals | ✅ Complete |
-| Sprint 2: Proof-of-Work | ⬜ Next |
-| Sprint 3: Blockchain | ⬜ Pending |
-| Sprint 4: Transactions | ⬜ Pending |
-| Sprint 5: Wallets | ⬜ Pending |
-| Sprint 6: Economics | ⬜ Pending |
-| Sprint 7: Demo | ⬜ Pending |
+### Phase 1: Core Blockchain (60% Complete)
+| Sprint | Title | Status |
+|--------|-------|--------|
+| Sprint 0 | Project Setup | ✅ Complete |
+| Sprint 1 | Fundamentals (Hash, Block) | ✅ Complete |
+| Sprint 2 | Proof-of-Work Mining | ✅ Complete |
+| Sprint 3 | Blockchain Management | ✅ Complete |
+| Sprint 4 | Transactions & Merkle Trees | ✅ Complete |
+| Sprint 5 | Wallets & Digital Signatures | 🔜 Next |
+| Sprint 6 | Economic System | ⬜ Pending |
+| Sprint 7 | Demo & BlockExplorer | ⬜ Pending |
 
 ### Phase 2: Network Layer
-| Sprint | Status |
-|--------|--------|
-| Sprint 8: P2P Networking | ⬜ Planned |
-| Sprint 9: Node Discovery | ⬜ Planned |
-| Sprint 10: Block Broadcasting | ⬜ Planned |
-| Sprint 11: Mempool Sync | ⬜ Planned |
+| Sprint | Title | Status |
+|--------|-------|--------|
+| Sprint 8-11 | P2P, Discovery, Broadcasting | ⬜ Planned |
 
 ### Phase 3: API & Interface
-| Sprint | Status |
-|--------|--------|
-| Sprint 12: REST API | ⬜ Planned |
-| Sprint 13: Web Dashboard | ⬜ Planned |
-| Sprint 14: Smart Contracts | ⬜ Planned |
-| Sprint 15: Multi-sig Wallets | ⬜ Planned |
+| Sprint | Title | Status |
+|--------|-------|--------|
+| Sprint 12-15 | REST API, Dashboard, Contracts | ⬜ Planned |
 
 ### Phase 4: Production
-| Sprint | Status |
-|--------|--------|
-| Sprint 16: Database | ⬜ Planned |
-| Sprint 17: Difficulty Adjustment | ⬜ Planned |
-| Sprint 18: Block Limits | ⬜ Planned |
-| Sprint 19: Fee Market | ⬜ Planned |
+| Sprint | Title | Status |
+|--------|-------|--------|
+| Sprint 16-19 | Database, Difficulty, Fees | ⬜ Planned |
+
+---
+
+## 🎓 Learning Resources
+
+- [Bitcoin Whitepaper](https://bitcoin.org/bitcoin.pdf) - Original Satoshi paper
+- [Blockchain Demo](https://andersbrownworth.com/blockchain/) - Visual demonstration
+- [Mastering Bitcoin](https://github.com/bitcoinbook/bitcoinbook) - Comprehensive book
 
 ---
 
@@ -253,3 +312,7 @@ This project is for educational purposes.
 ## 👤 Author
 
 **Bartek** - [GitHub](https://github.com/bartoszclapinski)
+
+---
+
+*Last updated: 2026-01-23 | Sprint 4 Complete*
