@@ -1,6 +1,7 @@
 package com.blocksmith.core;
 
 import com.blocksmith.util.HashUtil;
+import java.security.PublicKey;
 
 /**
  * THEORY: A transaction represents a transfer of value between addresses.
@@ -34,6 +35,8 @@ public class Transaction {
     private final String recipient;
     private final double amount;
     private final long timestamp;
+    private byte[] signature;
+    private PublicKey senderPublicKey;
 
     /**
      * Creates a new transaction.
@@ -113,6 +116,36 @@ public class Transaction {
     public long getTimestamp() {
         return timestamp;
     }
+
+    /**
+     * Returns the digital signature of this transaction.
+     */
+    public byte[] getSignature() {
+        return signature;
+    }
+
+    /**
+     * Returns the sender's public key for signature verification.
+     */
+    public PublicKey getSenderPublicKey() {
+        return senderPublicKey;
+    }
+
+    // ===== SETTERS =====
+
+    /**
+     * Sets the digital signature.
+     */
+    public void setSignature(byte[] signature) {
+        this.signature = signature;
+    }
+
+    /**
+     * Sets the sender's public key.
+     */
+    public void setSenderPublicKey(PublicKey senderPublicKey) {
+        this.senderPublicKey = senderPublicKey;
+    }    
 
     @Override
     public String toString() {
