@@ -183,4 +183,79 @@ public class TransactionTest {
         assertTrue(str.contains("Bob"));
         assertTrue(str.contains("50.00"));
     }
+
+    // ===== SIGNATURE VERIFICATION TESTS =====
+
+    @Test
+    @DisplayName("Signed transaction should verify successfully")
+    void signedTransactionShouldVerifySuccessfully() {
+        Wallet wallet = new Wallet();
+        Transaction tx = new Transaction(wallet.getAddress(), "recipient123", 50.0);
+        wallet.signTransaction(tx);
+        boolean isValid = tx.verifySignature();
+
+        assertTrue(isValid, "Signed transaction should verify successfully");
+    }
+
+    @Test
+    @DisplayName("Unsigned transaction should fail verification")
+    void unsignedTransactionShouldFailVerification() {        
+        Transaction tx = new Transaction("Alice", "recipient123", 50.0);
+        boolean isValid = tx.verifySignature();
+
+        assertFalse(isValid, "Unsigned transaction should fail verification");
+    }
+
+    @Test
+    @DisplayName("COINBASE transaction should verify without signature")
+    void verifySignature_coinbaseTransaction_returnsTrue() {
+        // Arrange
+        Transaction tx = new Transaction("COINBASE", "miner123", 50.0);
+        // NOT signed - COINBASE doesn't need signature
+
+        // Act
+        boolean isValid = tx.verifySignature();
+
+        // Assert
+        assertTrue(isValid, "COINBASE transaction should verify without signature");
+    }
+
+    @Test
+    @DisplayName("Transaction signed by wrong wallet should fail verification")
+    void verifySignature_wrongPublicKey_returnsFalse() {
+        // Arrange
+        Wallet realSender = new Wallet();
+        Wallet attacker = new Wallet();
+        
+        Transaction tx = new Transaction(realSender.getAddress(), "recipient123", 50.0);
+        
+        // Attacker tries to sign a transaction from realSender's address
+        // This should throw because address doesn't match
+        assertThrows(
+            IllegalStateException.class,
+            () -> attacker.signTransaction(tx),
+            "Should not allow signing for different address"
+        );
+    }
+
+    @Test
+    @DisplayName("Tampered transaction should fail verification")
+    void verifySignature_tamperedData_returnsFalse() {
+        // Arrange
+        Wallet wallet = new Wallet();
+        Transaction tx = new Transaction(wallet.getAddress(), "recipient123", 50.0);
+        wallet.signTransaction(tx);
+        
+        // Simulate tampering by creating a new transaction with different data
+        // but copying the signature (in real scenario, attacker might try this)
+        Transaction tamperedTx = new Transaction(wallet.getAddress(), "recipient123", 999.0);
+        tamperedTx.setSignature(tx.getSignature());
+        tamperedTx.setSenderPublicKey(tx.getSenderPublicKey());
+
+        // Act
+        boolean isValid = tamperedTx.verifySignature();
+
+        // Assert
+        assertFalse(isValid, "Tampered transaction should fail verification");
+    }
 }
