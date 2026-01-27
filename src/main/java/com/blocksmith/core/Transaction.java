@@ -1,7 +1,10 @@
 package com.blocksmith.core;
 
 import com.blocksmith.util.HashUtil;
+
+import java.nio.charset.StandardCharsets;
 import java.security.PublicKey;
+import java.security.Signature;
 
 /**
  * THEORY: A transaction represents a transfer of value between addresses.
@@ -66,6 +69,44 @@ public class Transaction {
         String data = sender + recipient + amount + timestamp;
         return HashUtil.applySha256(data);
     }    
+
+    /**
+     * THEORY: Verifies the digital signature of this transaction.
+     * 
+     * VERIFICATION PROCESS:
+     * 1. Reconstruct the data that was signed
+     * 2. Use sender's public key to verify the signature
+     * 3. If signature matches, the transaction is authentic
+     * 
+     * WHAT THIS PROVES: 
+     * - The transaction was signed by the owner of the sender's private key
+     * - The transaction data hasn't been modified since signing
+     * 
+     * COINBASE EXCEPTION:
+     * Mining reward transactions (from "COINBASE") don't need signatures
+     * because they're created by the system, not by a user.
+     * 
+     * @return true if signature is valid, false otherwise
+     */
+    public boolean verifySignature() {
+        // COINBASE transactions don't need signatures
+        if (sender.equals("COINBASE")) return true;
+
+        // Must have signature and public key
+        if (signature == null || senderPublicKey == null) return false;
+
+        try {
+            Signature ecdsaVerify = Signature.getInstance("SHA256withECDSA");
+            ecdsaVerify.initVerify(senderPublicKey);
+
+            String dataToVerify = sender + recipient + amount + timestamp;
+            ecdsaVerify.update(dataToVerify.getBytes(StandardCharsets.UTF_8));
+
+            return ecdsaVerify.verify(signature);
+        } catch (Exception e) {
+            return false;
+        }
+    }
 
     /**
      * Validates the transaction according to basic rules.
