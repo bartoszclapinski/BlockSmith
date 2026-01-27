@@ -13,9 +13,9 @@
 | **Build Tool** | Maven 3.9.x |
 | **Test Framework** | JUnit 5 |
 | **Current Phase** | Phase 1: Core Blockchain |
-| **Current Sprint** | Sprint 5 (Wallets & Signatures) - Next |
-| **Last Completed** | Sprint 4 (Transactions) |
-| **Total Tests** | 56 (all passing) |
+| **Current Sprint** | Sprint 6 (Economic System) - Next |
+| **Last Completed** | Sprint 5 (Wallets & Signatures) |
+| **Total Tests** | 81 (all passing) |
 
 ---
 
@@ -25,7 +25,8 @@ Build a **functional blockchain implementation from scratch** for educational pu
 - Cryptographic hashing (SHA-256)
 - Proof-of-Work mining
 - Transaction management with Merkle trees
-- Digital signatures (ECDSA) - upcoming
+- Digital signatures (ECDSA)
+- Wallet address generation
 - Balance tracking
 
 ---
@@ -50,8 +51,8 @@ BlockSmith/
 │   ├── core/                         # Core blockchain classes
 │   │   ├── Block.java                # ✅ Complete
 │   │   ├── Blockchain.java           # ✅ Complete
-│   │   ├── Transaction.java          # ✅ Complete
-│   │   └── Wallet.java               # ⬜ TODO (Sprint 5)
+│   │   ├── Transaction.java          # ✅ Complete (with signatures)
+│   │   └── Wallet.java               # ✅ Complete (Sprint 5)
 │   └── util/                         # Utility classes
 │       ├── HashUtil.java             # ✅ Complete
 │       ├── BlockchainConfig.java     # ✅ Complete
@@ -59,12 +60,13 @@ BlockSmith/
 │
 ├── src/test/java/com/blocksmith/
 │   ├── core/
-│   │   ├── BlockTest.java            # 16 tests
-│   │   ├── BlockchainTest.java       # 20 tests
-│   │   ├── MiningTest.java           # 6 tests
-│   │   └── TransactionTest.java      # 12 tests
+│   │   ├── BlockTest.java            # 12 tests
+│   │   ├── BlockchainTest.java       # 19 tests
+│   │   ├── MiningTest.java           # 9 tests
+│   │   ├── TransactionTest.java      # 22 tests
+│   │   └── WalletTest.java           # 13 tests
 │   └── util/
-│       └── HashUtilTest.java         # 2 tests
+│       └── HashUtilTest.java         # 6 tests
 │
 ├── pom.xml                           # Maven configuration
 └── README.md                         # Public documentation
@@ -89,7 +91,7 @@ BlockSmith/
 - Chain validation and tamper detection
 - `addBlock(data)` - Add blocks with string data
 
-### Sprint 4: Transactions ← **LATEST**
+### Sprint 4: Transactions
 - `Transaction` - Transaction model with validation
 - `Block` - Now supports `List<Transaction>` 
 - `Block.calculateMerkleRoot()` - Merkle tree implementation
@@ -98,18 +100,18 @@ BlockSmith/
 - `Blockchain.getBalance(address)` - Balance calculation
 - Mining rewards (50 BSC from COINBASE)
 
+### Sprint 5: Wallets & Signatures ← **LATEST**
+- `Wallet` - ECDSA key pair generation (secp256r1)
+- `Wallet.getAddress()` - Ethereum-style address (0x + 40 hex)
+- `Wallet.signTransaction()` - Sign transactions with private key
+- `Transaction.verifySignature()` - Verify transaction signatures
+- COINBASE transactions exempt from signature requirement
+
 ---
 
 ## ⬜ What's NOT Implemented Yet
 
-### Sprint 5: Wallets & Signatures (NEXT)
-- `Wallet.java` - Currently a placeholder
-- ECDSA key pair generation
-- Address generation (0x... format)
-- Transaction signing
-- Signature verification
-
-### Sprint 6: Economic System
+### Sprint 6: Economic System (NEXT)
 - Balance validation before transfers
 - Insufficient funds rejection
 - Transaction fees (optional)
@@ -131,7 +133,7 @@ mvn compile
 mvn test
 
 # Run specific test class
-mvn test -Dtest=BlockchainTest
+mvn test -Dtest=WalletTest
 
 # Run the demo (PowerShell)
 mvn compile -q; java -cp target/classes com.blocksmith.BlockSmithDemo
@@ -172,29 +174,41 @@ Simple scan of all transactions (not UTXO-based):
 for each block: for each tx: if sender==address: balance -= amount; if recipient==address: balance += amount
 ```
 
+### 6. Wallet Signs Transactions
+`wallet.signTransaction(tx)` - Wallet class owns the private key and performs signing:
+- Validates sender address matches wallet
+- Sets signature bytes and public key on transaction
+
+### 7. COINBASE Exception
+Mining rewards don't require signatures since they're system-generated:
+```java
+if (sender.equals("COINBASE")) return true; // Always valid
+```
+
 ---
 
 ## 🧪 Test Coverage
 
 | Class | Tests | Coverage |
 |-------|-------|----------|
-| HashUtilTest | 2 | SHA-256 basics |
-| BlockTest | 16 | Block creation, mining, transactions, Merkle |
-| BlockchainTest | 20 | Chain management, validation, tx pool |
-| MiningTest | 6 | PoW mechanics, difficulty scaling |
-| TransactionTest | 12 | Tx creation, validation, hashing |
-| **Total** | **56** | All passing ✅ |
+| HashUtilTest | 6 | SHA-256 basics |
+| BlockTest | 12 | Block creation, mining, transactions, Merkle |
+| BlockchainTest | 19 | Chain management, validation, tx pool |
+| MiningTest | 9 | PoW mechanics, difficulty scaling |
+| TransactionTest | 22 | Tx creation, validation, signatures |
+| WalletTest | 13 | Key generation, addresses, signing |
+| **Total** | **81** | All passing ✅ |
 
 ---
 
 ## 🌳 Git Workflow
 
-- **Main branch**: `main` (stable)
-- **Sprint branches**: `sprint{N}/{feature}` (e.g., `sprint4/transactions`)
+- **Main branch**: `main` (stable, protected)
+- **Sprint branches**: `sprint{N}/{feature}` (e.g., `sprint5/wallets`)
 - **Commits**: Descriptive messages with sprint context
-- **After sprint**: Push branch, create PR (optional), merge to main
+- **After sprint**: Push branch, create PR, merge to main
 
-Current branch: `sprint4/transactions` (completed, ready for merge)
+Current branch: `sprint5/wallets` (completed, ready for merge)
 
 ---
 
@@ -207,6 +221,7 @@ Current branch: `sprint4/transactions` (completed, ready for merge)
 5. **User prefers** the existing demo style in `BlockSmithDemo.java`
 6. **PowerShell syntax**: Use `;` not `&&` for command chaining
 7. **Update sprint docs** after completing tasks
+8. **User implements code** - LLM guides and explains, user writes
 
 ---
 
@@ -223,23 +238,19 @@ Current branch: `sprint4/transactions` (completed, ready for merge)
 
 ---
 
-## 🎯 Next Steps (Sprint 5)
+## 🎯 Next Steps (Sprint 6)
 
-1. Implement `Wallet.java`:
-   - ECDSA key pair generation
-   - Address generation (hash of public key, 0x prefix)
-   - Transaction signing
-   - Signature verification
+1. Update `Blockchain.addTransaction()`:
+   - Check sender balance before accepting transaction
+   - Reject if insufficient funds
 
-2. Update `Transaction.java`:
-   - Add `signature` field
-   - Add `signTransaction(Wallet)` method
-   - Update `isValid()` to verify signature
+2. Update `Transaction.isValid()`:
+   - Optionally verify signature in validation
 
-3. Write `WalletTest.java`
+3. Write tests for balance validation
 
 4. Update `BlockSmithDemo.java` with wallet demo
 
 ---
 
-*Last updated: 2026-01-21 (after Sprint 4 completion)*
+*Last updated: 2026-01-27 (after Sprint 5 completion)*

@@ -8,10 +8,10 @@
 
 | Field | Value |
 |-------|-------|
-| **Sprint** | 5 |
-| **Title** | Wallets & Digital Signatures |
+| **Sprint** | 6 |
+| **Title** | Economic System |
 | **Status** | Not Started |
-| **Branch** | `sprint5/wallets` (to be created) |
+| **Branch** | `sprint6/economics` (to be created) |
 
 ---
 
@@ -24,20 +24,21 @@
 | 2 | Proof-of-Work | Mining, nonce, difficulty | 2026-01-20 |
 | 3 | Blockchain | Chain management, validation | 2026-01-20 |
 | 4 | Transactions | Transaction model, Merkle tree, pending pool | 2026-01-21 |
+| 5 | Wallets | ECDSA keys, addresses, signing, verification | 2026-01-27 |
 
 ---
 
 ## 📈 Progress
 
 ```
-Phase 1: Core Blockchain     [█████████░░░░░░] 60%
+Phase 1: Core Blockchain     [██████████░░░░░] 75%
 ├── Sprint 0: Setup          ✅
 ├── Sprint 1: Fundamentals   ✅
 ├── Sprint 2: Proof-of-Work  ✅
 ├── Sprint 3: Blockchain     ✅
 ├── Sprint 4: Transactions   ✅
-├── Sprint 5: Wallets        ⬜ ← NEXT
-├── Sprint 6: Economics      ⬜
+├── Sprint 5: Wallets        ✅
+├── Sprint 6: Economics      ⬜ ← NEXT
 └── Sprint 7: Demo           ⬜
 ```
 
@@ -47,12 +48,13 @@ Phase 1: Core Blockchain     [█████████░░░░░░] 60%
 
 | Test Class | Count | Status |
 |------------|-------|--------|
-| HashUtilTest | 2 | ✅ |
-| BlockTest | 16 | ✅ |
-| BlockchainTest | 20 | ✅ |
-| MiningTest | 6 | ✅ |
-| TransactionTest | 12 | ✅ |
-| **Total** | **56** | ✅ |
+| HashUtilTest | 6 | ✅ |
+| BlockTest | 12 | ✅ |
+| BlockchainTest | 19 | ✅ |
+| MiningTest | 9 | ✅ |
+| TransactionTest | 22 | ✅ |
+| WalletTest | 13 | ✅ |
+| **Total** | **81** | ✅ |
 
 Last test run: `mvn test` - All passing
 
@@ -66,8 +68,8 @@ Last test run: `mvn test` - All passing
 |-------|--------|-------|-------|
 | Block.java | ✅ Complete | ~268 | Transactions + Merkle root |
 | Blockchain.java | ✅ Complete | ~338 | Pending pool + mining |
-| Transaction.java | ✅ Complete | ~126 | Validation + hashing |
-| Wallet.java | ⬜ TODO | ~14 | Sprint 5 |
+| Transaction.java | ✅ Complete | ~200 | Validation + signing + verification |
+| Wallet.java | ✅ Complete | ~169 | ECDSA keys + signing |
 
 ### Utility Classes (`com.blocksmith.util`)
 
@@ -98,9 +100,10 @@ Last test run: `mvn test` - All passing
 - [x] Pending transaction pool (mempool)
 - [x] Mining rewards (COINBASE)
 - [x] Balance calculation
-- [ ] ECDSA key pairs (Sprint 5)
-- [ ] Transaction signing (Sprint 5)
-- [ ] Signature verification (Sprint 5)
+- [x] ECDSA key pairs
+- [x] Wallet address generation (0x format)
+- [x] Transaction signing
+- [x] Signature verification
 - [ ] Balance validation before transfer (Sprint 6)
 - [ ] Block explorer UI (Sprint 7)
 
@@ -110,10 +113,10 @@ Last test run: `mvn test` - All passing
 
 | Item | Value |
 |------|-------|
-| **Current Branch** | `sprint4/transactions` |
-| **Last Commit** | `7ea9e2e` - docs: Update Sprint 4 documentation |
-| **Remote** | `origin/sprint4/transactions` |
-| **Main Branch** | `main` (needs merge from sprint4) |
+| **Current Branch** | `sprint5/wallets` |
+| **Last Commit** | Sprint 5 complete |
+| **Remote** | `origin/sprint5/wallets` |
+| **Main Branch** | `main` (needs merge from sprint5) |
 
 ---
 
@@ -125,19 +128,13 @@ _None currently._
 
 ## 📝 Notes for Next Session
 
-1. **Sprint 5** should implement `Wallet.java`:
-   - ECDSA key pair generation using `java.security`
-   - Address generation (hash of public key with 0x prefix)
-   - Transaction signing
-   - Signature verification
+1. **Sprint 6** should implement economic validation:
+   - Balance checking before allowing transactions
+   - Reject transactions with insufficient funds
+   - Optional: Transaction fees
 
-2. **Transaction.java** needs updates in Sprint 5:
-   - Add `signature` field
-   - Add `signTransaction(Wallet)` method
-   - Update `isValid()` to verify signature (optional)
-
-3. **Consider merging** `sprint4/transactions` to `main` before starting Sprint 5
+2. **Consider merging** `sprint5/wallets` to `main` before starting Sprint 6
 
 ---
 
-*Last updated: 2026-01-21 20:30 UTC*
+*Last updated: 2026-01-27*

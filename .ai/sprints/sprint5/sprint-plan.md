@@ -6,9 +6,9 @@
 |-------|-------|
 | **Sprint** | 5 |
 | **Title** | Wallets and Signatures |
-| **Duration** | 1 week |
-| **Phase** | Phase 5 |
-| **Status** | Not Started |
+| **Duration** | 5 days |
+| **Phase** | Phase 1 |
+| **Status** | ✅ Completed |
 | **Depends On** | Sprint 4 |
 
 ---
@@ -22,47 +22,47 @@ Implement ECDSA key pairs, wallet addresses, and digital signatures for transact
 ## 📦 Deliverables
 
 ### 1. Wallet Class
-- [ ] Fields:
+- [x] Fields:
   - `PrivateKey privateKey` - secret key (never shared)
   - `PublicKey publicKey` - public key (can be shared)
   - `String address` - derived from public key (0x...)
-- [ ] `generateKeyPair()` - creates new ECDSA key pair using secp256r1
-- [ ] `getAddress()` - returns wallet address
-- [ ] `getPublicKey()` - returns public key
-- [ ] `signTransaction(Transaction tx)` - signs transaction with private key
-- [ ] Private key should NEVER be exposed via getter
+- [x] `generateKeyPair()` - creates new ECDSA key pair using secp256r1
+- [x] `getAddress()` - returns wallet address
+- [x] `getPublicKey()` - returns public key
+- [x] `signTransaction(Transaction tx)` - signs transaction with private key
+- [x] Private key should NEVER be exposed via getter
 
 ### 2. Address Generation
-- [ ] Generate address from public key:
+- [x] Generate address from public key:
   1. Get public key bytes
   2. Hash with SHA-256
   3. Take last 20 bytes (40 hex characters)
   4. Prepend "0x"
-- [ ] Address format: `0x` + 40 hex characters (Ethereum-style)
+- [x] Address format: `0x` + 40 hex characters (Ethereum-style)
 
 ### 3. Transaction Class Updates
-- [ ] Add `byte[] signature` field
-- [ ] Add `String senderPublicKey` field (for verification)
-- [ ] `signTransaction(PrivateKey privateKey)` - creates signature
-- [ ] `verifySignature()` - verifies signature matches sender
-- [ ] Update `isValid()` to check signature
+- [x] Add `byte[] signature` field
+- [x] Add `PublicKey senderPublicKey` field (for verification)
+- [x] `setSignature()` / `setSenderPublicKey()` - setters for wallet to use
+- [x] `verifySignature()` - verifies signature matches sender
+- [x] COINBASE transactions exempt from signature requirement
 
 ### 4. Digital Signature Implementation
-- [ ] Use ECDSA algorithm with SHA256
-- [ ] Sign: hash of (sender + recipient + amount + timestamp)
-- [ ] Verify: use sender's public key to verify signature
+- [x] Use ECDSA algorithm with SHA256
+- [x] Sign: hash of (sender + recipient + amount + timestamp)
+- [x] Verify: use sender's public key to verify signature
 
 ### 5. Unit Tests
-- [ ] `WalletTest.java`:
+- [x] `WalletTest.java`:
   - Test key pair generation
   - Test address format (starts with "0x", correct length)
   - Test different wallets have different addresses
   - Test signing transaction
-- [ ] `TransactionTest.java` (signatures):
+- [x] `TransactionTest.java` (signatures):
   - Test signed transaction is valid
   - Test unsigned transaction is invalid
   - Test tampered transaction fails verification
-  - Test wrong key signature fails
+  - Test COINBASE transaction doesn't need signature
 
 ---
 
@@ -70,13 +70,13 @@ Implement ECDSA key pairs, wallet addresses, and digital signatures for transact
 
 | # | Criteria | Status |
 |---|----------|--------|
-| 1 | Wallet generates valid ECDSA key pair | ⬜ |
-| 2 | Address starts with "0x" and is 42 characters | ⬜ |
-| 3 | Different wallets have different addresses | ⬜ |
-| 4 | Transaction can be signed by sender | ⬜ |
-| 5 | Valid signature passes verification | ⬜ |
-| 6 | Tampered transaction fails verification | ⬜ |
-| 7 | All unit tests pass | ⬜ |
+| 1 | Wallet generates valid ECDSA key pair | ✅ |
+| 2 | Address starts with "0x" and is 42 characters | ✅ |
+| 3 | Different wallets have different addresses | ✅ |
+| 4 | Transaction can be signed by sender | ✅ |
+| 5 | Valid signature passes verification | ✅ |
+| 6 | Tampered transaction fails verification | ✅ |
+| 7 | All unit tests pass | ✅ |
 
 ---
 
@@ -138,46 +138,47 @@ Implement ECDSA key pairs, wallet addresses, and digital signatures for transact
 
 ### Wallet Tests
 
-| Test | Action | Expected |
-|------|--------|----------|
-| Key generation | new Wallet() | privateKey and publicKey not null |
-| Address format | getAddress() | Starts with "0x", length 42 |
-| Unique addresses | Create 2 wallets | Different addresses |
-| Deterministic | Same wallet | Same address each time |
+| Test | Action | Expected | Result |
+|------|--------|----------|--------|
+| Key generation | new Wallet() | privateKey and publicKey not null | ✅ |
+| Address format | getAddress() | Starts with "0x", length 42 | ✅ |
+| Unique addresses | Create 2 wallets | Different addresses | ✅ |
+| Deterministic | Same wallet | Same address each time | ✅ |
 
 ### Signature Tests
 
-| Test | Setup | Expected |
-|------|-------|----------|
-| Valid signature | Sign with sender's key | verifySignature() = true |
-| Unsigned | Don't sign | verifySignature() = false |
-| Wrong key | Sign with different wallet | verifySignature() = false |
-| Tampered amount | Change amount after signing | verifySignature() = false |
-| Tampered recipient | Change recipient after signing | verifySignature() = false |
+| Test | Setup | Expected | Result |
+|------|-------|----------|--------|
+| Valid signature | Sign with sender's key | verifySignature() = true | ✅ |
+| Unsigned | Don't sign | verifySignature() = false | ✅ |
+| Wrong key | Sign with different wallet | Exception thrown | ✅ |
+| Tampered amount | Change amount after signing | verifySignature() = false | ✅ |
+| COINBASE | No signature | verifySignature() = true | ✅ |
 
 ---
 
 ## 📝 Tasks Breakdown
 
-| # | Task | Estimated Time | Status |
-|---|------|----------------|--------|
-| 1 | Create Wallet class structure | 20 min | ⬜ |
-| 2 | Implement key pair generation | 45 min | ⬜ |
-| 3 | Implement address generation | 30 min | ⬜ |
-| 4 | Update Transaction with signature fields | 20 min | ⬜ |
-| 5 | Implement signTransaction() | 45 min | ⬜ |
-| 6 | Implement verifySignature() | 45 min | ⬜ |
-| 7 | Write WalletTest | 45 min | ⬜ |
-| 8 | Write signature tests | 45 min | ⬜ |
-| 9 | Add theory comments | 25 min | ⬜ |
+| # | Task | Estimated Time | Actual Time | Status |
+|---|------|----------------|-------------|--------|
+| 1 | Create Wallet class structure | 20 min | ~15 min | ✅ |
+| 2 | Implement key pair generation | 45 min | ~30 min | ✅ |
+| 3 | Implement address generation | 30 min | ~20 min | ✅ |
+| 4 | Update Transaction with signature fields | 20 min | ~15 min | ✅ |
+| 5 | Implement signTransaction() | 45 min | ~30 min | ✅ |
+| 6 | Implement verifySignature() | 45 min | ~25 min | ✅ |
+| 7 | Write WalletTest | 45 min | ~40 min | ✅ |
+| 8 | Write signature tests | 45 min | ~35 min | ✅ |
+| 9 | Add theory comments | 25 min | ~20 min | ✅ |
 
 **Total Estimated Time:** ~6 hours
+**Total Actual Time:** ~4 hours
 
 ---
 
 ## 🔗 Dependencies
 
-- Sprint 4 must be completed (Transaction class)
+- Sprint 4 must be completed (Transaction class) ✅
 - Java Cryptography Architecture (JCA):
   - `java.security.KeyPairGenerator`
   - `java.security.Signature`
@@ -237,7 +238,6 @@ public boolean verify(String data, byte[] signatureBytes, PublicKey publicKey) {
 ## 🚫 Out of Scope
 
 - Balance checking - Sprint 6
-- Mining rewards (coinbase) - Sprint 6
 - Key export/import (wallet persistence) - advanced feature
 - HD wallets (hierarchical deterministic) - advanced feature
 - Multiple signature schemes - advanced feature

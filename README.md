@@ -6,14 +6,14 @@ BlockSmith is a comprehensive blockchain project that goes beyond tutorials - im
 
 [![Java](https://img.shields.io/badge/Java-20+-orange.svg)](https://openjdk.org/)
 [![Maven](https://img.shields.io/badge/Maven-3.9+-blue.svg)](https://maven.apache.org/)
-[![Tests](https://img.shields.io/badge/Tests-56%20passing-brightgreen.svg)](#)
+[![Tests](https://img.shields.io/badge/Tests-81%20passing-brightgreen.svg)](#)
 [![Phase](https://img.shields.io/badge/Phase-1%20Core%20Blockchain-yellow.svg)](#)
 
 ---
 
 ## 🚀 Features
 
-### Phase 1: Core Blockchain ✅ In Progress (60% Complete)
+### Phase 1: Core Blockchain ✅ In Progress (75% Complete)
 - ✅ SHA-256 cryptographic hashing
 - ✅ Proof-of-Work mining with adjustable difficulty
 - ✅ Merkle tree for transaction verification
@@ -22,8 +22,10 @@ BlockSmith is a comprehensive blockchain project that goes beyond tutorials - im
 - ✅ Mining rewards (50 BSC from COINBASE)
 - ✅ Balance tracking for addresses
 - ✅ Chain validation and tamper detection
-- 🔜 ECDSA digital signatures (Sprint 5)
-- 🔜 Wallet with key pair generation (Sprint 5)
+- ✅ ECDSA digital signatures
+- ✅ Wallet with key pair generation
+- ✅ Ethereum-style addresses (0x format)
+- 🔜 Balance validation before transfers (Sprint 6)
 
 ### Phase 2: Network Layer 🔜 Planned
 - P2P networking with TCP sockets
@@ -90,10 +92,10 @@ Block mined! Nonce: 45049 | Time: 43ms
 │                                                                 │
 │  ┌─────────────┐    ┌─────────────┐     ┌─────────────┐         │
 │  │   Wallet    │ ──▶│ Transaction │───▶│   Block     │         │
-│  │  (Portfel)  │    │ (Transakcja)│     │   (Blok)    │         │
+│  │  (Keys)     │    │ (Signed)    │     │   (Mined)   │         │
 │  └─────────────┘    └─────────────┘     └─────────────┘         │
 │        │                   │                  │                 │
-│        │ creates           │ contains         │ links           │
+│        │ signs             │ contains         │ links           │
 │        ▼                   ▼                  ▼                 │
 │  ┌─────────────────────────────────────────────────────────┐    │
 │  │                    BLOCKCHAIN                           │    │
@@ -177,7 +179,7 @@ Average attempts: ~16^difficulty (~65,536 for difficulty 4)
 mvn clean compile
 ```
 
-### Run all tests (56 tests)
+### Run all tests (81 tests)
 ```bash
 mvn test
 ```
@@ -212,14 +214,14 @@ BlockSmith/
 │   ├── core/
 │   │   ├── Block.java          # Block with transactions & Merkle root
 │   │   ├── Blockchain.java     # Chain management & mining
-│   │   ├── Transaction.java    # Value transfers
-│   │   └── Wallet.java         # Keys & signing (TODO)
+│   │   ├── Transaction.java    # Value transfers with signatures
+│   │   └── Wallet.java         # ECDSA keys & signing
 │   ├── util/
 │   │   ├── HashUtil.java       # SHA-256 hashing
 │   │   ├── BlockchainConfig.java # Configuration constants
 │   │   └── BlockExplorer.java  # Chain viewer (TODO)
 │   └── BlockSmithDemo.java     # Main demo application
-├── src/test/java/              # 56 unit tests
+├── src/test/java/              # 81 unit tests
 ├── data/                       # Blockchain persistence (JSON)
 ├── pom.xml                     # Maven configuration
 └── README.md
@@ -231,12 +233,13 @@ BlockSmith/
 
 | Test Class | Tests | Description |
 |------------|-------|-------------|
-| HashUtilTest | 2 | SHA-256 hashing |
-| BlockTest | 16 | Block creation, mining, transactions |
-| BlockchainTest | 20 | Chain management, validation |
-| MiningTest | 6 | Proof-of-Work mechanics |
-| TransactionTest | 12 | Transaction validation |
-| **Total** | **56** | All passing ✅ |
+| HashUtilTest | 6 | SHA-256 hashing |
+| BlockTest | 12 | Block creation, mining, transactions |
+| BlockchainTest | 19 | Chain management, validation |
+| MiningTest | 9 | Proof-of-Work mechanics |
+| TransactionTest | 22 | Transaction validation, signatures |
+| WalletTest | 13 | Key generation, addresses, signing |
+| **Total** | **81** | All passing ✅ |
 
 ---
 
@@ -244,7 +247,7 @@ BlockSmith/
 
 ### Core Blockchain
 - Cryptographic hashing (SHA-256)
-- Digital signatures (ECDSA) - upcoming
+- Digital signatures (ECDSA)
 - Proof-of-Work consensus
 - Merkle trees & data structures
 - Transaction pools (mempool)
@@ -266,7 +269,7 @@ BlockSmith/
 
 ## 🏗️ Development Status
 
-### Phase 1: Core Blockchain (60% Complete)
+### Phase 1: Core Blockchain (75% Complete)
 | Sprint | Title | Status |
 |--------|-------|--------|
 | Sprint 0 | Project Setup | ✅ Complete |
@@ -274,8 +277,8 @@ BlockSmith/
 | Sprint 2 | Proof-of-Work Mining | ✅ Complete |
 | Sprint 3 | Blockchain Management | ✅ Complete |
 | Sprint 4 | Transactions & Merkle Trees | ✅ Complete |
-| Sprint 5 | Wallets & Digital Signatures | 🔜 Next |
-| Sprint 6 | Economic System | ⬜ Pending |
+| Sprint 5 | Wallets & Digital Signatures | ✅ Complete |
+| Sprint 6 | Economic System | 🔜 Next |
 | Sprint 7 | Demo & BlockExplorer | ⬜ Pending |
 
 ### Phase 2: Network Layer
@@ -315,4 +318,4 @@ This project is for educational purposes.
 
 ---
 
-*Last updated: 2026-01-23 | Sprint 4 Complete*
+*Last updated: 2026-01-27 | Sprint 5 Complete*
