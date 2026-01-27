@@ -23,11 +23,11 @@
 │                              │   (Transfer)    │────────▶│  (Summary)    │ │
 │                              └─────────────────┘         └───────────────┘ │
 │                                       │                                    │
-│                                       │ signed by (Sprint 5)               │
+│                                       │ signed by                          │
 │                                       ▼                                    │
 │                              ┌─────────────────┐                           │
 │                              │     Wallet      │                           │
-│                              │  (Keys/Signing) │  ← TODO                   │
+│                              │  (Keys/Signing) │  ✅ Complete              │
 │                              └─────────────────┘                           │
 │                                                                             │
 │  ┌───────────────────────────────────────────────────────────────────────┐ │
@@ -138,6 +138,8 @@ Blockchain()  // Creates chain with mined Genesis block
 | `recipient` | `String` | Recipient's address |
 | `amount` | `double` | Amount to transfer |
 | `timestamp` | `long` | When tx was created |
+| `signature` | `byte[]` | ECDSA digital signature |
+| `senderPublicKey` | `PublicKey` | Sender's public key for verification |
 
 **Constructor**:
 ```java
@@ -149,6 +151,9 @@ Transaction(String sender, String recipient, double amount)
 |--------|---------|-------------|
 | `calculateHash()` | `String` | Generate unique transaction ID |
 | `isValid()` | `boolean` | Validate: amount > 0, non-empty addresses |
+| `verifySignature()` | `boolean` | Verify ECDSA signature |
+| `setSignature(byte[])` | `void` | Set signature (called by Wallet) |
+| `setSenderPublicKey(PublicKey)` | `void` | Set public key (called by Wallet) |
 | `toString()` | `String` | Formatted: `Transaction{id=..., A -> B: 50.00}` |
 
 **Validation Rules**:
@@ -156,26 +161,92 @@ Transaction(String sender, String recipient, double amount)
 - `sender` not null or empty
 - `recipient` not null or empty
 
+**Signature Verification**:
+```java
+public boolean verifySignature() {
+    // COINBASE transactions don't need signatures
+    if (sender.equals("COINBASE")) return true;
+    
+    // Must have signature and public key
+    if (signature == null || senderPublicKey == null) return false;
+    
+    // Verify using ECDSA
+    Signature ecdsaVerify = Signature.getInstance("SHA256withECDSA");
+    ecdsaVerify.initVerify(senderPublicKey);
+    ecdsaVerify.update((sender + recipient + amount + timestamp).getBytes());
+    return ecdsaVerify.verify(signature);
+}
+```
+
 ---
 
-### Wallet.java ⬜ (Sprint 5 - TODO)
+### Wallet.java ✅
 
-**Planned Purpose**: Manage cryptographic keys and transaction signing.
+**Purpose**: Manages cryptographic keys and transaction signing.
 
-**Planned Fields**:
+**Fields**:
 | Field | Type | Description |
 |-------|------|-------------|
-| `privateKey` | `PrivateKey` | ECDSA private key |
+| `privateKey` | `PrivateKey` | ECDSA private key (NEVER exposed) |
 | `publicKey` | `PublicKey` | ECDSA public key |
-| `address` | `String` | Derived address (0x...) |
+| `address` | `String` | Derived address (0x + 40 hex chars) |
 
-**Planned Methods**:
+**Constructor**:
+```java
+Wallet()  // Generates new ECDSA key pair and address
+```
+
+**Key Methods**:
 | Method | Returns | Description |
 |--------|---------|-------------|
-| `generateKeyPair()` | `void` | Create ECDSA key pair |
-| `getAddress()` | `String` | Get wallet address |
-| `signTransaction(tx)` | `byte[]` | Sign transaction with private key |
-| `verifySignature(tx, sig, pubKey)` | `boolean` | Verify signature |
+| `getAddress()` | `String` | Get wallet address (0x...) |
+| `getPublicKey()` | `PublicKey` | Get public key |
+| `signTransaction(tx)` | `void` | Sign transaction with private key |
+
+**Key Generation**:
+```java
+private void generateKeyPair() {
+    KeyPairGenerator keyGen = KeyPairGenerator.getInstance("EC");
+    ECGenParameterSpec ecSpec = new ECGenParameterSpec("secp256r1");
+    keyGen.initialize(ecSpec, SecureRandom.getInstanceStrong());
+    
+    KeyPair keyPair = keyGen.generateKeyPair();
+    this.privateKey = keyPair.getPrivate();
+    this.publicKey = keyPair.getPublic();
+}
+```
+
+**Address Generation**:
+```java
+private String generateAddress() {
+    byte[] publicKeyBytes = publicKey.getEncoded();
+    String hash = HashUtil.applySha256(bytesToHex(publicKeyBytes));
+    String shortHash = hash.substring(hash.length() - 40);  // Last 20 bytes
+    return "0x" + shortHash;
+}
+```
+
+**Transaction Signing**:
+```java
+public void signTransaction(Transaction tx) {
+    // Verify sender matches wallet
+    if (!tx.getSender().equals(this.address)) {
+        throw new IllegalStateException("Cannot sign: address mismatch");
+    }
+    
+    Signature ecdsaSign = Signature.getInstance("SHA256withECDSA");
+    ecdsaSign.initSign(privateKey);
+    ecdsaSign.update((sender + recipient + amount + timestamp).getBytes());
+    
+    tx.setSignature(ecdsaSign.sign());
+    tx.setSenderPublicKey(this.publicKey);
+}
+```
+
+**Security Notes**:
+- Private key is NEVER exposed via getter
+- Only the wallet owner can sign transactions
+- Address is derived from public key hash (one-way)
 
 ---
 
@@ -254,11 +325,13 @@ mvn compile -q; java -cp target/classes com.blocksmith.BlockSmithDemo
 
 ## 🔄 Data Flow
 
-### 1. Transaction Creation
+### 1. Transaction Creation (with Wallet)
 ```
-User creates Transaction("Alice", "Bob", 50.0)
+Wallet created → generateKeyPair() → address derived
     ↓
-Transaction.calculateHash() generates unique ID
+User creates Transaction(wallet.getAddress(), "Bob", 50.0)
+    ↓
+wallet.signTransaction(tx) → signature + publicKey set
     ↓
 Transaction.isValid() checks rules
     ↓
@@ -294,6 +367,19 @@ For each block in chain:
         If recipient == "Alice": balance += amount
     ↓
 Return total balance
+```
+
+### 4. Signature Verification
+```
+Transaction.verifySignature()
+    ↓
+If sender == "COINBASE" → return true (exempt)
+    ↓
+If signature or publicKey is null → return false
+    ↓
+Reconstruct signed data: sender + recipient + amount + timestamp
+    ↓
+Use publicKey to verify signature → return result
 ```
 
 ---
@@ -349,7 +435,8 @@ src/test/java/com/blocksmith/
 │   ├── BlockTest.java          # Block creation, mining, transactions
 │   ├── BlockchainTest.java     # Chain management, validation, tx pool
 │   ├── MiningTest.java         # PoW mechanics, difficulty scaling
-│   └── TransactionTest.java    # Tx creation, validation, hashing
+│   ├── TransactionTest.java    # Tx creation, validation, signatures
+│   └── WalletTest.java         # Key generation, addresses, signing
 └── util/
     └── HashUtilTest.java       # SHA-256 basics
 ```
@@ -363,4 +450,4 @@ void methodName_scenario_expectedResult() { ... }
 
 ---
 
-*Last updated: 2026-01-21*
+*Last updated: 2026-01-27*
