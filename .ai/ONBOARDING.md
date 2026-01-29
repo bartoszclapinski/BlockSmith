@@ -13,9 +13,9 @@
 | **Build Tool** | Maven 3.9.x |
 | **Test Framework** | JUnit 5 |
 | **Current Phase** | Phase 1: Core Blockchain |
-| **Current Sprint** | Sprint 6 (Economic System) - Next |
+| **Current Sprint** | Sprint 6 (Economic System) - In Progress |
 | **Last Completed** | Sprint 5 (Wallets & Signatures) |
-| **Total Tests** | 81 (all passing) |
+| **Total Tests** | 87 (all passing) |
 
 ---
 
@@ -61,7 +61,7 @@ BlockSmith/
 ├── src/test/java/com/blocksmith/
 │   ├── core/
 │   │   ├── BlockTest.java            # 12 tests
-│   │   ├── BlockchainTest.java       # 19 tests
+│   │   ├── BlockchainTest.java       # 25 tests
 │   │   ├── MiningTest.java           # 9 tests
 │   │   ├── TransactionTest.java      # 22 tests
 │   │   └── WalletTest.java           # 13 tests
@@ -111,10 +111,13 @@ BlockSmith/
 
 ## ⬜ What's NOT Implemented Yet
 
-### Sprint 6: Economic System (NEXT)
-- Balance validation before transfers
-- Insufficient funds rejection
-- Transaction fees (optional)
+### Sprint 6: Economic System (IN PROGRESS - 80% done)
+- ✅ Balance validation before transfers - DONE
+- ✅ Insufficient funds rejection - DONE
+- ✅ Reject manual COINBASE transactions - DONE
+- ✅ Track pending outgoing amounts - DONE
+- ⬜ `getTransactionHistory(address)` - optional
+- ⬜ Transaction fees - optional
 
 ### Sprint 7: Demo & Documentation
 - `BlockExplorer.java` - Currently a placeholder
@@ -193,11 +196,11 @@ if (sender.equals("COINBASE")) return true; // Always valid
 |-------|-------|----------|
 | HashUtilTest | 6 | SHA-256 basics |
 | BlockTest | 12 | Block creation, mining, transactions, Merkle |
-| BlockchainTest | 19 | Chain management, validation, tx pool |
+| BlockchainTest | 25 | Chain management, validation, tx pool, balance checks |
 | MiningTest | 9 | PoW mechanics, difficulty scaling |
 | TransactionTest | 22 | Tx creation, validation, signatures |
 | WalletTest | 13 | Key generation, addresses, signing |
-| **Total** | **81** | All passing ✅ |
+| **Total** | **87** | All passing ✅ |
 
 ---
 
@@ -208,7 +211,7 @@ if (sender.equals("COINBASE")) return true; // Always valid
 - **Commits**: Descriptive messages with sprint context
 - **After sprint**: Push branch, create PR, merge to main
 
-Current branch: `sprint5/wallets` (completed, ready for merge)
+Current branch: `sprint6/economics` (in progress)
 
 ---
 
@@ -238,19 +241,18 @@ Current branch: `sprint5/wallets` (completed, ready for merge)
 
 ---
 
-## 🎯 Next Steps (Sprint 6)
+## 🎯 Next Steps (Sprint 6 - remaining)
 
-1. Update `Blockchain.addTransaction()`:
-   - Check sender balance before accepting transaction
-   - Reject if insufficient funds
+1. ✅ ~~Update `Blockchain.addTransaction()` with balance checks~~ - DONE
 
-2. Update `Transaction.isValid()`:
-   - Optionally verify signature in validation
+2. Optional remaining tasks:
+   - Implement `getTransactionHistory(address)`
+   - Add transaction fees
 
-3. Write tests for balance validation
-
-4. Update `BlockSmithDemo.java` with wallet demo
+3. Sprint 7 will focus on:
+   - BlockExplorer UI
+   - Full demo scenarios
 
 ---
 
-*Last updated: 2026-01-27 (after Sprint 5 completion)*
+*Last updated: 2026-01-29 (Sprint 6 in progress)*

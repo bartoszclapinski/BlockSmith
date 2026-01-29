@@ -6,14 +6,14 @@ BlockSmith is a comprehensive blockchain project that goes beyond tutorials - im
 
 [![Java](https://img.shields.io/badge/Java-20+-orange.svg)](https://openjdk.org/)
 [![Maven](https://img.shields.io/badge/Maven-3.9+-blue.svg)](https://maven.apache.org/)
-[![Tests](https://img.shields.io/badge/Tests-81%20passing-brightgreen.svg)](#)
+[![Tests](https://img.shields.io/badge/Tests-87%20passing-brightgreen.svg)](#)
 [![Phase](https://img.shields.io/badge/Phase-1%20Core%20Blockchain-yellow.svg)](#)
 
 ---
 
 ## 🚀 Features
 
-### Phase 1: Core Blockchain ✅ In Progress (75% Complete)
+### Phase 1: Core Blockchain ✅ In Progress (85% Complete)
 - ✅ SHA-256 cryptographic hashing
 - ✅ Proof-of-Work mining with adjustable difficulty
 - ✅ Merkle tree for transaction verification
@@ -25,7 +25,9 @@ BlockSmith is a comprehensive blockchain project that goes beyond tutorials - im
 - ✅ ECDSA digital signatures
 - ✅ Wallet with key pair generation
 - ✅ Ethereum-style addresses (0x format)
-- 🔜 Balance validation before transfers (Sprint 6)
+- ✅ Balance validation before transfers
+- ✅ Double-spend prevention (pending tracking)
+- 🔜 BlockExplorer UI (Sprint 7)
 
 ### Phase 2: Network Layer 🔜 Planned
 - P2P networking with TCP sockets
@@ -179,7 +181,7 @@ Average attempts: ~16^difficulty (~65,536 for difficulty 4)
 mvn clean compile
 ```
 
-### Run all tests (81 tests)
+### Run all tests (87 tests)
 ```bash
 mvn test
 ```
@@ -221,7 +223,7 @@ BlockSmith/
 │   │   ├── BlockchainConfig.java # Configuration constants
 │   │   └── BlockExplorer.java  # Chain viewer (TODO)
 │   └── BlockSmithDemo.java     # Main demo application
-├── src/test/java/              # 81 unit tests
+├── src/test/java/              # 87 unit tests
 ├── data/                       # Blockchain persistence (JSON)
 ├── pom.xml                     # Maven configuration
 └── README.md
@@ -235,11 +237,11 @@ BlockSmith/
 |------------|-------|-------------|
 | HashUtilTest | 6 | SHA-256 hashing |
 | BlockTest | 12 | Block creation, mining, transactions |
-| BlockchainTest | 19 | Chain management, validation |
+| BlockchainTest | 25 | Chain management, validation, balance checks |
 | MiningTest | 9 | Proof-of-Work mechanics |
 | TransactionTest | 22 | Transaction validation, signatures |
 | WalletTest | 13 | Key generation, addresses, signing |
-| **Total** | **81** | All passing ✅ |
+| **Total** | **87** | All passing ✅ |
 
 ---
 
@@ -269,7 +271,7 @@ BlockSmith/
 
 ## 🏗️ Development Status
 
-### Phase 1: Core Blockchain (75% Complete)
+### Phase 1: Core Blockchain (85% Complete)
 | Sprint | Title | Status |
 |--------|-------|--------|
 | Sprint 0 | Project Setup | ✅ Complete |
@@ -278,7 +280,7 @@ BlockSmith/
 | Sprint 3 | Blockchain Management | ✅ Complete |
 | Sprint 4 | Transactions & Merkle Trees | ✅ Complete |
 | Sprint 5 | Wallets & Digital Signatures | ✅ Complete |
-| Sprint 6 | Economic System | 🔜 Next |
+| Sprint 6 | Economic System | 🔄 In Progress (80%) |
 | Sprint 7 | Demo & BlockExplorer | ⬜ Pending |
 
 ### Phase 2: Network Layer
@@ -318,4 +320,4 @@ This project is for educational purposes.
 
 ---
 
-*Last updated: 2026-01-27 | Sprint 5 Complete*
+*Last updated: 2026-01-29 | Sprint 6 In Progress*

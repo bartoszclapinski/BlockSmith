@@ -13,14 +13,14 @@ Transform BlockSmith from an educational blockchain into a **fully functional di
 │                        BLOCKSMITH ROADMAP                           │
 ├─────────────────────────────────────────────────────────────────────┤
 │                                                                     │
-│  PHASE 1: Core Blockchain (Sprint 0-7)          █████████░░░░ 75%   │
+│  PHASE 1: Core Blockchain (Sprint 0-7)          ██████████░░░ 85%   │
 │  ├── Project Setup                               ✅ Complete        │
 │  ├── Fundamentals (Hash, Block)                  ✅ Complete        │
 │  ├── Proof-of-Work                               ✅ Complete        │
 │  ├── Blockchain Management                       ✅ Complete        │
 │  ├── Transactions                                ✅ Complete        │
 │  ├── Wallets & Signatures                        ✅ Complete        │
-│  ├── Economic System                             ⬜ Sprint 6        │
+│  ├── Economic System                             🔄 Sprint 6 (80%)  │
 │  └── Demo & Documentation                        ⬜ Sprint 7        │
 │                                                                     │
 │  PHASE 2: Network Layer (Sprint 8-11)           ░░░░░░░░░░░░ 0%     │
@@ -63,7 +63,7 @@ Transform BlockSmith from an educational blockchain into a **fully functional di
 | 3 | Blockchain | Chain management, validation | ✅ Complete |
 | 4 | Transactions | Transaction model, Merkle tree | ✅ Complete |
 | 5 | Wallets | ECDSA keys, signatures | ✅ Complete |
-| 6 | Economics | Balance validation, fees | ⬜ Next |
+| 6 | Economics | Balance validation, fees | 🔄 In Progress (80%) |
 | 7 | Demo | BlockExplorer, full demo | ⬜ Pending |
 
 ---
