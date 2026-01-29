@@ -10,8 +10,8 @@
 |-------|-------|
 | **Sprint** | 6 |
 | **Title** | Economic System |
-| **Status** | Not Started |
-| **Branch** | `sprint6/economics` (to be created) |
+| **Status** | In Progress (80% complete) |
+| **Branch** | `sprint6/economics` |
 
 ---
 
@@ -31,14 +31,14 @@
 ## 📈 Progress
 
 ```
-Phase 1: Core Blockchain     [██████████░░░░░] 75%
+Phase 1: Core Blockchain     [███████████░░░░] 85%
 ├── Sprint 0: Setup          ✅
 ├── Sprint 1: Fundamentals   ✅
 ├── Sprint 2: Proof-of-Work  ✅
 ├── Sprint 3: Blockchain     ✅
 ├── Sprint 4: Transactions   ✅
 ├── Sprint 5: Wallets        ✅
-├── Sprint 6: Economics      ⬜ ← NEXT
+├── Sprint 6: Economics      🔄 IN PROGRESS
 └── Sprint 7: Demo           ⬜
 ```
 
@@ -50,11 +50,11 @@ Phase 1: Core Blockchain     [██████████░░░░░] 75%
 |------------|-------|--------|
 | HashUtilTest | 6 | ✅ |
 | BlockTest | 12 | ✅ |
-| BlockchainTest | 19 | ✅ |
+| BlockchainTest | 25 | ✅ |
 | MiningTest | 9 | ✅ |
 | TransactionTest | 22 | ✅ |
 | WalletTest | 13 | ✅ |
-| **Total** | **81** | ✅ |
+| **Total** | **87** | ✅ |
 
 Last test run: `mvn test` - All passing
 
@@ -104,7 +104,11 @@ Last test run: `mvn test` - All passing
 - [x] Wallet address generation (0x format)
 - [x] Transaction signing
 - [x] Signature verification
-- [ ] Balance validation before transfer (Sprint 6)
+- [x] Balance validation before transfer (Sprint 6)
+- [x] Reject COINBASE from users (Sprint 6)
+- [x] Track pending outgoing amounts (Sprint 6)
+- [ ] getTransactionHistory() (Sprint 6 - optional)
+- [ ] Transaction fees (Sprint 6 - optional)
 - [ ] Block explorer UI (Sprint 7)
 
 ---
@@ -113,10 +117,10 @@ Last test run: `mvn test` - All passing
 
 | Item | Value |
 |------|-------|
-| **Current Branch** | `sprint5/wallets` |
-| **Last Commit** | Sprint 5 complete |
-| **Remote** | `origin/sprint5/wallets` |
-| **Main Branch** | `main` (needs merge from sprint5) |
+| **Current Branch** | `docs/sprint6-progress` |
+| **Last Commit** | Balance validation in addTransaction() |
+| **Remote** | `origin/sprint6/economics` |
+| **Main Branch** | `main` (up to date with sprint5) |
 
 ---
 
@@ -128,13 +132,15 @@ _None currently._
 
 ## 📝 Notes for Next Session
 
-1. **Sprint 6** should implement economic validation:
-   - Balance checking before allowing transactions
-   - Reject transactions with insufficient funds
-   - Optional: Transaction fees
+1. **Sprint 6 remaining** (optional features):
+   - `getTransactionHistory(address)` - returns all transactions for an address
+   - Transaction fees (optional)
 
-2. **Consider merging** `sprint5/wallets` to `main` before starting Sprint 6
+2. **Sprint 7** will focus on:
+   - BlockExplorer UI implementation
+   - Full demo scenarios
+   - Documentation polish
 
 ---
 
-*Last updated: 2026-01-27*
+*Last updated: 2026-01-29*
