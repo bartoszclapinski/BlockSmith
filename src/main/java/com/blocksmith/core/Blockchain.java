@@ -96,8 +96,14 @@ public class Blockchain {
      * until a miner includes them in a block. Miners typically
      * prioritize transactions wiht higher fees.
      * 
-     * VALIDATION: We only accept valid transactions.
-     * Invalid transactions are rejected immediately.
+     * VALIDATION: 
+     * 1. Transaction must be valid (amount > 0, non-empty addresses)
+     * 2. COINBASE transactions are rejected (only created by mining)
+     * 3. Sender must have sufficient balance
+     * 
+     * BALANCE CHECK:
+     * We check both confirmed balance (in blockchain) and pending
+     * outgoind transactions to prevent double-spending.
      * 
      * @param transaction The transaction to add
      * @return true if transaction was added, false if invalid
@@ -109,10 +115,49 @@ public class Blockchain {
             return false;
         }
 
+        // Reject COINBASE transactions (only mining creates these)
+        if (transaction.getSender().equals(BlockchainConfig.COINBASE_ADDRESS)) {
+            System.out.println("Transaction rejected: Cannot manually create COINBASE transactions");
+            return false;
+        }
+
+        // Check sender has sufficient balance
+        double senderBalance = getBalance(transaction.getSender());
+        double pendingOutgoing = getPendingOutgoing(transaction.getSender());
+        double availableBalance = senderBalance - pendingOutgoing;
+
+        if (availableBalance < transaction.getAmount()) {
+            System.out.println("Transacion rejected: Insufficient funds. " + 
+                "Available: " + availableBalance + " " + BlockchainConfig.CURRENCY_SYMBOL + 
+                ", Required: " + transaction.getAmount() + " " + BlockchainConfig.CURRENCY_SYMBOL);
+                return false;
+        }
+
         // Add to pending pool
         pendingTransactions.add(transaction);
         System.out.println("Transaction added to pending pool: " + transaction);
         return true;
+    }
+
+    /**
+     * Calculates total outgoing amount in pending transactions for an address
+     * 
+     * THEORY: PENDING BALANCE
+     * 
+     * When checking if someone can afford a transaction, we must also
+     * consider funds they've already "promised" in pending transactions.
+     * Otherwise, they could submit multiple transactions thath together
+     * exceed their balance.
+     * 
+     * @param address Ther address to check
+     * @return Total amount being sent in pending transactions
+     */
+    private double getPendingOutgoing(String address) {
+        double pending = 0;
+         for (Transaction tx : pendingTransactions) {
+            if (tx.getSender().equals(address)) pending += tx.getAmount();
+         }
+         return pending;
     }
 
     /**

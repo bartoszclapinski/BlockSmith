@@ -170,7 +170,9 @@ public class BlockchainTest {
     @Test
     @DisplayName("addTransaction should accept valid transaction")
     void addTransactionShouldAcceptValidTransaction() {
-        Transaction tx = new Transaction("Alice", "Bob", 50.0);
+        Blockchain blockchain = new Blockchain();
+        blockchain.minePendingTransactions("Miner1");
+        Transaction tx = new Transaction("Miner1", "Alice", 30.0);
         
         assertTrue(blockchain.addTransaction(tx), "Valid transaction should be accepted");
         assertEquals(1, blockchain.getPendingCount(), "Pending count should be 1");
@@ -194,12 +196,14 @@ public class BlockchainTest {
     
     @Test
     @DisplayName("minePendingTransactions should create block with transactions")
-    void minePendingTransactionsShouldCreateBlock() {
-        blockchain.addTransaction(new Transaction("Alice", "Bob", 50.0));
-        blockchain.addTransaction(new Transaction("Bob", "Charlie", 25.0));
+    void minePendingTransactionsShouldCreateBlock() {        
+        Blockchain blockchain = new Blockchain();
+        blockchain.minePendingTransactions("Miner1");
+        blockchain.addTransaction(new Transaction("Miner1", "Bob", 20.0));
+        blockchain.addTransaction(new Transaction("Miner1", "Charlie", 15.0));
         
         int initialSize = blockchain.getChainSize();
-        Block minedBlock = blockchain.minePendingTransactions("Miner1");
+        Block minedBlock = blockchain.minePendingTransactions("Miner2");
         
         assertEquals(initialSize + 1, blockchain.getChainSize(), "Chain should grow by 1");
         assertEquals(3, minedBlock.getTransactionCount(), "Block should have 3 transactions (reward + 2)");
@@ -243,6 +247,85 @@ public class BlockchainTest {
         assertThrows(UnsupportedOperationException.class, () -> {
             blockchain.getPendingTransactions().clear();
         }, "Should not be able to modify pending transactions");
+    }
+
+    // ===== BALANCE VALIDATION TESTS =====
+
+    @Test
+    @DisplayName("Should reject transaction when sender has insufficient funds")
+    void shouldRejectTransactionWhenSenderHasInsufficientFunds() {
+        Blockchain blockchain = new Blockchain();
+        Transaction tx = new Transaction("Alice", "Bob", 100.0);
+        boolean result = blockchain.addTransaction(tx);
+
+        assertFalse(result, "Transaction should be rejected when sender has no funds");
+        assertEquals(0, blockchain.getPendingCount(), "Pending pull should be empty");
+    }
+
+    @Test
+    @DisplayName("Should accept transaction when sender has sufficient funds")
+    void shouldAcceptTransactionWhenSenderHasSufficientFunds() {
+        Blockchain blockchain = new Blockchain();
+        blockchain.minePendingTransactions("Miner1");
+        Transaction tx = new Transaction("Miner1", "Alice", 30.0);
+        boolean result = blockchain.addTransaction(tx);
+
+        assertTrue(result, "Transaction should be accepted when sender has sufficient funds");
+        assertEquals(1, blockchain.getPendingCount(), "Pending pull should have 1 transaction");
+    }
+
+    @Test
+    @DisplayName("Should reject transaction when amount exceeds balance")
+    void shouldRejectTransactionWhenAmountExceedsBalance() {
+        Blockchain blockchain = new Blockchain();
+        blockchain.minePendingTransactions("Miner1");
+        Transaction tx = new Transaction("Miner1", "Alice", 60.0);
+        boolean result = blockchain.addTransaction(tx);
+
+        assertFalse(result, "Transaction should be rejected when amount exceeds balance");
+    }
+
+    @Test
+    @DisplayName("Should reject COINBASE transaction from user")
+    void shouldRejectCOINBASETransactionFromUser() {
+        Blockchain blockchain = new Blockchain();
+        Transaction fakeCoinbase = new Transaction("COINBASE", "Hacker", 1000.0);
+        boolean result = blockchain.addTransaction(fakeCoinbase);
+
+        assertFalse(result, "COINBASE transaction should be rejected");
+    }
+
+    @Test
+    @DisplayName("Should consider pending transactions when checking balance")
+    void shouldConsiderPendingTransactionsWhenCheckingBalance() {
+        Blockchain blockchain = new Blockchain();
+        blockchain.minePendingTransactions("Miner1");
+
+        Transaction tx1 = new Transaction("Miner1", "Alice", 30.0);
+        blockchain.addTransaction(tx1);
+        Transaction tx2 = new Transaction("Miner1", "Bob", 25.0);
+        boolean result = blockchain.addTransaction(tx2);
+
+        assertFalse(result, "Should reject when pending + new amount exceeds balance");
+        assertEquals(1, blockchain.getPendingCount(), "Only first transaction should be pending");
+    }
+
+    @Test
+    @DisplayName("Should allow multiple transactions within balance")
+    void shouldAllowMultipleTransactionsWithinBalance() {
+        Blockchain blockchain = new Blockchain();
+        blockchain.minePendingTransactions("Miner1");
+
+        Transaction tx1 = new Transaction("Miner1", "Alice", 20.0);
+        Transaction tx2 = new Transaction("Miner1", "Bob", 20.0);
+        Transaction tx3 = new Transaction("Miner1", "Charlie", 10.0);
+
+        boolean r1 = blockchain.addTransaction(tx1);
+        boolean r2 = blockchain.addTransaction(tx2);
+        boolean r3 = blockchain.addTransaction(tx3);
+
+        assertTrue(r1 && r2 && r3, "All transactions within balance should be accepted");
+        assertEquals(3, blockchain.getPendingCount(), "All 3 transactions should be pending");
     }
 
 }
