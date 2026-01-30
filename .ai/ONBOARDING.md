@@ -12,9 +12,9 @@
 | **Language** | Java 20 |
 | **Build Tool** | Maven 3.9.x |
 | **Test Framework** | JUnit 5 |
-| **Current Phase** | Phase 1: Core Blockchain |
-| **Current Sprint** | Sprint 6 (Economic System) - In Progress |
-| **Last Completed** | Sprint 5 (Wallets & Signatures) |
+| **Current Phase** | Phase 1: Core Blockchain ✅ Complete |
+| **Last Sprint** | Sprint 6 (Economic System) ✅ |
+| **Next Phase** | Phase 2: Network Layer |
 | **Total Tests** | 87 (all passing) |
 
 ---
@@ -109,20 +109,24 @@ BlockSmith/
 
 ---
 
-## ⬜ What's NOT Implemented Yet
+## ⬜ What's NOT Implemented Yet (Phase 2+)
 
-### Sprint 6: Economic System (IN PROGRESS - 80% done)
-- ✅ Balance validation before transfers - DONE
-- ✅ Insufficient funds rejection - DONE
-- ✅ Reject manual COINBASE transactions - DONE
-- ✅ Track pending outgoing amounts - DONE
-- ⬜ `getTransactionHistory(address)` - optional
-- ⬜ Transaction fees - optional
+### Phase 2: Network Layer (Next)
+- P2P networking with TCP sockets
+- Node discovery and peer management
+- Block and transaction broadcasting
+- Mempool synchronization
 
-### Sprint 7: Demo & Documentation
-- `BlockExplorer.java` - Currently a placeholder
-- Interactive blockchain viewer
-- Full demo scenarios
+### Phase 3: API & Interface
+- REST API for blockchain interaction
+- Web dashboard / BlockExplorer UI
+- Basic smart contracts
+- Multi-signature wallets
+
+### Phase 4: Production Features
+- Database persistence
+- Dynamic difficulty adjustment
+- Fee market
 
 ---
 
@@ -211,7 +215,7 @@ if (sender.equals("COINBASE")) return true; // Always valid
 - **Commits**: Descriptive messages with sprint context
 - **After sprint**: Push branch, create PR, merge to main
 
-Current branch: `sprint6/economics` (in progress)
+Current branch: `main` (Phase 1 complete, tagged v1.0.0)
 
 ---
 
@@ -241,18 +245,23 @@ Current branch: `sprint6/economics` (in progress)
 
 ---
 
-## 🎯 Next Steps (Sprint 6 - remaining)
+## 🎯 Next Steps (Phase 2)
 
-1. ✅ ~~Update `Blockchain.addTransaction()` with balance checks~~ - DONE
+Phase 1 is complete! Next steps:
 
-2. Optional remaining tasks:
-   - Implement `getTransactionHistory(address)`
-   - Add transaction fees
+1. **Sprint 8**: P2P Networking
+   - TCP socket communication
+   - Message protocol design
+   - Basic node connections
 
-3. Sprint 7 will focus on:
-   - BlockExplorer UI
-   - Full demo scenarios
+2. **Sprint 9**: Node Discovery
+   - Peer list management
+   - Connection bootstrapping
+
+3. **Sprint 10-11**: Broadcasting & Sync
+   - Block propagation
+   - Mempool synchronization
 
 ---
 
-*Last updated: 2026-01-29 (Sprint 6 in progress)*
+*Last updated: 2026-01-29 | Phase 1 Complete - v1.0.0*
