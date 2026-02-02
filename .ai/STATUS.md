@@ -8,10 +8,10 @@
 
 | Field | Value |
 |-------|-------|
-| **Phase** | 1 - Complete ✅ |
-| **Last Sprint** | 6 (Economic System) |
-| **Status** | Phase 1 Complete - Ready for v1.0.0 release |
-| **Next** | Phase 2: Network Layer (Sprint 8) |
+| **Phase** | 2 - Network Layer |
+| **Current Sprint** | 8 (P2P Networking) |
+| **Current Milestone** | 8a Complete ✅ |
+| **Status** | Milestone 8b next (Server Side) |
 
 ---
 
@@ -40,8 +40,8 @@ Phase 1: Core Blockchain     [███████████████] 100
 ├── Sprint 5: Wallets        ✅
 └── Sprint 6: Economics      ✅
 
-Phase 2: Network Layer       [░░░░░░░░░░░░░░░] 0% ← NEXT
-├── Sprint 8: P2P Networking ⬜
+Phase 2: Network Layer       [███░░░░░░░░░░░░] 15% ← CURRENT
+├── Sprint 8: P2P Networking 🔄 (Milestone 8a ✅)
 ├── Sprint 9: Node Discovery ⬜
 ├── Sprint 10: Broadcasting  ⬜
 └── Sprint 11: Mempool Sync  ⬜
@@ -59,7 +59,8 @@ Phase 2: Network Layer       [░░░░░░░░░░░░░░░] 0% 
 | MiningTest | 9 | ✅ |
 | TransactionTest | 22 | ✅ |
 | WalletTest | 13 | ✅ |
-| **Total** | **87** | ✅ |
+| MessageTest | 6 | ✅ |
+| **Total** | **93** | ✅ |
 
 Last test run: `mvn test` - All passing
 
@@ -119,9 +120,9 @@ Last test run: `mvn test` - All passing
 
 | Item | Value |
 |------|-------|
-| **Current Branch** | `docs/sprint6-progress` |
-| **Last Commit** | Phase 1 complete documentation |
-| **Tag** | `v1.0.0` (to be created) |
+| **Current Branch** | `sprint8a/message-protocol` |
+| **Last Commit** | Milestone 8a complete |
+| **Tag** | `v1.0.0` (Phase 1) |
 | **Main Branch** | `main` |
 
 ---
@@ -134,17 +135,19 @@ _None currently._
 
 ## 📝 Notes for Next Session
 
-1. **Phase 1 Complete** - Ready for v1.0.0 release
-   - All core blockchain features implemented
-   - 87 tests passing
-   - Full documentation
+1. **Milestone 8a Complete** - Message Protocol
+   - MessageType enum with all network message types
+   - Message base class with JSON serialization
+   - 5 concrete message classes implemented
+   - 6 new tests (93 total)
 
-2. **Phase 2** will focus on:
-   - P2P networking with TCP sockets
-   - Node discovery and peer management
-   - Block and transaction broadcasting
-   - Mempool synchronization
+2. **Next: Milestone 8b** - Server Side
+   - Create Node.java (ServerSocket)
+   - Accept incoming connections
+   - Thread management
 
 ---
+
+*Last updated: 2026-02-02 | Sprint 8 Milestone 8a Complete*
 
 *Last updated: 2026-01-29 | Phase 1 Complete*

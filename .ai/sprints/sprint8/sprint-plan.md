@@ -24,8 +24,8 @@ Sprint 8 is divided into 4 milestones:
 
 | Milestone | Title | Branch | Status |
 |-----------|-------|--------|--------|
-| **8a** | Message Protocol | `sprint8a/message-protocol` | 🔄 In Progress |
-| **8b** | Server Side | `sprint8b/server-node` | ⬜ Pending |
+| **8a** | Message Protocol | `sprint8a/message-protocol` | ✅ Complete |
+| **8b** | Server Side | `sprint8b/server-node` | ⬜ Next |
 | **8c** | Client Side | `sprint8c/peer-client` | ⬜ Pending |
 | **8d** | Communication | `sprint8d/message-exchange` | ⬜ Pending |
 
@@ -37,19 +37,19 @@ Sprint 8 is divided into 4 milestones:
 
 | Issue | Title | Status |
 |-------|-------|--------|
-| #22 | Add Gson dependency for JSON serialization | ⬜ |
-| #23 | Create MessageType enum | ⬜ |
-| #24 | Create Message base class and subtypes | ⬜ |
-| #25 | Unit tests for message serialization | ⬜ |
+| #22 | Add Gson dependency for JSON serialization | ✅ (existed) |
+| #23 | Create MessageType enum | ✅ |
+| #24 | Create Message base class and subtypes | ✅ |
+| #25 | Unit tests for message serialization | ✅ |
 
 ### Deliverables
 
-- [ ] Gson dependency in pom.xml
-- [ ] `MessageType` enum with all network message types
-- [ ] `Message` abstract base class
-- [ ] Concrete message classes (HelloMessage, BlockMessage, etc.)
-- [ ] JSON serialization/deserialization
-- [ ] Unit tests for all message types
+- [x] Gson dependency in pom.xml
+- [x] `MessageType` enum with all network message types
+- [x] `Message` abstract base class
+- [x] Concrete message classes (HelloMessage, PingMessage, PongMessage, NewBlockMessage, NewTransactionMessage)
+- [x] JSON serialization/deserialization
+- [x] 6 unit tests for message serialization
 
 ---
 

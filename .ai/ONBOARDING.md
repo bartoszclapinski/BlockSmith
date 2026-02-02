@@ -12,10 +12,10 @@
 | **Language** | Java 20 |
 | **Build Tool** | Maven 3.9.x |
 | **Test Framework** | JUnit 5 |
-| **Current Phase** | Phase 1: Core Blockchain ✅ Complete |
-| **Last Sprint** | Sprint 6 (Economic System) ✅ |
-| **Next Phase** | Phase 2: Network Layer |
-| **Total Tests** | 87 (all passing) |
+| **Current Phase** | Phase 2: Network Layer |
+| **Current Sprint** | Sprint 8 (P2P Networking) |
+| **Current Milestone** | 8a Complete ✅, 8b Next |
+| **Total Tests** | 93 (all passing) |
 
 ---
 
@@ -53,10 +53,19 @@ BlockSmith/
 │   │   ├── Blockchain.java           # ✅ Complete
 │   │   ├── Transaction.java          # ✅ Complete (with signatures)
 │   │   └── Wallet.java               # ✅ Complete (Sprint 5)
-│   └── util/                         # Utility classes
-│       ├── HashUtil.java             # ✅ Complete
-│       ├── BlockchainConfig.java     # ✅ Complete
-│       └── BlockExplorer.java        # ⬜ TODO (Sprint 7)
+│   ├── util/                         # Utility classes
+│   │   ├── HashUtil.java             # ✅ Complete
+│   │   ├── BlockchainConfig.java     # ✅ Complete
+│   │   └── BlockExplorer.java        # ⬜ TODO (Phase 3)
+│   └── network/                      # NEW - Network layer
+│       ├── MessageType.java          # ✅ Complete (Sprint 8a)
+│       ├── Message.java              # ✅ Complete (Sprint 8a)
+│       └── messages/                 # Concrete message classes
+│           ├── HelloMessage.java     # ✅ Complete
+│           ├── PingMessage.java      # ✅ Complete
+│           ├── PongMessage.java      # ✅ Complete
+│           ├── NewBlockMessage.java  # ✅ Complete
+│           └── NewTransactionMessage.java # ✅ Complete
 │
 ├── src/test/java/com/blocksmith/
 │   ├── core/
@@ -65,8 +74,10 @@ BlockSmith/
 │   │   ├── MiningTest.java           # 9 tests
 │   │   ├── TransactionTest.java      # 22 tests
 │   │   └── WalletTest.java           # 13 tests
-│   └── util/
-│       └── HashUtilTest.java         # 6 tests
+│   ├── util/
+│   │   └── HashUtilTest.java         # 6 tests
+│   └── network/
+│       └── MessageTest.java          # 6 tests (Sprint 8a)
 │
 ├── pom.xml                           # Maven configuration
 └── README.md                         # Public documentation
@@ -109,10 +120,15 @@ BlockSmith/
 
 ---
 
-## ⬜ What's NOT Implemented Yet (Phase 2+)
+## ⬜ What's NOT Implemented Yet
 
-### Phase 2: Network Layer (Next)
-- P2P networking with TCP sockets
+### Sprint 8: P2P Networking (Current)
+- ✅ Milestone 8a: Message Protocol - DONE
+- ⬜ Milestone 8b: Server Side (Node.java, ServerSocket)
+- ⬜ Milestone 8c: Client Side (Peer.java)
+- ⬜ Milestone 8d: Communication (message exchange)
+
+### Sprint 9-11: Remaining Network Layer
 - Node discovery and peer management
 - Block and transaction broadcasting
 - Mempool synchronization
@@ -204,7 +220,8 @@ if (sender.equals("COINBASE")) return true; // Always valid
 | MiningTest | 9 | PoW mechanics, difficulty scaling |
 | TransactionTest | 22 | Tx creation, validation, signatures |
 | WalletTest | 13 | Key generation, addresses, signing |
-| **Total** | **87** | All passing ✅ |
+| MessageTest | 6 | Message serialization (Sprint 8a) |
+| **Total** | **93** | All passing ✅ |
 
 ---
 
@@ -215,7 +232,7 @@ if (sender.equals("COINBASE")) return true; // Always valid
 - **Commits**: Descriptive messages with sprint context
 - **After sprint**: Push branch, create PR, merge to main
 
-Current branch: `main` (Phase 1 complete, tagged v1.0.0)
+Current branch: `sprint8a/message-protocol` (Milestone 8a complete)
 
 ---
 
@@ -245,23 +262,23 @@ Current branch: `main` (Phase 1 complete, tagged v1.0.0)
 
 ---
 
-## 🎯 Next Steps (Phase 2)
+## 🎯 Next Steps (Milestone 8b)
 
-Phase 1 is complete! Next steps:
+Milestone 8a complete! Next steps:
 
-1. **Sprint 8**: P2P Networking
-   - TCP socket communication
-   - Message protocol design
-   - Basic node connections
+1. **Milestone 8b**: Server Side
+   - Create `Node.java` - main network node
+   - Implement `ServerSocket` to listen for connections
+   - Accept connections in separate threads
 
-2. **Sprint 9**: Node Discovery
-   - Peer list management
-   - Connection bootstrapping
+2. **Milestone 8c**: Client Side
+   - Create `Peer.java` - peer connection handler
+   - Connect to other nodes
 
-3. **Sprint 10-11**: Broadcasting & Sync
-   - Block propagation
-   - Mempool synchronization
+3. **Milestone 8d**: Communication
+   - Send/receive messages between nodes
+   - Integration tests
 
 ---
 
-*Last updated: 2026-01-29 | Phase 1 Complete - v1.0.0*
+*Last updated: 2026-02-02 | Sprint 8 Milestone 8a Complete*

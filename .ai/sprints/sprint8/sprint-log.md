@@ -9,15 +9,29 @@
 
 ---
 
-## 📝 Milestone 8a: Message Protocol
+## 📝 Milestone 8a: Message Protocol ✅ COMPLETE
 
 ### Day 1 (2026-01-29)
 - [x] Sprint planning complete
 - [x] Created GitHub issues #22-25
-- [ ] Issue #22: Add Gson dependency
-- [ ] Issue #23: Create MessageType enum
-- [ ] Issue #24: Create Message classes
-- [ ] Issue #25: Unit tests
+
+### Day 2 (2026-02-02)
+- [x] Issue #22: Gson dependency (already existed)
+- [x] Issue #23: Created MessageType enum with 12 message types
+- [x] Issue #24: Created Message base class + 5 concrete classes
+- [x] Issue #25: Added 6 unit tests for serialization
+- [x] All 93 tests passing
+- [x] Committed to `sprint8a/message-protocol`
+
+**Files Created:**
+- `network/MessageType.java`
+- `network/Message.java`
+- `network/messages/HelloMessage.java`
+- `network/messages/PingMessage.java`
+- `network/messages/PongMessage.java`
+- `network/messages/NewBlockMessage.java`
+- `network/messages/NewTransactionMessage.java`
+- `test/network/MessageTest.java`
 
 ---
 
@@ -44,19 +58,23 @@ _Not started_
 | Metric | Value |
 |--------|-------|
 | **Milestones** | 4 |
-| **Completed** | 0 |
+| **Completed** | 1 (8a) |
 | **Total Issues** | 4 (8a) + TBD |
-| **Tests Added** | 0 |
+| **Tests Added** | 6 |
+| **Total Tests** | 93 |
 
 ---
 
 ## 💡 Lessons Learned
 
-_To be filled during sprint_
+1. **Gson was already included** - Sprint 0 setup was thorough
+2. **Abstract base class pattern** - Clean design for message hierarchy
+3. **Issue-first workflow** - Great for tracking progress
 
 ---
 
 ## 📌 Notes
 
 - Using issue-first approach
-- Issues: #22, #23, #24, #25 for milestone 8a
+- Issues: #22, #23, #24, #25 for milestone 8a (all closed)
+- Milestone 8b will need new issues for Node.java and ServerSocket
