@@ -22,8 +22,8 @@ Transform BlockSmith from an educational blockchain into a **fully functional di
 │  ├── Wallets & Signatures                        ✅ Complete        │
 │  └── Economic System                             ✅ Complete        │
 │                                                                     │
-│  PHASE 2: Network Layer (Sprint 8-11)           ░░░░░░░░░░░░ 0%     │
-│  ├── P2P Networking                              ⬜ Sprint 8        │
+│  PHASE 2: Network Layer (Sprint 8-11)           ███░░░░░░░░░ 15%    │
+│  ├── P2P Networking                              🔄 Sprint 8 (8a ✅) │
 │  ├── Node Discovery                              ⬜ Sprint 9        │
 │  ├── Block Broadcasting                          ⬜ Sprint 10       │
 │  └── Mempool Synchronization                     ⬜ Sprint 11       │

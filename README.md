@@ -6,7 +6,7 @@ BlockSmith is a comprehensive blockchain project that goes beyond tutorials - im
 
 [![Java](https://img.shields.io/badge/Java-20+-orange.svg)](https://openjdk.org/)
 [![Maven](https://img.shields.io/badge/Maven-3.9+-blue.svg)](https://maven.apache.org/)
-[![Tests](https://img.shields.io/badge/Tests-87%20passing-brightgreen.svg)](#)
+[![Tests](https://img.shields.io/badge/Tests-93%20passing-brightgreen.svg)](#)
 [![Phase](https://img.shields.io/badge/Phase%201-Complete-brightgreen.svg)](#)
 [![Version](https://img.shields.io/badge/Version-1.0.0-blue.svg)](#)
 
@@ -29,8 +29,9 @@ BlockSmith is a comprehensive blockchain project that goes beyond tutorials - im
 - ✅ Balance validation before transfers
 - ✅ Double-spend prevention (pending tracking)
 
-### Phase 2: Network Layer 🔜 Planned
-- P2P networking with TCP sockets
+### Phase 2: Network Layer 🔄 In Progress (15%)
+- ✅ Message protocol with JSON serialization (Sprint 8a)
+- 🔜 P2P networking with TCP sockets (Sprint 8b-d)
 - Node discovery and peer management
 - Block and transaction broadcasting
 - Mempool synchronization
@@ -182,7 +183,7 @@ Average attempts: ~16^difficulty (~65,536 for difficulty 4)
 mvn clean compile
 ```
 
-### Run all tests (87 tests)
+### Run all tests (93 tests)
 ```bash
 mvn test
 ```
@@ -223,8 +224,12 @@ BlockSmith/
 │   │   ├── HashUtil.java       # SHA-256 hashing
 │   │   ├── BlockchainConfig.java # Configuration constants
 │   │   └── BlockExplorer.java  # Chain viewer (TODO)
+│   ├── network/                # NEW - P2P networking
+│   │   ├── MessageType.java    # Network message types
+│   │   ├── Message.java        # Base message class
+│   │   └── messages/           # Concrete message classes
 │   └── BlockSmithDemo.java     # Main demo application
-├── src/test/java/              # 87 unit tests
+├── src/test/java/              # 93 unit tests
 ├── data/                       # Blockchain persistence (JSON)
 ├── pom.xml                     # Maven configuration
 └── README.md
@@ -242,7 +247,8 @@ BlockSmith/
 | MiningTest | 9 | Proof-of-Work mechanics |
 | TransactionTest | 22 | Transaction validation, signatures |
 | WalletTest | 13 | Key generation, addresses, signing |
-| **Total** | **87** | All passing ✅ |
+| MessageTest | 6 | Network message serialization |
+| **Total** | **93** | All passing ✅ |
 
 ---
 
@@ -283,10 +289,13 @@ BlockSmith/
 | Sprint 5 | Wallets & Digital Signatures | ✅ Complete |
 | Sprint 6 | Economic System | ✅ Complete |
 
-### Phase 2: Network Layer
+### Phase 2: Network Layer (15% Complete)
 | Sprint | Title | Status |
 |--------|-------|--------|
-| Sprint 8-11 | P2P, Discovery, Broadcasting | ⬜ Planned |
+| Sprint 8 | P2P Networking | 🔄 In Progress (Milestone 8a ✅) |
+| Sprint 9 | Node Discovery | ⬜ Planned |
+| Sprint 10 | Block Broadcasting | ⬜ Planned |
+| Sprint 11 | Mempool Sync | ⬜ Planned |
 
 ### Phase 3: API & Interface
 | Sprint | Title | Status |
@@ -320,4 +329,4 @@ This project is for educational purposes.
 
 ---
 
-*Last updated: 2026-01-29 | Phase 1 Complete - v1.0.0*
+*Last updated: 2026-02-02 | Phase 2 Sprint 8 - Milestone 8a Complete*
