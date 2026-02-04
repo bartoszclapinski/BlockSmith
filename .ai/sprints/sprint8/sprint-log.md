@@ -35,9 +35,22 @@
 
 ---
 
-## 📝 Milestone 8b: Server Side
+## 📝 Milestone 8b: Server Side ✅ COMPLETE
 
-_Not started_
+### Day 3 (2026-02-04)
+- [x] Created GitHub issues #28-31
+- [x] Issue #28: Created NetworkConfig class for network constants
+- [x] Issue #29: Created Node class with ServerSocket
+- [x] Issue #30: Implemented multi-threaded connection acceptance
+- [x] Issue #31: Added 8 unit tests for Node
+- [x] All 101 tests passing
+- [x] Committed to `sprint8b/server-node`
+- [x] Merged to master
+
+**Files Created:**
+- `network/NetworkConfig.java`
+- `network/Node.java`
+- `test/network/NodeTest.java`
 
 ---
 
@@ -58,10 +71,10 @@ _Not started_
 | Metric | Value |
 |--------|-------|
 | **Milestones** | 4 |
-| **Completed** | 1 (8a) |
-| **Total Issues** | 4 (8a) + TBD |
-| **Tests Added** | 6 |
-| **Total Tests** | 93 |
+| **Completed** | 2 (8a, 8b) |
+| **Total Issues** | 4 (8a) + 4 (8b) = 8 |
+| **Tests Added** | 14 (6 + 8) |
+| **Total Tests** | 101 |
 
 ---
 
@@ -77,4 +90,5 @@ _Not started_
 
 - Using issue-first approach
 - Issues: #22, #23, #24, #25 for milestone 8a (all closed)
-- Milestone 8b will need new issues for Node.java and ServerSocket
+- Issues: #28, #29, #30, #31 for milestone 8b (all closed)
+- Milestone 8c next: Peer.java for client-side connections

@@ -14,8 +14,8 @@
 | **Test Framework** | JUnit 5 |
 | **Current Phase** | Phase 2: Network Layer |
 | **Current Sprint** | Sprint 8 (P2P Networking) |
-| **Current Milestone** | 8a Complete ✅, 8b Next |
-| **Total Tests** | 93 (all passing) |
+| **Current Milestone** | 8b Complete ✅, 8c Next |
+| **Total Tests** | 101 (all passing) |
 
 ---
 
@@ -60,6 +60,8 @@ BlockSmith/
 │   └── network/                      # NEW - Network layer
 │       ├── MessageType.java          # ✅ Complete (Sprint 8a)
 │       ├── Message.java              # ✅ Complete (Sprint 8a)
+│       ├── NetworkConfig.java        # ✅ Complete (Sprint 8b)
+│       ├── Node.java                 # ✅ Complete (Sprint 8b)
 │       └── messages/                 # Concrete message classes
 │           ├── HelloMessage.java     # ✅ Complete
 │           ├── PingMessage.java      # ✅ Complete
@@ -77,7 +79,8 @@ BlockSmith/
 │   ├── util/
 │   │   └── HashUtilTest.java         # 6 tests
 │   └── network/
-│       └── MessageTest.java          # 6 tests (Sprint 8a)
+│       ├── MessageTest.java          # 6 tests (Sprint 8a)
+│       └── NodeTest.java             # 8 tests (Sprint 8b)
 │
 ├── pom.xml                           # Maven configuration
 └── README.md                         # Public documentation
@@ -124,7 +127,7 @@ BlockSmith/
 
 ### Sprint 8: P2P Networking (Current)
 - ✅ Milestone 8a: Message Protocol - DONE
-- ⬜ Milestone 8b: Server Side (Node.java, ServerSocket)
+- ✅ Milestone 8b: Server Side (Node.java, ServerSocket) - DONE
 - ⬜ Milestone 8c: Client Side (Peer.java)
 - ⬜ Milestone 8d: Communication (message exchange)
 
@@ -221,7 +224,8 @@ if (sender.equals("COINBASE")) return true; // Always valid
 | TransactionTest | 22 | Tx creation, validation, signatures |
 | WalletTest | 13 | Key generation, addresses, signing |
 | MessageTest | 6 | Message serialization (Sprint 8a) |
-| **Total** | **93** | All passing ✅ |
+| NodeTest | 8 | Node start/stop, connections (Sprint 8b) |
+| **Total** | **101** | All passing ✅ |
 
 ---
 
@@ -232,7 +236,7 @@ if (sender.equals("COINBASE")) return true; // Always valid
 - **Commits**: Descriptive messages with sprint context
 - **After sprint**: Push branch, create PR, merge to main
 
-Current branch: `sprint8a/message-protocol` (Milestone 8a complete)
+Current branch: `master` (Milestone 8b complete)
 
 ---
 
@@ -262,23 +266,20 @@ Current branch: `sprint8a/message-protocol` (Milestone 8a complete)
 
 ---
 
-## 🎯 Next Steps (Milestone 8b)
+## 🎯 Next Steps (Milestone 8c)
 
-Milestone 8a complete! Next steps:
+Milestone 8b complete! Next steps:
 
-1. **Milestone 8b**: Server Side
-   - Create `Node.java` - main network node
-   - Implement `ServerSocket` to listen for connections
-   - Accept connections in separate threads
-
-2. **Milestone 8c**: Client Side
+1. **Milestone 8c**: Client Side
    - Create `Peer.java` - peer connection handler
    - Connect to other nodes
+   - Peer state management
 
-3. **Milestone 8d**: Communication
+2. **Milestone 8d**: Communication
    - Send/receive messages between nodes
+   - Message handlers and routing
    - Integration tests
 
 ---
 
-*Last updated: 2026-02-02 | Sprint 8 Milestone 8a Complete*
+*Last updated: 2026-02-04 | Sprint 8 Milestone 8b Complete*
