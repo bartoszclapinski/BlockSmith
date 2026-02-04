@@ -10,8 +10,8 @@
 |-------|-------|
 | **Phase** | 2 - Network Layer |
 | **Current Sprint** | 8 (P2P Networking) |
-| **Current Milestone** | 8a Complete ✅ |
-| **Status** | Milestone 8b next (Server Side) |
+| **Current Milestone** | 8b Complete ✅ |
+| **Status** | Milestone 8c next (Client Side) |
 
 ---
 
@@ -40,8 +40,8 @@ Phase 1: Core Blockchain     [███████████████] 100
 ├── Sprint 5: Wallets        ✅
 └── Sprint 6: Economics      ✅
 
-Phase 2: Network Layer       [███░░░░░░░░░░░░] 15% ← CURRENT
-├── Sprint 8: P2P Networking 🔄 (Milestone 8a ✅)
+Phase 2: Network Layer       [█████░░░░░░░░░░] 30% ← CURRENT
+├── Sprint 8: P2P Networking 🔄 (Milestone 8a ✅, 8b ✅)
 ├── Sprint 9: Node Discovery ⬜
 ├── Sprint 10: Broadcasting  ⬜
 └── Sprint 11: Mempool Sync  ⬜
@@ -60,7 +60,8 @@ Phase 2: Network Layer       [███░░░░░░░░░░░░] 15%
 | TransactionTest | 22 | ✅ |
 | WalletTest | 13 | ✅ |
 | MessageTest | 6 | ✅ |
-| **Total** | **93** | ✅ |
+| NodeTest | 8 | ✅ |
+| **Total** | **101** | ✅ |
 
 Last test run: `mvn test` - All passing
 
@@ -84,6 +85,16 @@ Last test run: `mvn test` - All passing
 | HashUtil.java | ✅ Complete | ~50 | SHA-256 |
 | BlockchainConfig.java | ✅ Complete | ~56 | Constants |
 | BlockExplorer.java | ⬜ TODO | ~14 | Sprint 7 |
+
+### Network Classes (`com.blocksmith.network`)
+
+| Class | Status | Lines | Notes |
+|-------|--------|-------|-------|
+| MessageType.java | ✅ Complete | ~45 | Message types enum |
+| Message.java | ✅ Complete | ~82 | Base message class |
+| NetworkConfig.java | ✅ Complete | ~59 | Network constants |
+| Node.java | ✅ Complete | ~253 | Server-side TCP socket |
+| messages/*.java | ✅ Complete | ~150 | 5 concrete message types |
 
 ### Demo
 
@@ -113,6 +124,9 @@ Last test run: `mvn test` - All passing
 - [x] Balance validation before transfer (Sprint 6)
 - [x] Reject COINBASE from users (Sprint 6)
 - [x] Track pending outgoing amounts (Sprint 6)
+- [x] Network message protocol with JSON serialization (Sprint 8a)
+- [x] Server-side TCP socket node (Sprint 8b)
+- [x] Multi-threaded connection acceptance (Sprint 8b)
 
 ---
 
@@ -120,10 +134,10 @@ Last test run: `mvn test` - All passing
 
 | Item | Value |
 |------|-------|
-| **Current Branch** | `sprint8a/message-protocol` |
-| **Last Commit** | Milestone 8a complete |
+| **Current Branch** | `master` |
+| **Last Commit** | Milestone 8b complete |
 | **Tag** | `v1.0.0` (Phase 1) |
-| **Main Branch** | `main` |
+| **Main Branch** | `master` |
 
 ---
 
@@ -135,19 +149,21 @@ _None currently._
 
 ## 📝 Notes for Next Session
 
-1. **Milestone 8a Complete** - Message Protocol
-   - MessageType enum with all network message types
-   - Message base class with JSON serialization
-   - 5 concrete message classes implemented
-   - 6 new tests (93 total)
+1. **Milestone 8b Complete** - Server Side
+   - NetworkConfig class for network constants
+   - Node class with ServerSocket
+   - Multi-threaded connection acceptance
+   - 8 new tests (101 total)
 
-2. **Next: Milestone 8b** - Server Side
-   - Create Node.java (ServerSocket)
-   - Accept incoming connections
-   - Thread management
+2. **Next: Milestone 8c** - Client Side
+   - Create Peer.java for outgoing connections
+   - Connect to other nodes
+   - Peer state management
+
+3. **Then: Milestone 8d** - Communication
+   - Send/receive messages between nodes
+   - Integration tests
 
 ---
 
-*Last updated: 2026-02-02 | Sprint 8 Milestone 8a Complete*
-
-*Last updated: 2026-01-29 | Phase 1 Complete*
+*Last updated: 2026-02-04 | Sprint 8 Milestone 8b Complete*

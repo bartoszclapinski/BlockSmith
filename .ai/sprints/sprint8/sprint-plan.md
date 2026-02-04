@@ -25,8 +25,8 @@ Sprint 8 is divided into 4 milestones:
 | Milestone | Title | Branch | Status |
 |-----------|-------|--------|--------|
 | **8a** | Message Protocol | `sprint8a/message-protocol` | ✅ Complete |
-| **8b** | Server Side | `sprint8b/server-node` | ⬜ Next |
-| **8c** | Client Side | `sprint8c/peer-client` | ⬜ Pending |
+| **8b** | Server Side | `sprint8b/server-node` | ✅ Complete |
+| **8c** | Client Side | `sprint8c/peer-client` | ⬜ Next |
 | **8d** | Communication | `sprint8d/message-exchange` | ⬜ Pending |
 
 ---
@@ -53,21 +53,24 @@ Sprint 8 is divided into 4 milestones:
 
 ---
 
-## 📦 Milestone 8b: Server Side
+## 📦 Milestone 8b: Server Side ✅
 
-### Planned Issues
+### GitHub Issues
 
-- Create `Node.java` - main network node class
-- Implement `ServerSocket` to listen for connections
-- Accept incoming connections in separate threads
-- Basic connection logging
+| Issue | Title | Status |
+|-------|-------|--------|
+| #28 | Create NetworkConfig class for network constants | ✅ |
+| #29 | Create Node class with ServerSocket | ✅ |
+| #30 | Implement connection acceptance with threads | ✅ |
+| #31 | Unit tests for Node connection handling | ✅ |
 
 ### Deliverables
 
-- [ ] `Node.java` class
-- [ ] Server socket listening
-- [ ] Connection acceptance
-- [ ] Thread management for connections
+- [x] `NetworkConfig.java` class with network constants
+- [x] `Node.java` class with ServerSocket
+- [x] Multi-threaded connection acceptance (ExecutorService)
+- [x] Graceful shutdown mechanism
+- [x] 8 unit tests for Node
 
 ---
 
@@ -111,16 +114,17 @@ com.blocksmith/
 ├── core/                    # Existing blockchain classes
 ├── util/                    # Existing utilities
 └── network/                 # NEW - Network layer
-    ├── MessageType.java     # Enum of message types
-    ├── Message.java         # Abstract base message
-    ├── messages/            # Concrete message classes
-    │   ├── HelloMessage.java
-    │   ├── BlockMessage.java
-    │   ├── TransactionMessage.java
-    │   └── ...
-    ├── Node.java            # Network node (server)
-    ├── Peer.java            # Peer connection
-    └── NetworkConfig.java   # Network configuration
+    ├── MessageType.java     # ✅ Enum of message types
+    ├── Message.java         # ✅ Abstract base message
+    ├── NetworkConfig.java   # ✅ Network configuration
+    ├── Node.java            # ✅ Network node (server)
+    ├── Peer.java            # ⬜ Peer connection (8c)
+    └── messages/            # ✅ Concrete message classes
+        ├── HelloMessage.java
+        ├── PingMessage.java
+        ├── PongMessage.java
+        ├── NewBlockMessage.java
+        └── NewTransactionMessage.java
 ```
 
 ---
