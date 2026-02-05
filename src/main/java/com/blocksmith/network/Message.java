@@ -22,9 +22,8 @@ import com.google.gson.GsonBuilder;
  */
 public abstract class Message {
 
-    private static final Gson GSON = new GsonBuilder()
-            .setPrettyPrinting()
-            .create();
+    // Note: No PrettyPrinting - messages must be single-line for readLine() to work
+    private static final Gson GSON = new GsonBuilder().create();
             
     protected MessageType type;
     protected long timestamp;

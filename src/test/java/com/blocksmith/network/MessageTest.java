@@ -20,11 +20,12 @@ class MessageTest {
         HelloMessage msg = new HelloMessage("node-123", "1.0.0", 8080, 10);
         String json = msg.toJson();
         
-        assertTrue(json.contains("\"type\": \"HELLO\""), "Should contain type");
-        assertTrue(json.contains("\"nodeId\": \"node-123\""), "Should contain nodeId");
-        assertTrue(json.contains("\"version\": \"1.0.0\""), "Should contain version");
-        assertTrue(json.contains("\"port\": 8080"), "Should contain port");
-        assertTrue(json.contains("\"chainLength\": 10"), "Should contain chainLength");
+        // Note: Compact JSON format (no spaces after colons)
+        assertTrue(json.contains("\"type\":\"HELLO\""), "Should contain type");
+        assertTrue(json.contains("\"nodeId\":\"node-123\""), "Should contain nodeId");
+        assertTrue(json.contains("\"version\":\"1.0.0\""), "Should contain version");
+        assertTrue(json.contains("\"port\":8080"), "Should contain port");
+        assertTrue(json.contains("\"chainLength\":10"), "Should contain chainLength");
     }
 
     @Test

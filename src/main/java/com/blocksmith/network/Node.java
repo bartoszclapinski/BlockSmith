@@ -1,12 +1,17 @@
 package com.blocksmith.network;
 
+import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.PrintWriter;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.security.SecureRandom;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+
+import com.blocksmith.network.messages.HelloMessage;
 
 /**
  * THEORY: Network Node - The Heart of P2P
@@ -155,11 +160,14 @@ public class Node {
     }
 
     /**
-     * THEORY: Handle a single client connection.
+     * THEORY: Handle a single client connection with handshake.
      * 
      * This runs in a thread from the connection pool.
-     * For now, we just log and close - actual message handling
-     * comes in Milestone 8d.
+     * 
+     * HANDSHAKE PROTOCOL:
+     * 1. Wait for HelloMessage from peer
+     * 2. Send HelloMessage response
+     * 3. Connection is now established
      * 
      * @param clientSocket The connected client's socket
      */
@@ -168,10 +176,37 @@ public class Node {
                 ":" + clientSocket.getPort();
         
         try {
-            // TODO: Message handling will go here (Milestone 8d)
-            // For now, just keep connection open briefly
+            clientSocket.setSoTimeout(NetworkConfig.READ_TIMEOUT_MS);
+            
+            BufferedReader reader = new BufferedReader(
+                    new InputStreamReader(clientSocket.getInputStream()));
+            PrintWriter writer = new PrintWriter(
+                    clientSocket.getOutputStream(), true);
+            
+            // Read HelloMessage from peer
+            String helloJson = reader.readLine();
+            if (helloJson != null) {
+                HelloMessage peerHello = Message.fromJson(helloJson, HelloMessage.class);
+                System.out.println("  ← Received HELLO from " + peerHello.getNodeId());
+                
+                // Send our HelloMessage response
+                HelloMessage response = new HelloMessage(
+                        nodeId,
+                        NetworkConfig.PROTOCOL_VERSION,
+                        port,
+                        0  // chainLength - will be set when blockchain is integrated
+                );
+                writer.println(response.toJson());
+                System.out.println("  → Sent HELLO response to " + peerHello.getNodeId());
+            }
+            
+            // Keep connection open for a bit (full message loop in 8d)
             Thread.sleep(100);
             
+        } catch (IOException e) {
+            if (running) {
+                System.err.println("Error handling connection: " + e.getMessage());
+            }
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         } finally {
