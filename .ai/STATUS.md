@@ -10,8 +10,8 @@
 |-------|-------|
 | **Phase** | 2 - Network Layer |
 | **Current Sprint** | 8 (P2P Networking) |
-| **Current Milestone** | 8b Complete ✅ |
-| **Status** | Milestone 8c next (Client Side) |
+| **Current Milestone** | 8c Complete ✅ |
+| **Status** | Milestone 8d next (Communication) |
 
 ---
 
@@ -40,8 +40,8 @@ Phase 1: Core Blockchain     [███████████████] 100
 ├── Sprint 5: Wallets        ✅
 └── Sprint 6: Economics      ✅
 
-Phase 2: Network Layer       [█████░░░░░░░░░░] 30% ← CURRENT
-├── Sprint 8: P2P Networking 🔄 (Milestone 8a ✅, 8b ✅)
+Phase 2: Network Layer       [██████░░░░░░░░░] 40% ← CURRENT
+├── Sprint 8: P2P Networking 🔄 (Milestone 8a ✅, 8b ✅, 8c ✅)
 ├── Sprint 9: Node Discovery ⬜
 ├── Sprint 10: Broadcasting  ⬜
 └── Sprint 11: Mempool Sync  ⬜
@@ -61,7 +61,8 @@ Phase 2: Network Layer       [█████░░░░░░░░░░] 30%
 | WalletTest | 13 | ✅ |
 | MessageTest | 6 | ✅ |
 | NodeTest | 8 | ✅ |
-| **Total** | **101** | ✅ |
+| PeerTest | 7 | ✅ |
+| **Total** | **108** | ✅ |
 
 Last test run: `mvn test` - All passing
 
@@ -94,6 +95,7 @@ Last test run: `mvn test` - All passing
 | Message.java | ✅ Complete | ~82 | Base message class |
 | NetworkConfig.java | ✅ Complete | ~59 | Network constants |
 | Node.java | ✅ Complete | ~253 | Server-side TCP socket |
+| Peer.java | ✅ Complete | ~239 | Client-side TCP connection |
 | messages/*.java | ✅ Complete | ~150 | 5 concrete message types |
 
 ### Demo
@@ -127,6 +129,8 @@ Last test run: `mvn test` - All passing
 - [x] Network message protocol with JSON serialization (Sprint 8a)
 - [x] Server-side TCP socket node (Sprint 8b)
 - [x] Multi-threaded connection acceptance (Sprint 8b)
+- [x] Client-side peer connections (Sprint 8c)
+- [x] HelloMessage handshake protocol (Sprint 8c)
 
 ---
 
@@ -135,7 +139,7 @@ Last test run: `mvn test` - All passing
 | Item | Value |
 |------|-------|
 | **Current Branch** | `master` |
-| **Last Commit** | Milestone 8b complete |
+| **Last Commit** | Milestone 8c complete |
 | **Tag** | `v1.0.0` (Phase 1) |
 | **Main Branch** | `master` |
 
@@ -149,21 +153,19 @@ _None currently._
 
 ## 📝 Notes for Next Session
 
-1. **Milestone 8b Complete** - Server Side
-   - NetworkConfig class for network constants
-   - Node class with ServerSocket
-   - Multi-threaded connection acceptance
-   - 8 new tests (101 total)
+1. **Milestone 8c Complete** - Client Side
+   - Peer class for outgoing TCP connections
+   - HelloMessage handshake protocol
+   - Node responds to handshake
+   - Fixed Message JSON to single-line format
+   - 7 new tests (108 total)
 
-2. **Next: Milestone 8c** - Client Side
-   - Create Peer.java for outgoing connections
-   - Connect to other nodes
-   - Peer state management
-
-3. **Then: Milestone 8d** - Communication
-   - Send/receive messages between nodes
-   - Integration tests
+2. **Next: Milestone 8d** - Communication
+   - Full message loop in Node
+   - Bidirectional message exchange
+   - Message handlers and routing
+   - Integration tests: two nodes communicating
 
 ---
 
-*Last updated: 2026-02-04 | Sprint 8 Milestone 8b Complete*
+*Last updated: 2026-02-04 | Sprint 8 Milestone 8c Complete*
