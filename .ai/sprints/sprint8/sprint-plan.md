@@ -26,8 +26,8 @@ Sprint 8 is divided into 4 milestones:
 |-----------|-------|--------|--------|
 | **8a** | Message Protocol | `sprint8a/message-protocol` | ✅ Complete |
 | **8b** | Server Side | `sprint8b/server-node` | ✅ Complete |
-| **8c** | Client Side | `sprint8c/peer-client` | ⬜ Next |
-| **8d** | Communication | `sprint8d/message-exchange` | ⬜ Pending |
+| **8c** | Client Side | `sprint8c/peer-client` | ✅ Complete |
+| **8d** | Communication | `sprint8d/message-exchange` | ⬜ Next |
 
 ---
 
@@ -74,19 +74,24 @@ Sprint 8 is divided into 4 milestones:
 
 ---
 
-## 📦 Milestone 8c: Client Side
+## 📦 Milestone 8c: Client Side ✅
 
-### Planned Issues
+### GitHub Issues
 
-- Create `Peer.java` - peer connection handler
-- Connect to other nodes
-- Store peer information (IP, port, status)
+| Issue | Title | Status |
+|-------|-------|--------|
+| #34 | Create Peer class for outgoing TCP connections | ✅ |
+| #35 | Implement HelloMessage handshake protocol | ✅ |
+| #36 | Unit tests for Peer connection handling | ✅ |
 
 ### Deliverables
 
-- [ ] `Peer.java` class
-- [ ] Outgoing connection handling
-- [ ] Peer state management
+- [x] `Peer.java` class for client-side TCP connections
+- [x] Outgoing connection handling with Socket
+- [x] HelloMessage handshake protocol
+- [x] Node responds to handshake
+- [x] Fixed Message JSON to single-line (for readLine())
+- [x] 7 unit tests for Peer
 
 ---
 
@@ -118,7 +123,7 @@ com.blocksmith/
     ├── Message.java         # ✅ Abstract base message
     ├── NetworkConfig.java   # ✅ Network configuration
     ├── Node.java            # ✅ Network node (server)
-    ├── Peer.java            # ⬜ Peer connection (8c)
+    ├── Peer.java            # ✅ Peer connection (client)
     └── messages/            # ✅ Concrete message classes
         ├── HelloMessage.java
         ├── PingMessage.java

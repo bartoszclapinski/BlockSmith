@@ -54,9 +54,29 @@
 
 ---
 
-## 📝 Milestone 8c: Client Side
+## 📝 Milestone 8c: Client Side ✅ COMPLETE
 
-_Not started_
+### Day 4 (2026-02-04)
+- [x] Created GitHub issues #34-36
+- [x] Issue #34: Created Peer class for outgoing TCP connections
+- [x] Issue #35: Implemented HelloMessage handshake protocol
+  - Peer sends HelloMessage on connect
+  - Node responds with HelloMessage
+  - Fixed Message.toJson() to single-line (removed setPrettyPrinting)
+  - Updated MessageTest assertions for compact JSON
+- [x] Issue #36: Added 7 unit tests for Peer
+- [x] All 108 tests passing
+- [x] Committed to `sprint8c/peer-client`
+- [x] Merged to master
+
+**Files Created:**
+- `network/Peer.java`
+- `test/network/PeerTest.java`
+
+**Files Modified:**
+- `network/Message.java` - removed setPrettyPrinting for single-line JSON
+- `network/Node.java` - added handshake response in handleConnection
+- `test/network/MessageTest.java` - updated assertions for compact JSON
 
 ---
 
@@ -71,10 +91,10 @@ _Not started_
 | Metric | Value |
 |--------|-------|
 | **Milestones** | 4 |
-| **Completed** | 2 (8a, 8b) |
-| **Total Issues** | 4 (8a) + 4 (8b) = 8 |
-| **Tests Added** | 14 (6 + 8) |
-| **Total Tests** | 101 |
+| **Completed** | 3 (8a, 8b, 8c) |
+| **Total Issues** | 4 (8a) + 4 (8b) + 3 (8c) = 11 |
+| **Tests Added** | 21 (6 + 8 + 7) |
+| **Total Tests** | 108 |
 
 ---
 
@@ -91,4 +111,6 @@ _Not started_
 - Using issue-first approach
 - Issues: #22, #23, #24, #25 for milestone 8a (all closed)
 - Issues: #28, #29, #30, #31 for milestone 8b (all closed)
-- Milestone 8c next: Peer.java for client-side connections
+- Issues: #34, #35, #36 for milestone 8c (all closed)
+- Milestone 8d next: Full message loop and integration tests
+- Key fix: Message.toJson() must produce single-line JSON for BufferedReader.readLine()
