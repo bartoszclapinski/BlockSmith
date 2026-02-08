@@ -14,8 +14,8 @@
 | **Test Framework** | JUnit 5 |
 | **Current Phase** | Phase 2: Network Layer |
 | **Current Sprint** | Sprint 8 (P2P Networking) |
-| **Current Milestone** | 8c Complete ✅, 8d Next |
-| **Total Tests** | 108 (all passing) |
+| **Current Milestone** | Sprint 8 Complete ✅, Sprint 9 Next |
+| **Total Tests** | 114 (all passing) |
 
 ---
 
@@ -57,12 +57,16 @@ BlockSmith/
 │   │   ├── HashUtil.java             # ✅ Complete
 │   │   ├── BlockchainConfig.java     # ✅ Complete
 │   │   └── BlockExplorer.java        # ⬜ TODO (Phase 3)
-│   └── network/                      # NEW - Network layer
+│   └── network/                      # Network layer (Sprint 8)
 │       ├── MessageType.java          # ✅ Complete (Sprint 8a)
 │       ├── Message.java              # ✅ Complete (Sprint 8a)
+│       ├── MessageParser.java        # ✅ Complete (Sprint 8d)
+│       ├── MessageHandler.java       # ✅ Complete (Sprint 8d)
+│       ├── MessageContext.java       # ✅ Complete (Sprint 8d)
+│       ├── MessageListener.java      # ✅ Complete (Sprint 8d)
 │       ├── NetworkConfig.java        # ✅ Complete (Sprint 8b)
-│       ├── Node.java                 # ✅ Complete (Sprint 8b)
-│       ├── Peer.java                 # ✅ Complete (Sprint 8c)
+│       ├── Node.java                 # ✅ Complete (Sprint 8b/8d)
+│       ├── Peer.java                 # ✅ Complete (Sprint 8c/8d)
 │       └── messages/                 # Concrete message classes
 │           ├── HelloMessage.java     # ✅ Complete
 │           ├── PingMessage.java      # ✅ Complete
@@ -82,7 +86,8 @@ BlockSmith/
 │   └── network/
 │       ├── MessageTest.java          # 6 tests (Sprint 8a)
 │       ├── NodeTest.java             # 8 tests (Sprint 8b)
-│       └── PeerTest.java             # 7 tests (Sprint 8c)
+│       ├── PeerTest.java             # 7 tests (Sprint 8c)
+│       └── CommunicationTest.java    # 6 tests (Sprint 8d)
 │
 ├── pom.xml                           # Maven configuration
 └── README.md                         # Public documentation
@@ -127,11 +132,11 @@ BlockSmith/
 
 ## ⬜ What's NOT Implemented Yet
 
-### Sprint 8: P2P Networking (Current)
-- ✅ Milestone 8a: Message Protocol - DONE
-- ✅ Milestone 8b: Server Side (Node.java, ServerSocket) - DONE
-- ✅ Milestone 8c: Client Side (Peer.java, handshake) - DONE
-- ⬜ Milestone 8d: Communication (message exchange)
+### Sprint 8: P2P Networking ✅ COMPLETE
+- ✅ Milestone 8a: Message Protocol
+- ✅ Milestone 8b: Server Side (Node.java, ServerSocket)
+- ✅ Milestone 8c: Client Side (Peer.java, handshake)
+- ✅ Milestone 8d: Communication (message loop, handlers, async listener)
 
 ### Sprint 9-11: Remaining Network Layer
 - Node discovery and peer management
@@ -228,7 +233,8 @@ if (sender.equals("COINBASE")) return true; // Always valid
 | MessageTest | 6 | Message serialization (Sprint 8a) |
 | NodeTest | 8 | Node start/stop, connections (Sprint 8b) |
 | PeerTest | 7 | Peer connections, handshake (Sprint 8c) |
-| **Total** | **108** | All passing ✅ |
+| CommunicationTest | 6 | Bidirectional message exchange (Sprint 8d) |
+| **Total** | **114** | All passing ✅ |
 
 ---
 
@@ -239,7 +245,7 @@ if (sender.equals("COINBASE")) return true; // Always valid
 - **Commits**: Descriptive messages with sprint context
 - **After sprint**: Push branch, create PR, merge to main
 
-Current branch: `master` (Milestone 8c complete)
+Current branch: `master` (Sprint 8 complete)
 
 ---
 
@@ -269,16 +275,16 @@ Current branch: `master` (Milestone 8c complete)
 
 ---
 
-## 🎯 Next Steps (Milestone 8d)
+## 🎯 Next Steps (Sprint 9)
 
-Milestone 8c complete! Next steps:
+Sprint 8 complete! All P2P networking foundations are in place. Next steps:
 
-1. **Milestone 8d**: Communication
-   - Send/receive messages between nodes
-   - Message handlers and routing
-   - Full message loop in Node
-   - Integration tests: two nodes exchanging messages
+1. **Sprint 9**: Node Discovery
+   - Peer list management
+   - Connection bootstrapping
+   - Heartbeat mechanism
+   - Automatic peer sharing
 
 ---
 
-*Last updated: 2026-02-04 | Sprint 8 Milestone 8c Complete*
+*Last updated: 2026-02-08 | Sprint 8 Complete*

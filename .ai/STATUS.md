@@ -9,9 +9,9 @@
 | Field | Value |
 |-------|-------|
 | **Phase** | 2 - Network Layer |
-| **Current Sprint** | 8 (P2P Networking) |
-| **Current Milestone** | 8c Complete ✅ |
-| **Status** | Milestone 8d next (Communication) |
+| **Current Sprint** | 8 (P2P Networking) ✅ Complete |
+| **Current Milestone** | 8d Complete ✅ (Sprint 8 done!) |
+| **Status** | Sprint 9 next (Node Discovery) |
 
 ---
 
@@ -40,9 +40,9 @@ Phase 1: Core Blockchain     [███████████████] 100
 ├── Sprint 5: Wallets        ✅
 └── Sprint 6: Economics      ✅
 
-Phase 2: Network Layer       [██████░░░░░░░░░] 40% ← CURRENT
-├── Sprint 8: P2P Networking 🔄 (Milestone 8a ✅, 8b ✅, 8c ✅)
-├── Sprint 9: Node Discovery ⬜
+Phase 2: Network Layer       [████████░░░░░░░] 50% ← CURRENT
+├── Sprint 8: P2P Networking ✅ COMPLETE (8a ✅, 8b ✅, 8c ✅, 8d ✅)
+├── Sprint 9: Node Discovery ⬜ ← NEXT
 ├── Sprint 10: Broadcasting  ⬜
 └── Sprint 11: Mempool Sync  ⬜
 ```
@@ -62,7 +62,8 @@ Phase 2: Network Layer       [██████░░░░░░░░░] 40%
 | MessageTest | 6 | ✅ |
 | NodeTest | 8 | ✅ |
 | PeerTest | 7 | ✅ |
-| **Total** | **108** | ✅ |
+| CommunicationTest | 6 | ✅ |
+| **Total** | **114** | ✅ |
 
 Last test run: `mvn test` - All passing
 
@@ -94,8 +95,12 @@ Last test run: `mvn test` - All passing
 | MessageType.java | ✅ Complete | ~45 | Message types enum |
 | Message.java | ✅ Complete | ~82 | Base message class |
 | NetworkConfig.java | ✅ Complete | ~59 | Network constants |
-| Node.java | ✅ Complete | ~253 | Server-side TCP socket |
-| Peer.java | ✅ Complete | ~239 | Client-side TCP connection |
+| Node.java | ✅ Complete | ~285 | Server + message loop + handler registry |
+| Peer.java | ✅ Complete | ~294 | Client + async listener thread |
+| MessageParser.java | ✅ Complete | ~116 | JSON-to-Message routing (Sprint 8d) |
+| MessageHandler.java | ✅ Complete | ~36 | Handler functional interface (Sprint 8d) |
+| MessageContext.java | ✅ Complete | ~58 | Connection wrapper for handlers (Sprint 8d) |
+| MessageListener.java | ✅ Complete | ~43 | Async listener interface (Sprint 8d) |
 | messages/*.java | ✅ Complete | ~150 | 5 concrete message types |
 
 ### Demo
@@ -131,6 +136,12 @@ Last test run: `mvn test` - All passing
 - [x] Multi-threaded connection acceptance (Sprint 8b)
 - [x] Client-side peer connections (Sprint 8c)
 - [x] HelloMessage handshake protocol (Sprint 8c)
+- [x] MessageParser for JSON message routing (Sprint 8d)
+- [x] MessageHandler interface + MessageContext wrapper (Sprint 8d)
+- [x] Node message loop with handler registry (Sprint 8d)
+- [x] Async message listener in Peer (Sprint 8d)
+- [x] Default PING -> PONG handler (Sprint 8d)
+- [x] Bidirectional message exchange (Sprint 8d)
 
 ---
 
@@ -139,7 +150,7 @@ Last test run: `mvn test` - All passing
 | Item | Value |
 |------|-------|
 | **Current Branch** | `master` |
-| **Last Commit** | Milestone 8c complete |
+| **Last Commit** | Sprint 8d complete (Milestone 8d) |
 | **Tag** | `v1.0.0` (Phase 1) |
 | **Main Branch** | `master` |
 
@@ -153,19 +164,16 @@ _None currently._
 
 ## 📝 Notes for Next Session
 
-1. **Milestone 8c Complete** - Client Side
-   - Peer class for outgoing TCP connections
-   - HelloMessage handshake protocol
-   - Node responds to handshake
-   - Fixed Message JSON to single-line format
-   - 7 new tests (108 total)
+1. **Sprint 8 COMPLETE** - P2P Networking
+   - All 4 milestones done (8a, 8b, 8c, 8d)
+   - 16 issues closed (#22-25, #28-31, #34-36, #39-43)
+   - 27 tests added (114 total)
 
-2. **Next: Milestone 8d** - Communication
-   - Full message loop in Node
-   - Bidirectional message exchange
-   - Message handlers and routing
-   - Integration tests: two nodes communicating
+2. **Next: Sprint 9** - Node Discovery
+   - Peer list management
+   - Connection bootstrapping
+   - Heartbeat mechanism
 
 ---
 
-*Last updated: 2026-02-04 | Sprint 8 Milestone 8c Complete*
+*Last updated: 2026-02-08 | Sprint 8 Complete*

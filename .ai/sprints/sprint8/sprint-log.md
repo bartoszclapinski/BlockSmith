@@ -80,9 +80,40 @@
 
 ---
 
-## 📝 Milestone 8d: Communication
+## 📝 Milestone 8d: Communication ✅ COMPLETE
 
-_Not started_
+### Day 5 (2026-02-08)
+- [x] Created GitHub issues #39-43
+- [x] Issue #39: Created MessageParser utility class for JSON message routing
+  - Parses raw JSON, reads `type` field, maps to concrete Message subclass
+  - Handles malformed JSON, unknown types gracefully (returns null)
+- [x] Issue #40: Created MessageHandler interface and MessageContext class
+  - @FunctionalInterface for lambda-based handlers
+  - MessageContext wraps PrintWriter + remote node info
+- [x] Issue #41: Refactored Node with message loop and handler registry
+  - Added `Map<MessageType, MessageHandler>` handler registry
+  - Replaced one-shot handleConnection with continuous message loop
+  - Registered default PING -> PONG handler
+  - Removed Thread.sleep(100) placeholder
+- [x] Issue #42: Created MessageListener interface and async listener in Peer
+  - Background daemon thread reads messages continuously
+  - Fires onMessage() and onDisconnect() callbacks
+  - Listener thread cleaned up on disconnect()
+- [x] Issue #43: Added 6 integration tests for bidirectional communication
+- [x] All 114 tests passing
+- [x] Committed to `sprint8d/message-exchange`
+- [x] Merged to master
+
+**Files Created:**
+- `network/MessageParser.java`
+- `network/MessageHandler.java`
+- `network/MessageContext.java`
+- `network/MessageListener.java`
+- `test/network/CommunicationTest.java`
+
+**Files Modified:**
+- `network/Node.java` - handler registry + message loop
+- `network/Peer.java` - async listener thread
 
 ---
 
@@ -91,10 +122,10 @@ _Not started_
 | Metric | Value |
 |--------|-------|
 | **Milestones** | 4 |
-| **Completed** | 3 (8a, 8b, 8c) |
-| **Total Issues** | 4 (8a) + 4 (8b) + 3 (8c) = 11 |
-| **Tests Added** | 21 (6 + 8 + 7) |
-| **Total Tests** | 108 |
+| **Completed** | 4 (8a, 8b, 8c, 8d) ✅ |
+| **Total Issues** | 4 (8a) + 4 (8b) + 3 (8c) + 5 (8d) = 16 |
+| **Tests Added** | 27 (6 + 8 + 7 + 6) |
+| **Total Tests** | 114 |
 
 ---
 
@@ -103,6 +134,9 @@ _Not started_
 1. **Gson was already included** - Sprint 0 setup was thorough
 2. **Abstract base class pattern** - Clean design for message hierarchy
 3. **Issue-first workflow** - Great for tracking progress
+4. **Handler pattern** - @FunctionalInterface allows clean lambda handlers
+5. **CountDownLatch** - Perfect for testing async message exchange
+6. **Daemon threads** - Ideal for background I/O that shouldn't block shutdown
 
 ---
 
@@ -112,5 +146,6 @@ _Not started_
 - Issues: #22, #23, #24, #25 for milestone 8a (all closed)
 - Issues: #28, #29, #30, #31 for milestone 8b (all closed)
 - Issues: #34, #35, #36 for milestone 8c (all closed)
-- Milestone 8d next: Full message loop and integration tests
+- Issues: #39, #40, #41, #42, #43 for milestone 8d (all closed)
 - Key fix: Message.toJson() must produce single-line JSON for BufferedReader.readLine()
+- Sprint 8 COMPLETE - all 4 milestones done
