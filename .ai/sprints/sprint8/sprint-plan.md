@@ -7,7 +7,7 @@
 | **Sprint** | 8 |
 | **Title** | P2P Networking |
 | **Phase** | Phase 2: Network Layer |
-| **Status** | In Progress |
+| **Status** | ✅ Complete |
 | **Depends On** | Phase 1 Complete (v1.0.0) |
 
 ---
@@ -27,7 +27,7 @@ Sprint 8 is divided into 4 milestones:
 | **8a** | Message Protocol | `sprint8a/message-protocol` | ✅ Complete |
 | **8b** | Server Side | `sprint8b/server-node` | ✅ Complete |
 | **8c** | Client Side | `sprint8c/peer-client` | ✅ Complete |
-| **8d** | Communication | `sprint8d/message-exchange` | ⬜ Next |
+| **8d** | Communication | `sprint8d/message-exchange` | ✅ Complete |
 
 ---
 
@@ -95,20 +95,28 @@ Sprint 8 is divided into 4 milestones:
 
 ---
 
-## 📦 Milestone 8d: Communication
+## 📦 Milestone 8d: Communication ✅
 
-### Planned Issues
+### GitHub Issues
 
-- Send messages between nodes
-- Receive and parse messages
-- Message handlers
-- Integration tests
+| Issue | Title | Status |
+|-------|-------|--------|
+| #39 | Create MessageParser utility class for JSON message routing | ✅ |
+| #40 | Create MessageHandler interface and MessageContext class | ✅ |
+| #41 | Implement message loop and handler registry in Node | ✅ |
+| #42 | Create MessageListener interface and add async listener to Peer | ✅ |
+| #43 | Integration tests for bidirectional message exchange | ✅ |
 
 ### Deliverables
 
-- [ ] Bidirectional message exchange
-- [ ] Message parsing and routing
-- [ ] Integration test: two nodes communicating
+- [x] `MessageParser.java` - Parse raw JSON to correct Message subclass
+- [x] `MessageHandler.java` - Functional interface for message handling
+- [x] `MessageContext.java` - Connection wrapper for handlers
+- [x] `MessageListener.java` - Async callback interface for Peer
+- [x] Node message loop with handler registry
+- [x] Default PING -> PONG handler
+- [x] Async listener thread in Peer
+- [x] 6 integration tests for bidirectional communication
 
 ---
 
@@ -121,9 +129,13 @@ com.blocksmith/
 └── network/                 # NEW - Network layer
     ├── MessageType.java     # ✅ Enum of message types
     ├── Message.java         # ✅ Abstract base message
+    ├── MessageParser.java   # ✅ JSON-to-Message routing (Sprint 8d)
+    ├── MessageHandler.java  # ✅ Handler interface (Sprint 8d)
+    ├── MessageContext.java  # ✅ Connection wrapper (Sprint 8d)
+    ├── MessageListener.java # ✅ Async listener interface (Sprint 8d)
     ├── NetworkConfig.java   # ✅ Network configuration
-    ├── Node.java            # ✅ Network node (server)
-    ├── Peer.java            # ✅ Peer connection (client)
+    ├── Node.java            # ✅ Network node (server + message loop)
+    ├── Peer.java            # ✅ Peer connection (client + async listener)
     └── messages/            # ✅ Concrete message classes
         ├── HelloMessage.java
         ├── PingMessage.java
@@ -191,4 +203,4 @@ All messages are JSON with common fields:
 
 ---
 
-*Created: 2026-01-29*
+*Created: 2026-01-29 | Updated: 2026-02-08 - Sprint 8 Complete*
