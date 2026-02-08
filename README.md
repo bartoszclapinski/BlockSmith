@@ -6,8 +6,8 @@ BlockSmith is a comprehensive blockchain project that goes beyond tutorials - im
 
 [![Java](https://img.shields.io/badge/Java-20+-orange.svg)](https://openjdk.org/)
 [![Maven](https://img.shields.io/badge/Maven-3.9+-blue.svg)](https://maven.apache.org/)
-[![Tests](https://img.shields.io/badge/Tests-93%20passing-brightgreen.svg)](#)
-[![Phase](https://img.shields.io/badge/Phase%201-Complete-brightgreen.svg)](#)
+[![Tests](https://img.shields.io/badge/Tests-114%20passing-brightgreen.svg)](#)
+[![Phase](https://img.shields.io/badge/Phase%202-In%20Progress-yellow.svg)](#)
 [![Version](https://img.shields.io/badge/Version-1.0.0-blue.svg)](#)
 
 ---
@@ -29,12 +29,14 @@ BlockSmith is a comprehensive blockchain project that goes beyond tutorials - im
 - ✅ Balance validation before transfers
 - ✅ Double-spend prevention (pending tracking)
 
-### Phase 2: Network Layer 🔄 In Progress (15%)
+### Phase 2: Network Layer 🔄 In Progress (50%)
 - ✅ Message protocol with JSON serialization (Sprint 8a)
-- 🔜 P2P networking with TCP sockets (Sprint 8b-d)
-- Node discovery and peer management
-- Block and transaction broadcasting
-- Mempool synchronization
+- ✅ Server-side TCP socket node (Sprint 8b)
+- ✅ Client-side peer connections with handshake (Sprint 8c)
+- ✅ Bidirectional message exchange with handler pattern (Sprint 8d)
+- 🔜 Node discovery and peer management (Sprint 9)
+- 🔜 Block and transaction broadcasting (Sprint 10)
+- 🔜 Mempool synchronization (Sprint 11)
 
 ### Phase 3: API & Interface 🔜 Planned
 - REST API for blockchain interaction
@@ -183,7 +185,7 @@ Average attempts: ~16^difficulty (~65,536 for difficulty 4)
 mvn clean compile
 ```
 
-### Run all tests (93 tests)
+### Run all tests (114 tests)
 ```bash
 mvn test
 ```
@@ -224,12 +226,19 @@ BlockSmith/
 │   │   ├── HashUtil.java       # SHA-256 hashing
 │   │   ├── BlockchainConfig.java # Configuration constants
 │   │   └── BlockExplorer.java  # Chain viewer (TODO)
-│   ├── network/                # NEW - P2P networking
+│   ├── network/                # P2P networking (Sprint 8)
 │   │   ├── MessageType.java    # Network message types
 │   │   ├── Message.java        # Base message class
+│   │   ├── MessageParser.java  # JSON-to-Message routing
+│   │   ├── MessageHandler.java # Handler interface
+│   │   ├── MessageContext.java # Connection wrapper
+│   │   ├── MessageListener.java # Async listener interface
+│   │   ├── NetworkConfig.java  # Network constants
+│   │   ├── Node.java           # Server node with message loop
+│   │   ├── Peer.java           # Client peer with async listener
 │   │   └── messages/           # Concrete message classes
 │   └── BlockSmithDemo.java     # Main demo application
-├── src/test/java/              # 93 unit tests
+├── src/test/java/              # 114 unit tests
 ├── data/                       # Blockchain persistence (JSON)
 ├── pom.xml                     # Maven configuration
 └── README.md
@@ -248,7 +257,10 @@ BlockSmith/
 | TransactionTest | 22 | Transaction validation, signatures |
 | WalletTest | 13 | Key generation, addresses, signing |
 | MessageTest | 6 | Network message serialization |
-| **Total** | **93** | All passing ✅ |
+| NodeTest | 8 | Node start/stop, connections |
+| PeerTest | 7 | Peer connections, handshake |
+| CommunicationTest | 6 | Bidirectional message exchange |
+| **Total** | **114** | All passing ✅ |
 
 ---
 
@@ -289,10 +301,10 @@ BlockSmith/
 | Sprint 5 | Wallets & Digital Signatures | ✅ Complete |
 | Sprint 6 | Economic System | ✅ Complete |
 
-### Phase 2: Network Layer (15% Complete)
+### Phase 2: Network Layer (50% Complete)
 | Sprint | Title | Status |
 |--------|-------|--------|
-| Sprint 8 | P2P Networking | 🔄 In Progress (Milestone 8a ✅) |
+| Sprint 8 | P2P Networking | ✅ Complete (8a, 8b, 8c, 8d) |
 | Sprint 9 | Node Discovery | ⬜ Planned |
 | Sprint 10 | Block Broadcasting | ⬜ Planned |
 | Sprint 11 | Mempool Sync | ⬜ Planned |
@@ -329,4 +341,4 @@ This project is for educational purposes.
 
 ---
 
-*Last updated: 2026-02-02 | Phase 2 Sprint 8 - Milestone 8a Complete*
+*Last updated: 2026-02-08 | Phase 2 Sprint 8 Complete*
