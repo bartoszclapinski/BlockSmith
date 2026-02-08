@@ -10,7 +10,10 @@ import java.security.SecureRandom;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.HashMap;
+import java.util.Map;
 
+import com.blocksmith.network.messages.PongMessage;
 import com.blocksmith.network.messages.HelloMessage;
 
 /**
@@ -43,6 +46,7 @@ public class Node {
     private volatile boolean running;
     private ExecutorService connectionPool;
     private Thread acceptThread;
+    private final Map<MessageType, MessageHandler> handlers;
 
     /**
      * Creates a new Node with default port.
@@ -60,6 +64,8 @@ public class Node {
         this.nodeId = generateNodeId();
         this.port = port;
         this.running = false;
+        this.handlers = new HashMap<>();
+        registerDefaultHandlers();
     }
 
     /**
@@ -160,15 +166,51 @@ public class Node {
     }
 
     /**
-     * THEORY: Handle a single client connection with handshake.
+     * Register a handler for a specific message type.
      * 
-     * This runs in a thread from the connection pool.
+     * @param type The message type to handle
+     * @param handler The handler to call when this type arrives     
+     */
+    public void registerHandler(MessageType type, MessageHandler handler) {
+        handlers.put(type, handler);
+    }
+
+    /**
+     * THEORY: Default Message Handlers
      * 
-     * HANDSHAKE PROTOCOL:
-     * 1. Wait for HelloMessage from peer
-     * 2. Send HelloMessage response
-     * 3. Connection is now established
+     * The node registers built-in handlers for standard protocol messages.
+     * Custom handlers can be added via registerHandler() to extend behavior.
      * 
+     * PING -> PONG is the simplest handler: just echo back "I'm alive".
+     * This is how nodes detect if peers are still connected.    
+     */
+    private void registerDefaultHandlers() {
+        // PING -> respond with PONG
+        registerHandler(MessageType.PING, (message, context) -> {
+            PongMessage pong = new PongMessage(nodeId);
+            context.sendMessage(pong);
+            System.out.println("  → Sent PONG to " + context.getRemoteNodeId());
+        });
+    }
+
+    /**
+     * THEORY: Handle a single client connection with message loop
+     * 
+     * PROTOCOL:
+     * 1. Handshake: Exchange HelloMessages (existing)
+     * 2. Message Loop: Continuously read, parse and dispatch messages
+     * 3. Exit: When connection closes or node stops
+     * 
+     * MESSAGE LOOP PATTERN:
+     * - Read a line (blocking)
+     * - Parse it into a Message (MessageParser)
+     * - Look up handler (handlers map)
+     * - Call handler with message + context
+     * - Repeat
+     * 
+     * This is the heart of the P2P protocol - it's what turns a 
+     * simple socket connection into a communication channel.
+     *  
      * @param clientSocket The connected client's socket
      */
     private void handleConnection(Socket clientSocket) {
@@ -183,32 +225,51 @@ public class Node {
             PrintWriter writer = new PrintWriter(
                     clientSocket.getOutputStream(), true);
             
-            // Read HelloMessage from peer
+            // === PHASE 1: Handshake ===
             String helloJson = reader.readLine();
-            if (helloJson != null) {
-                HelloMessage peerHello = Message.fromJson(helloJson, HelloMessage.class);
-                System.out.println("  ← Received HELLO from " + peerHello.getNodeId());
-                
-                // Send our HelloMessage response
-                HelloMessage response = new HelloMessage(
-                        nodeId,
-                        NetworkConfig.PROTOCOL_VERSION,
-                        port,
-                        0  // chainLength - will be set when blockchain is integrated
-                );
-                writer.println(response.toJson());
-                System.out.println("  → Sent HELLO response to " + peerHello.getNodeId());
-            }
             
-            // Keep connection open for a bit (full message loop in 8d)
-            Thread.sleep(100);
+            if (helloJson == null) return;
+
+            HelloMessage peerHello = Message.fromJson(helloJson, HelloMessage.class);
+            System.out.println("  ← Received HELLO from " + peerHello.getNodeId());
+            
+            // Send our HelloMessage response
+            HelloMessage response = new HelloMessage(
+                nodeId,
+                NetworkConfig.PROTOCOL_VERSION,
+                port,
+                0  // chainLength - will be set when blockchain is integrated
+            );
+            writer.println(response.toJson());
+            System.out.println("  → Sent HELLO response to " + peerHello.getNodeId());
+            
+            // Create context for handlers
+            MessageContext context = new MessageContext(writer, peerHello.getNodeId());
+
+            // === PHASE 2: Message Loop ===
+            while (running && !clientSocket.isClosed()) {
+                String json = reader.readLine();
+                if (json == null) break; // Connection closed by peer
+
+                Message message = MessageParser.parse(json);
+                if (message == null) {
+                    System.err.println("  ✗ Failed to parse message from " + clientInfo);
+                    continue; // Skip bad messages, don't crash                    
+                }
+
+                // Look up and call handler
+                MessageHandler handler = handlers.get(message.getType());
+                if (handler != null) 
+                    handler.handle(message, context);
+                else
+                    System.out.println(" ? No handler for " + message.getType() + 
+                        " from " + clientInfo);
+            }
             
         } catch (IOException e) {
             if (running) {
                 System.err.println("Error handling connection: " + e.getMessage());
-            }
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
+            }        
         } finally {
             try {
                 clientSocket.close();
