@@ -43,6 +43,8 @@ public class Peer {
     // Remote node info (populated after handshake)
     private String remoteNodeId;
 
+    private Thread listenerThread;
+
     /**
      * Creates a new Peer targeting a remote node.
      * Does NOT connect immediately - call connect() to establish connection.
@@ -146,6 +148,50 @@ public class Peer {
     }
 
     /**
+     * THEORY: Asynchronous Message Listening
+     * 
+     * Starts a background daemon thread that continuously reads
+     * messages from the remote peer and fires callbacks.
+     * 
+     * DAEMON THREAD:
+     * - A daemon thread is automatically killed when the JVM exits
+     * - Perfect for background I/O tasks
+     * - Won't prevent the application from shutting down
+     * 
+     * FLOW:
+     * 1. Thread starts and enters read loop
+     * 2. readLine() blocks until data arrives
+     * 3. MessageParser.parse() converts JSON to Message object
+     * 4. Listener.onMessage() is called with the parsed message
+     * 5. On null/error -> listener.onDisconnect() is called
+     * 
+     * @param listener The callback interface for received messages
+     */
+    public void startListening(MessageListener listener) {
+        if (!connected) 
+            throw new IllegalStateException("Not connected - call connect() first");
+
+        listenerThread = new Thread(() -> {
+            try {
+                while (connected && !socket.isClosed()) {
+                    String json = reader.readLine();
+                    if (json == null) break; // Connection closed
+
+                    Message message = MessageParser.parse(json);
+                    if (message != null) listener.onMessage(message);
+                }
+            } catch (IOException e) {
+                // Expected when disconnecting or timeout
+            } finally {
+                listener.onDisconnect();
+            }
+        }, "Peer-Listener-" + host + ":" + port);
+
+        listenerThread.setDaemon(true);
+        listenerThread.start();    
+    }
+
+    /**
      * THEORY: Graceful Disconnection
      * 
      * Properly closing a connection:
@@ -163,6 +209,15 @@ public class Peer {
         }
         
         connected = false;
+
+        if (listenerThread != null) {
+            listenerThread.interrupt();
+            try {
+                listenerThread.join(2000);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+        }
         
         try {
             if (writer != null) {
