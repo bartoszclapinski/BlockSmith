@@ -9,9 +9,9 @@
 | Field | Value |
 |-------|-------|
 | **Phase** | 2 - Network Layer |
-| **Current Sprint** | 8 (P2P Networking) ✅ Complete |
-| **Current Milestone** | 8d Complete ✅ (Sprint 8 done!) |
-| **Status** | Sprint 9 next (Node Discovery) |
+| **Current Sprint** | 9 (Node Discovery) |
+| **Current Milestone** | 9a Pending (PeerInfo) |
+| **Status** | Sprint 9 planning complete, starting 9a |
 
 ---
 
@@ -42,7 +42,7 @@ Phase 1: Core Blockchain     [███████████████] 100
 
 Phase 2: Network Layer       [████████░░░░░░░] 50% ← CURRENT
 ├── Sprint 8: P2P Networking ✅ COMPLETE (8a ✅, 8b ✅, 8c ✅, 8d ✅)
-├── Sprint 9: Node Discovery ⬜ ← NEXT
+├── Sprint 9: Node Discovery 🔄 ← CURRENT (9a pending)
 ├── Sprint 10: Broadcasting  ⬜
 └── Sprint 11: Mempool Sync  ⬜
 ```
@@ -164,16 +164,17 @@ _None currently._
 
 ## 📝 Notes for Next Session
 
-1. **Sprint 8 COMPLETE** - P2P Networking
-   - All 4 milestones done (8a, 8b, 8c, 8d)
-   - 16 issues closed (#22-25, #28-31, #34-36, #39-43)
-   - 27 tests added (114 total)
+1. **Sprint 9 IN PROGRESS** - Node Discovery
+   - Planning complete (2026-02-09)
+   - 4 milestones: 9a (PeerInfo), 9b (PeerManager), 9c (Heartbeat), 9d (Peer Discovery)
+   - 15 issues planned (#47-#61)
+   - ~25 new tests expected
 
-2. **Next: Sprint 9** - Node Discovery
-   - Peer list management
-   - Connection bootstrapping
-   - Heartbeat mechanism
+2. **Starting with Milestone 9a** - PeerInfo
+   - PeerState enum (#47)
+   - PeerInfo class (#48)
+   - Tests (#49)
 
 ---
 
-*Last updated: 2026-02-08 | Sprint 8 Complete*
+*Last updated: 2026-02-09 | Sprint 9 Planning Complete*
