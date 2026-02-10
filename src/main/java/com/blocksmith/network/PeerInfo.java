@@ -46,6 +46,19 @@ public class PeerInfo {
     }
 
     /**
+     * Transition peer to CONNECTED state.
+     * Called after a successful TCP handshake.
+     *
+     * @param nodeId the remote node's unique identifier
+     */
+    public void markConnected(String nodeId) {
+        this.nodeId = nodeId;
+        this.state = PeerState.CONNECTED;
+        this.connectedAt = System.currentTimeMillis();
+        this.lastSeen = System.currentTimeMillis();
+    }
+
+    /**
      * Transition peer to DISCONNECTED state.
      * Called when the connection is lost or closed.
      */
