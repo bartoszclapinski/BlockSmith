@@ -6,7 +6,7 @@ BlockSmith is a comprehensive blockchain project that goes beyond tutorials - im
 
 [![Java](https://img.shields.io/badge/Java-20+-orange.svg)](https://openjdk.org/)
 [![Maven](https://img.shields.io/badge/Maven-3.9+-blue.svg)](https://maven.apache.org/)
-[![Tests](https://img.shields.io/badge/Tests-114%20passing-brightgreen.svg)](#)
+[![Tests](https://img.shields.io/badge/Tests-120%20passing-brightgreen.svg)](#)
 [![Phase](https://img.shields.io/badge/Phase%202-In%20Progress-yellow.svg)](#)
 [![Version](https://img.shields.io/badge/Version-1.0.0-blue.svg)](#)
 
@@ -34,7 +34,7 @@ BlockSmith is a comprehensive blockchain project that goes beyond tutorials - im
 - ✅ Server-side TCP socket node (Sprint 8b)
 - ✅ Client-side peer connections with handshake (Sprint 8c)
 - ✅ Bidirectional message exchange with handler pattern (Sprint 8d)
-- 🔜 Node discovery and peer management (Sprint 9)
+- 🔄 Node discovery and peer management (Sprint 9 - in progress)
 - 🔜 Block and transaction broadcasting (Sprint 10)
 - 🔜 Mempool synchronization (Sprint 11)
 
@@ -185,7 +185,7 @@ Average attempts: ~16^difficulty (~65,536 for difficulty 4)
 mvn clean compile
 ```
 
-### Run all tests (114 tests)
+### Run all tests (120 tests)
 ```bash
 mvn test
 ```
@@ -236,9 +236,11 @@ BlockSmith/
 │   │   ├── NetworkConfig.java  # Network constants
 │   │   ├── Node.java           # Server node with message loop
 │   │   ├── Peer.java           # Client peer with async listener
+│   │   ├── PeerState.java     # Peer connection lifecycle
+│   │   ├── PeerInfo.java      # Peer metadata tracking
 │   │   └── messages/           # Concrete message classes
 │   └── BlockSmithDemo.java     # Main demo application
-├── src/test/java/              # 114 unit tests
+├── src/test/java/              # 120 unit tests
 ├── data/                       # Blockchain persistence (JSON)
 ├── pom.xml                     # Maven configuration
 └── README.md
@@ -260,7 +262,8 @@ BlockSmith/
 | NodeTest | 8 | Node start/stop, connections |
 | PeerTest | 7 | Peer connections, handshake |
 | CommunicationTest | 6 | Bidirectional message exchange |
-| **Total** | **114** | All passing ✅ |
+| PeerInfoTest | 6 | Peer metadata and state transitions |
+| **Total** | **120** | All passing ✅ |
 
 ---
 
@@ -305,7 +308,7 @@ BlockSmith/
 | Sprint | Title | Status |
 |--------|-------|--------|
 | Sprint 8 | P2P Networking | ✅ Complete (8a, 8b, 8c, 8d) |
-| Sprint 9 | Node Discovery | ⬜ Planned |
+| Sprint 9 | Node Discovery | 🔄 In Progress (9a ✅) |
 | Sprint 10 | Block Broadcasting | ⬜ Planned |
 | Sprint 11 | Mempool Sync | ⬜ Planned |
 
@@ -341,4 +344,4 @@ This project is for educational purposes.
 
 ---
 
-*Last updated: 2026-02-08 | Phase 2 Sprint 8 Complete*
+*Last updated: 2026-02-10 | Phase 2 Sprint 9 Milestone 9a Complete*

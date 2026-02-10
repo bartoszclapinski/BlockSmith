@@ -10,8 +10,8 @@
 |-------|-------|
 | **Phase** | 2 - Network Layer |
 | **Current Sprint** | 9 (Node Discovery) |
-| **Current Milestone** | 9a Pending (PeerInfo) |
-| **Status** | Sprint 9 planning complete, starting 9a |
+| **Current Milestone** | 9b Pending (PeerManager) |
+| **Status** | Milestone 9a complete, starting 9b |
 
 ---
 
@@ -42,7 +42,7 @@ Phase 1: Core Blockchain     [███████████████] 100
 
 Phase 2: Network Layer       [████████░░░░░░░] 50% ← CURRENT
 ├── Sprint 8: P2P Networking ✅ COMPLETE (8a ✅, 8b ✅, 8c ✅, 8d ✅)
-├── Sprint 9: Node Discovery 🔄 ← CURRENT (9a pending)
+├── Sprint 9: Node Discovery 🔄 ← CURRENT (9a ✅, 9b pending)
 ├── Sprint 10: Broadcasting  ⬜
 └── Sprint 11: Mempool Sync  ⬜
 ```
@@ -63,7 +63,8 @@ Phase 2: Network Layer       [████████░░░░░░░] 50%
 | NodeTest | 8 | ✅ |
 | PeerTest | 7 | ✅ |
 | CommunicationTest | 6 | ✅ |
-| **Total** | **114** | ✅ |
+| PeerInfoTest | 6 | ✅ |
+| **Total** | **120** | ✅ |
 
 Last test run: `mvn test` - All passing
 
@@ -101,6 +102,8 @@ Last test run: `mvn test` - All passing
 | MessageHandler.java | ✅ Complete | ~36 | Handler functional interface (Sprint 8d) |
 | MessageContext.java | ✅ Complete | ~58 | Connection wrapper for handlers (Sprint 8d) |
 | MessageListener.java | ✅ Complete | ~43 | Async listener interface (Sprint 8d) |
+| PeerState.java | ✅ Complete | ~43 | Peer connection lifecycle enum (Sprint 9a) |
+| PeerInfo.java | ✅ Complete | ~110 | Peer metadata tracking (Sprint 9a) |
 | messages/*.java | ✅ Complete | ~150 | 5 concrete message types |
 
 ### Demo
@@ -142,6 +145,8 @@ Last test run: `mvn test` - All passing
 - [x] Async message listener in Peer (Sprint 8d)
 - [x] Default PING -> PONG handler (Sprint 8d)
 - [x] Bidirectional message exchange (Sprint 8d)
+- [x] PeerState enum for connection lifecycle (Sprint 9a)
+- [x] PeerInfo class for peer metadata tracking (Sprint 9a)
 
 ---
 
@@ -150,7 +155,7 @@ Last test run: `mvn test` - All passing
 | Item | Value |
 |------|-------|
 | **Current Branch** | `master` |
-| **Last Commit** | Sprint 8d complete (Milestone 8d) |
+| **Last Commit** | Milestone 9a complete (PeerInfo) |
 | **Tag** | `v1.0.0` (Phase 1) |
 | **Main Branch** | `master` |
 
@@ -165,16 +170,16 @@ _None currently._
 ## 📝 Notes for Next Session
 
 1. **Sprint 9 IN PROGRESS** - Node Discovery
-   - Planning complete (2026-02-09)
-   - 4 milestones: 9a (PeerInfo), 9b (PeerManager), 9c (Heartbeat), 9d (Peer Discovery)
-   - 15 issues planned (#47-#61)
-   - ~25 new tests expected
+   - Milestone 9a complete (2026-02-10)
+   - 3 milestones remaining: 9b (PeerManager), 9c (Heartbeat), 9d (Peer Discovery)
+   - 12 issues remaining (#50-#61)
 
-2. **Starting with Milestone 9a** - PeerInfo
-   - PeerState enum (#47)
-   - PeerInfo class (#48)
-   - Tests (#49)
+2. **Next: Milestone 9b** - PeerManager + Node Integration
+   - PeerManager class (#50)
+   - Integrate PeerManager into Node (#51)
+   - Outgoing connection support (#52)
+   - Tests (#53)
 
 ---
 
-*Last updated: 2026-02-09 | Sprint 9 Planning Complete*
+*Last updated: 2026-02-10 | Milestone 9a Complete*
