@@ -47,6 +47,7 @@ public class Node {
     private ExecutorService connectionPool;
     private Thread acceptThread;
     private final Map<MessageType, MessageHandler> handlers;
+    private final PeerManager peerManager;
 
     /**
      * Creates a new Node with default port.
@@ -65,6 +66,7 @@ public class Node {
         this.port = port;
         this.running = false;
         this.handlers = new HashMap<>();
+        this.peerManager = new PeerManager();
         registerDefaultHandlers();
     }
 
@@ -217,8 +219,10 @@ public class Node {
         String clientInfo = clientSocket.getInetAddress().getHostAddress() + 
                 ":" + clientSocket.getPort();
         
+        PeerInfo peerInfo = null;
+        
         try {
-            clientSocket.setSoTimeout(NetworkConfig.READ_TIMEOUT_MS);
+            clientSocket.setSoTimeout(NetworkConfig.READ_TIMEOUT_MS);            
             
             BufferedReader reader = new BufferedReader(
                     new InputStreamReader(clientSocket.getInputStream()));
@@ -246,12 +250,21 @@ public class Node {
             // Create context for handlers
             MessageContext context = new MessageContext(writer, peerHello.getNodeId());
 
+            String host = clientSocket.getInetAddress().getHostAddress();
+            int peerPort = peerHello.getPort();
+            peerInfo = new PeerInfo(host, peerPort);
+            peerInfo.markConnected(peerHello.getNodeId());
+            peerManager.addPeer(peerInfo);
+
             // === PHASE 2: Message Loop ===
             while (running && !clientSocket.isClosed()) {
                 String json = reader.readLine();
                 if (json == null) break; // Connection closed by peer
 
                 Message message = MessageParser.parse(json);
+
+                if (peerInfo != null) peerInfo.updateLastSeen();
+
                 if (message == null) {
                     System.err.println("  ✗ Failed to parse message from " + clientInfo);
                     continue; // Skip bad messages, don't crash                    
@@ -272,6 +285,7 @@ public class Node {
             }        
         } finally {
             try {
+                if (peerInfo != null) peerInfo.markDisconnected();
                 clientSocket.close();
                 System.out.println("  ✗ Connection closed: " + clientInfo);
             } catch (IOException e) {
@@ -341,6 +355,10 @@ public class Node {
 
     public int getPort() {
         return port;
+    }
+
+    public PeerManager getPeerManager() {
+        return peerManager;
     }
 
     public boolean isRunning() {
