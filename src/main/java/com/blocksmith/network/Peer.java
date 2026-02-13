@@ -280,6 +280,20 @@ public class Peer {
     }
 
     /**
+     * Returns the socket's output stream.
+     * Used by Node to create MessageContext for outbound peer handlers.
+     *
+     * @return the socket's output stream
+     * @throws IOException if stream cannot be obtained
+     */
+    public java.io.OutputStream getOutputStream() throws IOException {
+        if (!connected || socket == null) {
+            throw new IllegalStateException("Not connected");
+        }
+        return socket.getOutputStream();
+    }
+
+    /**
      * Sets the remote node ID (called after handshake).
      */
     public void setRemoteNodeId(String remoteNodeId) {
