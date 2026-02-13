@@ -10,7 +10,9 @@ import java.security.SecureRandom;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import com.blocksmith.network.messages.PongMessage;
@@ -48,6 +50,7 @@ public class Node {
     private Thread acceptThread;
     private final Map<MessageType, MessageHandler> handlers;
     private final PeerManager peerManager;
+    private final List<Peer> outboundPeers;
 
     /**
      * Creates a new Node with default port.
@@ -67,6 +70,7 @@ public class Node {
         this.running = false;
         this.handlers = new HashMap<>();
         this.peerManager = new PeerManager();
+        this.outboundPeers = new ArrayList<>();
         registerDefaultHandlers();
     }
 
@@ -295,6 +299,80 @@ public class Node {
     }
 
     /**
+     * THEORY: Outgoing Peer Connections
+     * 
+     * A node need to initiate connections, not just accept them.
+     * This is how a node joins the network - by connecting OUT to
+     * known peers (seed nodes or discovered addresses).
+     * 
+     * FLOW:
+     * 1. Check if already connected (avoid duplicates)
+     * 2. Check MAX_PEERS limit
+     * 3. Create Peer, connect, perform handshake
+     * 4. Register in PeerManager as CONNECTED
+     * 5. Start listener thread for incoming messages
+     * 
+     * BITCOIN: Nodes maintain ~8 outbound connections that THEY initiated,
+     * plus up to 125 inbound connections from other nodes.
+     * 
+     * @param host remote node's hostname or IP
+     * @param port remote node's listening port
+     * @return the connected Peer object
+     * @throws IOException if connection or handshake fails
+     */
+    public Peer connectToPeer(String host, int port) throws IOException {
+        String address = host + ":" + port;
+
+        // Don't connect if already known
+        if (peerManager.isKnown(address))
+            throw new IllegalStateException("Already connected to " + address);
+
+        // Don't exceed connection limit
+        if (!peerManager.canAcceptMore())
+            throw new IllegalStateException("MAX_PEERS limit reached");
+
+        // Create and connect
+        Peer peer = new Peer(host, port);
+        peer.connect();
+        peer.performHandshake(nodeId, this.port, 0);
+
+        // Register in PeerManager
+        PeerInfo peerInfo = new PeerInfo(host, port);
+        peerInfo.markConnected(peer.getRemoteNodeId());
+        peerManager.addPeer(peerInfo);
+
+        // Start listening for messages from this peer
+        peer.startListening(new MessageListener() {
+            @Override
+            public void onMessage(Message message) {
+                peerInfo.updateLastSeen();
+                MessageHandler handler = handlers.get(message.getType());
+                if (handler != null) {
+                    try {
+                        MessageContext context = new MessageContext(
+                                new PrintWriter(peer.getOutputStream(), true),
+                                peer.getRemoteNodeId());
+                        handler.handle(message, context);
+                    } catch (IOException e) {
+                        System.err.println("Error handling message from " + address
+                                + ": " + e.getMessage());
+                    }
+                }
+            }
+
+            @Override
+            public void onDisconnect() {
+                peerInfo.markDisconnected();
+                System.out.println("  ✗ Outbound peer disconnected: " + address);
+            }
+        });
+
+        outboundPeers.add(peer);
+        System.out.println("  ✓ Outbound connection established to " + address);
+        return peer;
+    }
+
+    /**
      * THEORY: Graceful shutdown of the node.
      * 
      * SHUTDOWN SEQUENCE:
@@ -335,6 +413,12 @@ public class Node {
             }
         }
         
+        // Disconnect outbound peers
+        for (Peer peer : outboundPeers) {
+            peer.disconnect();
+        }
+        outboundPeers.clear();
+
         // Wait for accept thread to finish
         if (acceptThread != null) {
             try {
