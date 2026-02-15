@@ -4,9 +4,12 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
+
 import java.net.ServerSocket;
 import java.net.Socket;
+
 import java.security.SecureRandom;
+
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -14,9 +17,12 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ScheduledExecutorService;
 
 import com.blocksmith.network.messages.PongMessage;
 import com.blocksmith.network.messages.HelloMessage;
+import com.blocksmith.network.messages.PingMessage;
 
 /**
  * THEORY: Network Node - The Heart of P2P
@@ -51,6 +57,8 @@ public class Node {
     private final Map<MessageType, MessageHandler> handlers;
     private final PeerManager peerManager;
     private final List<Peer> outboundPeers;
+    private final Map<String, PrintWriter> peerWriters = new ConcurrentHashMap<>();
+    private ScheduledExecutorService heartbeatScheduler;
 
     /**
      * Creates a new Node with default port.
@@ -130,8 +138,33 @@ public class Node {
         // Start accept loop in separate thread
         acceptThread = new Thread(this::acceptLoop, "Node-Accept-" + port);
         acceptThread.start();
+
+        heartbeatScheduler = Executors.newSingleThreadScheduledExecutor(
+            r -> new Thread(r, "Node-Heartbeat-" + port));
+        heartbeatScheduler.scheduleAtFixedRate(
+            this::heartbeatTask,
+            NetworkConfig.HEARTBEAT_INTERVAL_MS,
+            NetworkConfig.HEARTBEAT_INTERVAL_MS,
+            TimeUnit.MILLISECONDS);        
         
         System.out.println("▶ Node " + nodeId + " started on port " + port);
+    }
+
+    /**
+     * THEORY: Heartbeat Task
+     * 
+     * Sends PING to all connected peers every 10 seconds.
+     * Expects PONG back within 30 seconds.
+     * If no PONG received, evict the peer.
+     */
+    private void heartbeatTask() {
+        PingMessage ping = new PingMessage(nodeId);
+        String pingJson = ping.toJson();
+
+        for (PeerInfo peer : peerManager.getConnectedPeers()) {
+            PrintWriter writer = peerWriters.get(peer.getAddress());
+            if (writer != null) writer.println(pingJson);
+        }
     }
 
     /**
@@ -197,6 +230,11 @@ public class Node {
             context.sendMessage(pong);
             System.out.println("  → Sent PONG to " + context.getRemoteNodeId());
         });
+
+        // PONG -> log receipt (lastSeen already updated by message loop)
+        registerHandler(MessageType.PONG, (message, context) -> {
+            System.out.println("  ← Received PONG from " + context.getRemoteNodeId());
+        });
     }
 
     /**
@@ -260,6 +298,8 @@ public class Node {
             peerInfo.markConnected(peerHello.getNodeId());
             peerManager.addPeer(peerInfo);
 
+            peerWriters.put(peerInfo.getAddress(), writer);
+
             // === PHASE 2: Message Loop ===
             while (running && !clientSocket.isClosed()) {
                 String json = reader.readLine();
@@ -289,7 +329,10 @@ public class Node {
             }        
         } finally {
             try {
-                if (peerInfo != null) peerInfo.markDisconnected();
+                if (peerInfo != null) {
+                    peerWriters.remove(peerInfo.getAddress());
+                    peerInfo.markDisconnected();
+                }
                 clientSocket.close();
                 System.out.println("  ✗ Connection closed: " + clientInfo);
             } catch (IOException e) {
@@ -340,6 +383,7 @@ public class Node {
         PeerInfo peerInfo = new PeerInfo(host, port);
         peerInfo.markConnected(peer.getRemoteNodeId());
         peerManager.addPeer(peerInfo);
+        peerWriters.put(peerInfo.getAddress(), new PrintWriter(peer.getOutputStream(), true));
 
         // Start listening for messages from this peer
         peer.startListening(new MessageListener() {
@@ -412,6 +456,9 @@ public class Node {
                 Thread.currentThread().interrupt();
             }
         }
+
+        if (heartbeatScheduler != null) 
+            heartbeatScheduler.shutdown();
         
         // Disconnect outbound peers
         for (Peer peer : outboundPeers) {
