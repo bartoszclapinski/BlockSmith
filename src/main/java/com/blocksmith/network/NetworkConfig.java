@@ -53,6 +53,35 @@ public class NetworkConfig {
      * Used in HELLO messages to check compatibility.
      */
     public static final String PROTOCOL_VERSION = "1.0.0";
+
+    /**
+     * THEORY: Heartbeat - Keeping the Network Alive
+     * 
+     * In a P2P network, connections can silently die (network issues,
+     * crashed nodes, firewalls, etc.). Without heartbeats, a node would keep
+     * "ghost peers" int its registry forever.
+     * 
+     * PING/PONG heartbeat solves this:
+     * - Periodically send PING to all connected peers
+     * - Expect PONG back within a timeout
+     * - No PONG = peer is dead -> evict it
+     * 
+     * BITCOIN: Uses a similar mechanism with ping/pong messages.
+     * Default timeout is ~20 minutes (we use shorter for educational purposes).
+     */
+
+    /**
+     * How often to send PING to all connected peers (milliseconds).
+     * Every 10 seconds, the node checks if its peers are still alive.
+     */
+    public static final int HEARTBEAT_INTERVAL_MS = 10000;
+
+    /**
+     * How long before a silent peer is considered dead (milliseconds).
+     * If no message received from a peer within this window, evict it. 
+     */
+    public static final int PEER_TIMEOUT_MS = 30000;
+
     
     // Private constructor - utility class, no instances needed
     private NetworkConfig() {}
