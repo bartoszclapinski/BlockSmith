@@ -3,9 +3,11 @@ package com.blocksmith.network;
 import java.util.HashMap;
 import java.util.Map;
 
+import com.blocksmith.network.messages.GetPeersMessage;
 import com.blocksmith.network.messages.HelloMessage;
 import com.blocksmith.network.messages.NewBlockMessage;
 import com.blocksmith.network.messages.NewTransactionMessage;
+import com.blocksmith.network.messages.PeersMessage;
 import com.blocksmith.network.messages.PingMessage;
 import com.blocksmith.network.messages.PongMessage;
 import com.google.gson.JsonObject;
@@ -50,7 +52,9 @@ public class MessageParser {
         TYPE_REGISTRY.put(MessageType.PING, PingMessage.class);
         TYPE_REGISTRY.put(MessageType.PONG, PongMessage.class);
         TYPE_REGISTRY.put(MessageType.NEW_BLOCK, NewBlockMessage.class);
-        TYPE_REGISTRY.put(MessageType.NEW_TRANSACTION, NewTransactionMessage.class);        
+        TYPE_REGISTRY.put(MessageType.NEW_TRANSACTION, NewTransactionMessage.class);
+        TYPE_REGISTRY.put(MessageType.GET_PEERS, GetPeersMessage.class);
+        TYPE_REGISTRY.put(MessageType.PEERS, PeersMessage.class);
     }
 
     /**
