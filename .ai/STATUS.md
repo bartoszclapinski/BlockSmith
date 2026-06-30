@@ -10,8 +10,8 @@
 |-------|-------|
 | **Phase** | 2 - Network Layer |
 | **Current Sprint** | 9 (Node Discovery) |
-| **Current Milestone** | 9b Pending (PeerManager) |
-| **Status** | Milestone 9a complete, starting 9b |
+| **Current Milestone** | 9c Complete (Heartbeat) |
+| **Status** | Milestones 9a-9c complete, 9d pending (Peer Discovery) |
 
 ---
 
@@ -42,7 +42,7 @@ Phase 1: Core Blockchain     [███████████████] 100
 
 Phase 2: Network Layer       [████████░░░░░░░] 50% ← CURRENT
 ├── Sprint 8: P2P Networking ✅ COMPLETE (8a ✅, 8b ✅, 8c ✅, 8d ✅)
-├── Sprint 9: Node Discovery 🔄 ← CURRENT (9a ✅, 9b pending)
+├── Sprint 9: Node Discovery 🔄 ← CURRENT (9a ✅, 9b ✅, 9c ✅, 9d pending)
 ├── Sprint 10: Broadcasting  ⬜
 └── Sprint 11: Mempool Sync  ⬜
 ```
@@ -64,7 +64,9 @@ Phase 2: Network Layer       [████████░░░░░░░] 50%
 | PeerTest | 7 | ✅ |
 | CommunicationTest | 6 | ✅ |
 | PeerInfoTest | 6 | ✅ |
-| **Total** | **120** | ✅ |
+| PeerManagerTest | 8 | ✅ |
+| HeartbeatTest | 4 | ✅ |
+| **Total** | **132** | ✅ |
 
 Last test run: `mvn test` - All passing
 
@@ -96,7 +98,7 @@ Last test run: `mvn test` - All passing
 | MessageType.java | ✅ Complete | ~45 | Message types enum |
 | Message.java | ✅ Complete | ~82 | Base message class |
 | NetworkConfig.java | ✅ Complete | ~59 | Network constants |
-| Node.java | ✅ Complete | ~285 | Server + message loop + handler registry |
+| Node.java | ✅ Complete | ~510 | Server + message loop + peer tracking + heartbeat eviction |
 | Peer.java | ✅ Complete | ~294 | Client + async listener thread |
 | MessageParser.java | ✅ Complete | ~116 | JSON-to-Message routing (Sprint 8d) |
 | MessageHandler.java | ✅ Complete | ~36 | Handler functional interface (Sprint 8d) |
@@ -104,6 +106,7 @@ Last test run: `mvn test` - All passing
 | MessageListener.java | ✅ Complete | ~43 | Async listener interface (Sprint 8d) |
 | PeerState.java | ✅ Complete | ~43 | Peer connection lifecycle enum (Sprint 9a) |
 | PeerInfo.java | ✅ Complete | ~110 | Peer metadata tracking (Sprint 9a) |
+| PeerManager.java | ✅ Complete | ~145 | Peer registry, MAX_PEERS enforcement (Sprint 9b) |
 | messages/*.java | ✅ Complete | ~150 | 5 concrete message types |
 
 ### Demo
@@ -147,6 +150,10 @@ Last test run: `mvn test` - All passing
 - [x] Bidirectional message exchange (Sprint 8d)
 - [x] PeerState enum for connection lifecycle (Sprint 9a)
 - [x] PeerInfo class for peer metadata tracking (Sprint 9a)
+- [x] PeerManager registry with MAX_PEERS enforcement (Sprint 9b)
+- [x] Node peer tracking + outgoing connections (connectToPeer) (Sprint 9b)
+- [x] Heartbeat PING scheduler + PONG handling (Sprint 9c)
+- [x] Dead peer detection and eviction on timeout (Sprint 9c)
 
 ---
 
@@ -154,8 +161,8 @@ Last test run: `mvn test` - All passing
 
 | Item | Value |
 |------|-------|
-| **Current Branch** | `master` |
-| **Last Commit** | Milestone 9a complete (PeerInfo) |
+| **Current Branch** | `sprint9c/heartbeat` |
+| **Last Commit** | Milestone 9c complete (heartbeat eviction + tests) |
 | **Tag** | `v1.0.0` (Phase 1) |
 | **Main Branch** | `master` |
 
@@ -170,16 +177,15 @@ _None currently._
 ## 📝 Notes for Next Session
 
 1. **Sprint 9 IN PROGRESS** - Node Discovery
-   - Milestone 9a complete (2026-02-10)
-   - 3 milestones remaining: 9b (PeerManager), 9c (Heartbeat), 9d (Peer Discovery)
-   - 12 issues remaining (#50-#61)
+   - Milestones 9a, 9b, 9c complete
+   - 1 milestone remaining: 9d (Peer Discovery)
 
-2. **Next: Milestone 9b** - PeerManager + Node Integration
-   - PeerManager class (#50)
-   - Integrate PeerManager into Node (#51)
-   - Outgoing connection support (#52)
-   - Tests (#53)
+2. **Next: Milestone 9d** - Peer Discovery
+   - GetPeersMessage and PeersMessage classes
+   - GET_PEERS and PEERS handlers in Node
+   - Seed nodes config + bootstrap on startup
+   - Unit tests for peer discovery
 
 ---
 
-*Last updated: 2026-02-10 | Milestone 9a Complete*
+*Last updated: 2026-06-30 | Milestone 9c Complete*
