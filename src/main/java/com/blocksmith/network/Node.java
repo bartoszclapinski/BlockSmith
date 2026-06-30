@@ -27,6 +27,8 @@ import com.blocksmith.network.messages.HelloMessage;
 import com.blocksmith.network.messages.PingMessage;
 import com.blocksmith.network.messages.PeersMessage;
 import com.blocksmith.network.messages.NewBlockMessage;
+import com.blocksmith.network.messages.GetBlocksMessage;
+import com.blocksmith.network.messages.BlocksMessage;
 
 /**
  * THEORY: Network Node - The Heart of P2P
@@ -325,6 +327,39 @@ public class Node {
                 System.out.println("  ← Accepted NEW_BLOCK #" + block.getIndex()
                         + " from " + context.getRemoteNodeId());
                 broadcastBlock(block, context.getRemoteNodeId());
+            } else if (block.getIndex() > blockchain.getChainSize()) {
+                // The peer is ahead of us: a block landed beyond our tip+1, so we
+                // are missing the blocks in between. Ask for the gap.
+                context.sendMessage(new GetBlocksMessage(nodeId, blockchain.getChainSize()));
+            }
+        });
+
+        // GET_BLOCKS -> serve our blocks from the requested index to the tip
+        registerHandler(MessageType.GET_BLOCKS, (message, context) -> {
+            int fromIndex = ((GetBlocksMessage) message).getFromIndex();
+            if (fromIndex < 0) fromIndex = 0;
+
+            List<Block> chain = blockchain.getChain();
+            if (fromIndex >= chain.size()) {
+                context.sendMessage(new BlocksMessage(nodeId, new ArrayList<>()));
+                return;
+            }
+            List<Block> range = new ArrayList<>(chain.subList(fromIndex, chain.size()));
+            context.sendMessage(new BlocksMessage(nodeId, range));
+        });
+
+        // BLOCKS -> append the received range in order
+        registerHandler(MessageType.BLOCKS, (message, context) -> {
+            List<Block> blocks = ((BlocksMessage) message).getBlocks();
+            if (blocks == null) return;
+
+            int applied = 0;
+            for (Block block : blocks) {
+                if (blockchain.addBlock(block)) applied++;
+            }
+            if (applied > 0) {
+                System.out.println("  ← Synced " + applied + " block(s) from "
+                        + context.getRemoteNodeId());
             }
         });
     }

@@ -3,6 +3,8 @@ package com.blocksmith.network;
 import java.util.HashMap;
 import java.util.Map;
 
+import com.blocksmith.network.messages.BlocksMessage;
+import com.blocksmith.network.messages.GetBlocksMessage;
 import com.blocksmith.network.messages.GetPeersMessage;
 import com.blocksmith.network.messages.HelloMessage;
 import com.blocksmith.network.messages.NewBlockMessage;
@@ -55,6 +57,8 @@ public class MessageParser {
         TYPE_REGISTRY.put(MessageType.NEW_TRANSACTION, NewTransactionMessage.class);
         TYPE_REGISTRY.put(MessageType.GET_PEERS, GetPeersMessage.class);
         TYPE_REGISTRY.put(MessageType.PEERS, PeersMessage.class);
+        TYPE_REGISTRY.put(MessageType.GET_BLOCKS, GetBlocksMessage.class);
+        TYPE_REGISTRY.put(MessageType.BLOCKS, BlocksMessage.class);
     }
 
     /**
