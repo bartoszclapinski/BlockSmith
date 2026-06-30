@@ -23,6 +23,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import com.blocksmith.network.messages.PongMessage;
 import com.blocksmith.network.messages.HelloMessage;
 import com.blocksmith.network.messages.PingMessage;
+import com.blocksmith.network.messages.PeersMessage;
 
 /**
  * THEORY: Network Node - The Heart of P2P
@@ -148,6 +149,33 @@ public class Node {
             TimeUnit.MILLISECONDS);        
         
         System.out.println("▶ Node " + nodeId + " started on port " + port);
+
+        bootstrap();
+    }
+
+    /**
+     * THEORY: Bootstrap - Joining the Network
+     *
+     * On startup a node has no peers. It connects to the configured seed
+     * nodes to get its first connections; peer discovery (GET_PEERS) then
+     * grows the network from there.
+     *
+     * Best-effort: a seed that is unreachable or is ourselves is skipped,
+     * never fatal to startup.
+     */
+    private void bootstrap() {
+        for (String address : NetworkConfig.SEED_NODES) {
+            PeerInfo seed = parseAddress(address);
+            if (seed == null) continue;
+            if (seed.getPort() == port) continue; // skip self (local testing)
+            try {
+                connectToPeer(seed.getHost(), seed.getPort());
+                System.out.println("  ✓ Bootstrapped to seed " + address);
+            } catch (Exception e) {
+                System.out.println("  ✗ Could not reach seed " + address
+                        + ": " + e.getMessage());
+            }
+        }
     }
 
     /**
@@ -246,6 +274,49 @@ public class Node {
         registerHandler(MessageType.PONG, (message, context) -> {
             System.out.println("  ← Received PONG from " + context.getRemoteNodeId());
         });
+
+        // GET_PEERS -> respond with the addresses of all known peers
+        registerHandler(MessageType.GET_PEERS, (message, context) -> {
+            List<String> addresses = peerManager.getKnownPeers().stream()
+                    .map(PeerInfo::getAddress)
+                    .toList();
+            context.sendMessage(new PeersMessage(nodeId, addresses));
+            System.out.println("  → Sent PEERS (" + addresses.size() + ") to "
+                    + context.getRemoteNodeId());
+        });
+
+        // PEERS -> record received addresses as DISCOVERED peers (no auto-connect)
+        registerHandler(MessageType.PEERS, (message, context) -> {
+            List<String> received = ((PeersMessage) message).getPeers();
+            if (received == null) return;
+
+            int added = 0;
+            for (String address : received) {
+                PeerInfo info = parseAddress(address);
+                if (info != null && peerManager.addPeer(info)) added++;
+            }
+            System.out.println("  ← Received PEERS (" + received.size() + "), added "
+                    + added + " new");
+        });
+    }
+
+    /**
+     * Parses a "host:port" address into a DISCOVERED PeerInfo.
+     * Splits on the last colon so IPv4 hosts parse cleanly.
+     *
+     * @return PeerInfo, or null if the address is malformed
+     */
+    private PeerInfo parseAddress(String address) {
+        if (address == null) return null;
+        int idx = address.lastIndexOf(':');
+        if (idx <= 0 || idx == address.length() - 1) return null;
+        try {
+            String host = address.substring(0, idx);
+            int port = Integer.parseInt(address.substring(idx + 1));
+            return new PeerInfo(host, port);
+        } catch (NumberFormatException e) {
+            return null;
+        }
     }
 
     /**
