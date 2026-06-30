@@ -4,7 +4,9 @@ import com.blocksmith.util.BlockchainConfig;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Manages the blockchain - a linked list of blocks.
@@ -35,6 +37,31 @@ public class Blockchain {
 
     private final List<Block> chain;
     private final List<Transaction> pendingTransactions;
+
+    /**
+     * Largest number of orphan blocks held at once. Caps memory if a peer
+     * floods us with forward blocks whose parents never arrive.
+     */
+    static final int MAX_ORPHANS = 50;
+
+    /**
+     * THEORY: ORPHAN BLOCKS
+     *
+     * Over a gossip network a block can arrive before its parent. Such a
+     * block is an "orphan" - valid in isolation but not yet connectable to
+     * our chain. We park it here, keyed by the previousHash it is waiting
+     * for, and attach it once that parent block is appended.
+     *
+     * A LinkedHashMap in access-order eviction mode drops the oldest orphan
+     * when the buffer is full, bounding memory.
+     */
+    private final Map<String, Block> orphans =
+            new LinkedHashMap<>(16, 0.75f, false) {
+                @Override
+                protected boolean removeEldestEntry(Map.Entry<String, Block> eldest) {
+                    return size() > MAX_ORPHANS;
+                }
+            };
 
     /**
      * Creates a new blockchain with the Genesis block.
@@ -111,23 +138,66 @@ public class Blockchain {
     public boolean addBlock(Block block) {
         if (block == null) return false;
 
+        // A block must be internally sound (hash integrity + PoW) before we
+        // either append or buffer it. A malformed block is dropped outright.
+        if (!isWellFormed(block)) return false;
+
         Block tip = getLatestBlock();
 
-        // 1. Must be the next index in the chain
-        if (block.getIndex() != tip.getIndex() + 1) return false;
+        // Extends our current tip cleanly: append, then pull in any orphans
+        // that were waiting on this new block.
+        if (block.getIndex() == tip.getIndex() + 1
+                && block.getPreviousHash().equals(tip.getHash())) {
+            chain.add(block);
+            attachOrphans();
+            return true;
+        }
 
-        // 2. Must link to our current tip
-        if (!block.getPreviousHash().equals(tip.getHash())) return false;
+        // Arrived ahead of its parent (index beyond tip+1): park as an orphan
+        // until the missing parent shows up.
+        if (block.getIndex() > tip.getIndex() + 1) {
+            orphans.put(block.getPreviousHash(), block);
+        }
 
-        // 3. Stored hash must match a fresh recomputation
+        return false;
+    }
+
+    /**
+     * Checks a block is internally consistent: its stored hash matches a
+     * fresh recomputation and satisfies the Proof-of-Work target. Says
+     * nothing about how it links to our chain.
+     */
+    private boolean isWellFormed(Block block) {
         if (!block.getHash().equals(block.calculateHash())) return false;
-
-        // 4. Hash must meet the Proof-of-Work target
         String target = "0".repeat(BlockchainConfig.MINING_DIFFICULTY);
-        if (!block.getHash().startsWith(target)) return false;
+        return block.getHash().startsWith(target);
+    }
 
-        chain.add(block);
-        return true;
+    /**
+     * Drains the orphan buffer onto the chain: while an orphan is waiting on
+     * the current tip's hash, append it and advance. A run of consecutive
+     * out-of-order blocks resolves in a single pass.
+     */
+    private void attachOrphans() {
+        while (true) {
+            Block tip = getLatestBlock();
+            Block child = orphans.get(tip.getHash());
+            if (child == null) break;
+
+            orphans.remove(tip.getHash());
+            if (child.getIndex() == tip.getIndex() + 1 && isWellFormed(child)) {
+                chain.add(child);
+            } else {
+                break; // stale/ill-fitting orphan: drop and stop
+            }
+        }
+    }
+
+    /**
+     * @return number of blocks currently held in the orphan buffer
+     */
+    public int getOrphanCount() {
+        return orphans.size();
     }
 
     /**
