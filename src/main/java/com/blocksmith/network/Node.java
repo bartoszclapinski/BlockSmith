@@ -20,6 +20,7 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ScheduledExecutorService;
 
+import com.blocksmith.core.Blockchain;
 import com.blocksmith.network.messages.PongMessage;
 import com.blocksmith.network.messages.HelloMessage;
 import com.blocksmith.network.messages.PingMessage;
@@ -57,6 +58,7 @@ public class Node {
     private Thread acceptThread;
     private final Map<MessageType, MessageHandler> handlers;
     private final PeerManager peerManager;
+    private final Blockchain blockchain;
     private final List<Peer> outboundPeers;
     private final Map<String, PrintWriter> peerWriters = new ConcurrentHashMap<>();
     private ScheduledExecutorService heartbeatScheduler;
@@ -69,13 +71,24 @@ public class Node {
     }
 
     /**
-     * Creates a new Node on specified port.
-     * 
+     * Creates a new Node on the specified port with a fresh Blockchain.
+     *
      * @param port The port to listen on
      */
     public Node(int port) {
+        this(port, new Blockchain());
+    }
+
+    /**
+     * Creates a new Node on the specified port backed by the given Blockchain.
+     *
+     * @param port The port to listen on
+     * @param blockchain The blockchain this node validates and extends
+     */
+    public Node(int port, Blockchain blockchain) {
         this.nodeId = generateNodeId();
         this.port = port;
+        this.blockchain = blockchain;
         this.running = false;
         this.handlers = new HashMap<>();
         this.peerManager = new PeerManager();
@@ -366,7 +379,7 @@ public class Node {
                 nodeId,
                 NetworkConfig.PROTOCOL_VERSION,
                 port,
-                0  // chainLength - will be set when blockchain is integrated
+                blockchain.getChainSize()
             );
             writer.println(response.toJson());
             System.out.println("  → Sent HELLO response to " + peerHello.getNodeId());
@@ -459,7 +472,7 @@ public class Node {
         // Create and connect
         Peer peer = new Peer(host, port);
         peer.connect();
-        peer.performHandshake(nodeId, this.port, 0);
+        peer.performHandshake(nodeId, this.port, blockchain.getChainSize());
 
         // Register in PeerManager
         PeerInfo peerInfo = new PeerInfo(host, port);
@@ -572,6 +585,10 @@ public class Node {
 
     public PeerManager getPeerManager() {
         return peerManager;
+    }
+
+    public Blockchain getBlockchain() {
+        return blockchain;
     }
 
     public boolean isRunning() {
