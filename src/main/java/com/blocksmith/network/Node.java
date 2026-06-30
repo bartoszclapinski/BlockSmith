@@ -149,6 +149,33 @@ public class Node {
             TimeUnit.MILLISECONDS);        
         
         System.out.println("▶ Node " + nodeId + " started on port " + port);
+
+        bootstrap();
+    }
+
+    /**
+     * THEORY: Bootstrap - Joining the Network
+     *
+     * On startup a node has no peers. It connects to the configured seed
+     * nodes to get its first connections; peer discovery (GET_PEERS) then
+     * grows the network from there.
+     *
+     * Best-effort: a seed that is unreachable or is ourselves is skipped,
+     * never fatal to startup.
+     */
+    private void bootstrap() {
+        for (String address : NetworkConfig.SEED_NODES) {
+            PeerInfo seed = parseAddress(address);
+            if (seed == null) continue;
+            if (seed.getPort() == port) continue; // skip self (local testing)
+            try {
+                connectToPeer(seed.getHost(), seed.getPort());
+                System.out.println("  ✓ Bootstrapped to seed " + address);
+            } catch (Exception e) {
+                System.out.println("  ✗ Could not reach seed " + address
+                        + ": " + e.getMessage());
+            }
+        }
     }
 
     /**

@@ -1,5 +1,7 @@
 package com.blocksmith.network;
 
+import java.util.List;
+
 /**
  * THEORY: Network Configuration Constants
  * 
@@ -82,7 +84,20 @@ public class NetworkConfig {
      */
     public static final int PEER_TIMEOUT_MS = 30000;
 
-    
+    /**
+     * THEORY: Seed Nodes - Bootstrapping the Network
+     *
+     * A fresh node knows no peers. It connects to a hard-coded list of
+     * "seed nodes" to get its first connections, then peer discovery
+     * (GET_PEERS / PEERS) grows the network from there. Bitcoin uses DNS
+     * seeds for the same purpose.
+     *
+     * Format: "host:port". Empty by default - populate for a real network
+     * or for local multi-node testing, e.g. List.of("localhost:8335").
+     */
+    public static final List<String> SEED_NODES = List.of();
+
+
     // Private constructor - utility class, no instances needed
     private NetworkConfig() {}
 }
