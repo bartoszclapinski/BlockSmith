@@ -5,7 +5,7 @@
 | Event | Date |
 |-------|------|
 | **Sprint Start** | 2026-02-09 |
-| **Sprint End** | TBD |
+| **Sprint End** | 2026-06-30 |
 
 ---
 
@@ -66,7 +66,35 @@
 
 ---
 
-## Milestone 9d: Peer Discovery - Pending
+## Milestone 9d: Peer Discovery - ✅ Complete (2026-06-30)
+
+### Delivered
+- `GetPeersMessage.java` / `PeersMessage.java` - peer discovery request/response messages ("host:port" list)
+- MessageParser registers GET_PEERS and PEERS in TYPE_REGISTRY
+- GET_PEERS handler - replies with known peer addresses
+- PEERS handler - records received addresses as DISCOVERED (record-only; auto-connect deferred), skips malformed entries
+- `Node.parseAddress(String)` helper - parses "host:port", NumberFormat-safe
+- `SEED_NODES` constant in NetworkConfig + `Node.bootstrap()` - connects to seed nodes on startup (skips self for local testing)
+- `PeerDiscoveryTest.java` - 5 unit tests (serialization round-trips, GET_PEERS reply, PEERS recording, malformed-address skipping)
+
+### Issues Closed
+- #68: Create GetPeersMessage and PeersMessage ✅
+- #69: Implement GET_PEERS and PEERS handlers ✅
+- #70: Add seed nodes config + bootstrap on startup ✅
+- #71: Unit tests for peer discovery ✅
+
+### Stats
+- Tests added: 5 (total: 137)
+- PR: #72 merged to master
+
+---
+
+## Sprint 9 Summary
+
+Sprint 9 (Node Discovery) complete. Delivered peer metadata tracking (PeerInfo/PeerState),
+a PeerManager registry with MAX_PEERS enforcement, heartbeat PING/PONG with dead-peer
+eviction, and peer discovery via GET_PEERS/PEERS gossip plus seed-node bootstrap.
+Tests grew from 114 → 137. Next: Sprint 10 (Block & Transaction Broadcasting).
 
 ---
 
