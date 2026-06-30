@@ -9,9 +9,9 @@
 | Field | Value |
 |-------|-------|
 | **Phase** | 2 - Network Layer |
-| **Current Sprint** | 9 (Node Discovery) |
-| **Current Milestone** | 9c Complete (Heartbeat) |
-| **Status** | Milestones 9a-9c complete, 9d pending (Peer Discovery) |
+| **Current Sprint** | 9 (Node Discovery) - Complete |
+| **Current Milestone** | 9d Complete (Peer Discovery) |
+| **Status** | Sprint 9 complete (9a-9d), next: Sprint 10 (Broadcasting) |
 
 ---
 
@@ -42,8 +42,8 @@ Phase 1: Core Blockchain     [███████████████] 100
 
 Phase 2: Network Layer       [████████░░░░░░░] 50% ← CURRENT
 ├── Sprint 8: P2P Networking ✅ COMPLETE (8a ✅, 8b ✅, 8c ✅, 8d ✅)
-├── Sprint 9: Node Discovery 🔄 ← CURRENT (9a ✅, 9b ✅, 9c ✅, 9d pending)
-├── Sprint 10: Broadcasting  ⬜
+├── Sprint 9: Node Discovery ✅ COMPLETE (9a ✅, 9b ✅, 9c ✅, 9d ✅)
+├── Sprint 10: Broadcasting  ⬜ ← NEXT
 └── Sprint 11: Mempool Sync  ⬜
 ```
 
@@ -66,7 +66,8 @@ Phase 2: Network Layer       [████████░░░░░░░] 50%
 | PeerInfoTest | 6 | ✅ |
 | PeerManagerTest | 8 | ✅ |
 | HeartbeatTest | 4 | ✅ |
-| **Total** | **132** | ✅ |
+| PeerDiscoveryTest | 5 | ✅ |
+| **Total** | **137** | ✅ |
 
 Last test run: `mvn test` - All passing
 
@@ -97,8 +98,8 @@ Last test run: `mvn test` - All passing
 |-------|--------|-------|-------|
 | MessageType.java | ✅ Complete | ~45 | Message types enum |
 | Message.java | ✅ Complete | ~82 | Base message class |
-| NetworkConfig.java | ✅ Complete | ~59 | Network constants |
-| Node.java | ✅ Complete | ~510 | Server + message loop + peer tracking + heartbeat eviction |
+| NetworkConfig.java | ✅ Complete | ~103 | Network constants + heartbeat + seed nodes |
+| Node.java | ✅ Complete | ~560 | Server + message loop + peer tracking + heartbeat eviction + peer discovery + seed bootstrap |
 | Peer.java | ✅ Complete | ~294 | Client + async listener thread |
 | MessageParser.java | ✅ Complete | ~116 | JSON-to-Message routing (Sprint 8d) |
 | MessageHandler.java | ✅ Complete | ~36 | Handler functional interface (Sprint 8d) |
@@ -107,7 +108,7 @@ Last test run: `mvn test` - All passing
 | PeerState.java | ✅ Complete | ~43 | Peer connection lifecycle enum (Sprint 9a) |
 | PeerInfo.java | ✅ Complete | ~110 | Peer metadata tracking (Sprint 9a) |
 | PeerManager.java | ✅ Complete | ~145 | Peer registry, MAX_PEERS enforcement (Sprint 9b) |
-| messages/*.java | ✅ Complete | ~150 | 5 concrete message types |
+| messages/*.java | ✅ Complete | ~180 | 7 concrete message types (+ GetPeers/Peers, Sprint 9d) |
 
 ### Demo
 
@@ -154,6 +155,9 @@ Last test run: `mvn test` - All passing
 - [x] Node peer tracking + outgoing connections (connectToPeer) (Sprint 9b)
 - [x] Heartbeat PING scheduler + PONG handling (Sprint 9c)
 - [x] Dead peer detection and eviction on timeout (Sprint 9c)
+- [x] GetPeersMessage / PeersMessage for peer discovery gossip (Sprint 9d)
+- [x] GET_PEERS / PEERS handlers in Node (Sprint 9d)
+- [x] Seed-node config + bootstrap on startup (Sprint 9d)
 
 ---
 
@@ -161,8 +165,8 @@ Last test run: `mvn test` - All passing
 
 | Item | Value |
 |------|-------|
-| **Current Branch** | `sprint9c/heartbeat` |
-| **Last Commit** | Milestone 9c complete (heartbeat eviction + tests) |
+| **Current Branch** | `master` |
+| **Last Commit** | Sprint 9 complete (peer discovery merged, PR #72) |
 | **Tag** | `v1.0.0` (Phase 1) |
 | **Main Branch** | `master` |
 
@@ -176,16 +180,17 @@ _None currently._
 
 ## 📝 Notes for Next Session
 
-1. **Sprint 9 IN PROGRESS** - Node Discovery
-   - Milestones 9a, 9b, 9c complete
-   - 1 milestone remaining: 9d (Peer Discovery)
+1. **Sprint 9 COMPLETE** - Node Discovery
+   - All milestones 9a, 9b, 9c, 9d merged to master
+   - Peer discovery (GET_PEERS/PEERS gossip), seed bootstrap, heartbeat eviction live
 
-2. **Next: Milestone 9d** - Peer Discovery
-   - GetPeersMessage and PeersMessage classes
-   - GET_PEERS and PEERS handlers in Node
-   - Seed nodes config + bootstrap on startup
-   - Unit tests for peer discovery
+2. **Next: Sprint 10** - Block & Transaction Broadcasting
+   - Gossip new blocks and transactions across the peer network
+
+3. **Deferred / future work**
+   - Gossip auto-connect to DISCOVERED peers (needs MAX_PEERS guarding)
+   - Self-identification filtering in peer lists
 
 ---
 
-*Last updated: 2026-06-30 | Milestone 9c Complete*
+*Last updated: 2026-06-30 | Sprint 9 Complete (Milestone 9d)*
