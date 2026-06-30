@@ -9,9 +9,9 @@
 | Field | Value |
 |-------|-------|
 | **Phase** | 2 - Network Layer |
-| **Current Sprint** | 9 (Node Discovery) - Complete |
-| **Current Milestone** | 9d Complete (Peer Discovery) |
-| **Status** | Sprint 9 complete (9a-9d), next: Sprint 10 (Broadcasting) |
+| **Current Sprint** | 10 (Block Broadcasting) - Complete |
+| **Current Milestone** | 10d Complete (Chain Sync) |
+| **Status** | Sprint 10 complete (10a-10d), next: Sprint 11 (Mempool Sync) |
 
 ---
 
@@ -40,11 +40,11 @@ Phase 1: Core Blockchain     [███████████████] 100
 ├── Sprint 5: Wallets        ✅
 └── Sprint 6: Economics      ✅
 
-Phase 2: Network Layer       [████████░░░░░░░] 50% ← CURRENT
+Phase 2: Network Layer       [███████████░░░░] 75% ← CURRENT
 ├── Sprint 8: P2P Networking ✅ COMPLETE (8a ✅, 8b ✅, 8c ✅, 8d ✅)
 ├── Sprint 9: Node Discovery ✅ COMPLETE (9a ✅, 9b ✅, 9c ✅, 9d ✅)
-├── Sprint 10: Broadcasting  ⬜ ← NEXT
-└── Sprint 11: Mempool Sync  ⬜
+├── Sprint 10: Broadcasting  ✅ COMPLETE (10a ✅, 10b ✅, 10c ✅, 10d ✅)
+└── Sprint 11: Mempool Sync  ⬜ ← NEXT
 ```
 
 ---
@@ -67,7 +67,12 @@ Phase 2: Network Layer       [████████░░░░░░░] 50%
 | PeerManagerTest | 8 | ✅ |
 | HeartbeatTest | 4 | ✅ |
 | PeerDiscoveryTest | 5 | ✅ |
-| **Total** | **137** | ✅ |
+| ChainIntegrationTest | 2 | ✅ |
+| ExternalBlockTest | 4 | ✅ |
+| BlockBroadcastTest | 4 | ✅ |
+| OrphanBlockTest | 3 | ✅ |
+| ChainSyncTest | 5 | ✅ |
+| **Total** | **155** | ✅ |
 
 Last test run: `mvn test` - All passing
 
@@ -80,7 +85,7 @@ Last test run: `mvn test` - All passing
 | Class | Status | Lines | Notes |
 |-------|--------|-------|-------|
 | Block.java | ✅ Complete | ~268 | Transactions + Merkle root |
-| Blockchain.java | ✅ Complete | ~338 | Pending pool + mining |
+| Blockchain.java | ✅ Complete | ~470 | Pending pool + mining + external append + orphan buffer (Sprint 10) |
 | Transaction.java | ✅ Complete | ~200 | Validation + signing + verification |
 | Wallet.java | ✅ Complete | ~169 | ECDSA keys + signing |
 
@@ -99,7 +104,7 @@ Last test run: `mvn test` - All passing
 | MessageType.java | ✅ Complete | ~45 | Message types enum |
 | Message.java | ✅ Complete | ~82 | Base message class |
 | NetworkConfig.java | ✅ Complete | ~103 | Network constants + heartbeat + seed nodes |
-| Node.java | ✅ Complete | ~560 | Server + message loop + peer tracking + heartbeat eviction + peer discovery + seed bootstrap |
+| Node.java | ✅ Complete | ~595 | Server + message loop + peer tracking + heartbeat eviction + peer discovery + seed bootstrap + block broadcast + chain sync (Sprint 10) |
 | Peer.java | ✅ Complete | ~294 | Client + async listener thread |
 | MessageParser.java | ✅ Complete | ~116 | JSON-to-Message routing (Sprint 8d) |
 | MessageHandler.java | ✅ Complete | ~36 | Handler functional interface (Sprint 8d) |
@@ -108,7 +113,7 @@ Last test run: `mvn test` - All passing
 | PeerState.java | ✅ Complete | ~43 | Peer connection lifecycle enum (Sprint 9a) |
 | PeerInfo.java | ✅ Complete | ~110 | Peer metadata tracking (Sprint 9a) |
 | PeerManager.java | ✅ Complete | ~145 | Peer registry, MAX_PEERS enforcement (Sprint 9b) |
-| messages/*.java | ✅ Complete | ~180 | 7 concrete message types (+ GetPeers/Peers, Sprint 9d) |
+| messages/*.java | ✅ Complete | ~230 | 9 concrete message types (+ GetBlocks/Blocks, Sprint 10d) |
 
 ### Demo
 
@@ -158,6 +163,13 @@ Last test run: `mvn test` - All passing
 - [x] GetPeersMessage / PeersMessage for peer discovery gossip (Sprint 9d)
 - [x] GET_PEERS / PEERS handlers in Node (Sprint 9d)
 - [x] Seed-node config + bootstrap on startup (Sprint 9d)
+- [x] Blockchain reference wired into Node + real HELLO chain length (Sprint 10a)
+- [x] External block append with validation, no re-mining (Sprint 10a)
+- [x] Node.broadcastBlock + NEW_BLOCK validate/append/re-gossip (Sprint 10b)
+- [x] Sender exclusion on relay to prevent gossip storms (Sprint 10b)
+- [x] Bounded orphan buffer with attach-on-parent-arrival (Sprint 10c)
+- [x] GetBlocksMessage / BlocksMessage for chain sync (Sprint 10d)
+- [x] GET_BLOCKS / BLOCKS handlers + behind-peer sync trigger (Sprint 10d)
 
 ---
 
@@ -166,7 +178,7 @@ Last test run: `mvn test` - All passing
 | Item | Value |
 |------|-------|
 | **Current Branch** | `master` |
-| **Last Commit** | Sprint 9 complete (peer discovery merged, PR #72) |
+| **Last Commit** | Sprint 10 complete (chain sync merged, PR #91) |
 | **Tag** | `v1.0.0` (Phase 1) |
 | **Main Branch** | `master` |
 
@@ -180,17 +192,20 @@ _None currently._
 
 ## 📝 Notes for Next Session
 
-1. **Sprint 9 COMPLETE** - Node Discovery
-   - All milestones 9a, 9b, 9c, 9d merged to master
-   - Peer discovery (GET_PEERS/PEERS gossip), seed bootstrap, heartbeat eviction live
+1. **Sprint 10 COMPLETE** - Block Broadcasting
+   - All milestones 10a, 10b, 10c, 10d merged to master
+   - Block gossip (NEW_BLOCK), orphan buffering, and chain sync (GET_BLOCKS/BLOCKS) live
+   - Node now carries a real Blockchain; HELLO reports the true chain length
 
-2. **Next: Sprint 10** - Block & Transaction Broadcasting
-   - Gossip new blocks and transactions across the peer network
+2. **Next: Sprint 11** - Mempool Sync
+   - Gossip pending transactions across the peer network
 
 3. **Deferred / future work**
+   - Deterministic genesis block (current genesis uses a wall-clock timestamp,
+     so independent nodes cannot sync in a real multi-node demo)
    - Gossip auto-connect to DISCOVERED peers (needs MAX_PEERS guarding)
    - Self-identification filtering in peer lists
 
 ---
 
-*Last updated: 2026-06-30 | Sprint 9 Complete (Milestone 9d)*
+*Last updated: 2026-06-30 | Sprint 10 Complete (Milestone 10d)*
