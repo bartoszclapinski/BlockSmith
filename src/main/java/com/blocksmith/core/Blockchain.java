@@ -83,8 +83,51 @@ public class Blockchain {
         newBlock.mineBlock(BlockchainConfig.MINING_DIFFICULTY);
 
         chain.add(newBlock);
-        
+
         return newBlock;
+    }
+
+    /**
+     * Appends a block mined elsewhere (e.g. received from a peer) after
+     * validating it against the current chain tip.
+     *
+     * THEORY: ACCEPTING EXTERNAL BLOCKS
+     *
+     * Unlike addBlock(String), which mines a block locally, this method
+     * takes an already-mined block and accepts it only if it extends our
+     * chain cleanly. The block arrives from the untrusted network, so we
+     * re-verify everything rather than trust the sender:
+     *   1. Index is exactly tip + 1 (no gaps, no duplicates)
+     *   2. previousHash links to our current tip
+     *   3. The stored hash matches a fresh recomputation (integrity)
+     *   4. The hash satisfies the Proof-of-Work target (it was really mined)
+     *
+     * Returns false instead of throwing: a bad block is a normal network
+     * event, not a programming error.
+     *
+     * @param block A block mined elsewhere
+     * @return true if the block was valid and appended, false otherwise
+     */
+    public boolean addBlock(Block block) {
+        if (block == null) return false;
+
+        Block tip = getLatestBlock();
+
+        // 1. Must be the next index in the chain
+        if (block.getIndex() != tip.getIndex() + 1) return false;
+
+        // 2. Must link to our current tip
+        if (!block.getPreviousHash().equals(tip.getHash())) return false;
+
+        // 3. Stored hash must match a fresh recomputation
+        if (!block.getHash().equals(block.calculateHash())) return false;
+
+        // 4. Hash must meet the Proof-of-Work target
+        String target = "0".repeat(BlockchainConfig.MINING_DIFFICULTY);
+        if (!block.getHash().startsWith(target)) return false;
+
+        chain.add(block);
+        return true;
     }
 
     /**
