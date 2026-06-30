@@ -160,9 +160,20 @@ public class Node {
     private void heartbeatTask() {
         PingMessage ping = new PingMessage(nodeId);
         String pingJson = ping.toJson();
+        long now = System.currentTimeMillis();
 
         for (PeerInfo peer : peerManager.getConnectedPeers()) {
-            PrintWriter writer = peerWriters.get(peer.getAddress());
+            String address = peer.getAddress();
+
+            if (now - peer.getLastSeen() > NetworkConfig.PEER_TIMEOUT_MS) {
+                peerManager.removePeer(address);
+                PrintWriter deadWriter = peerWriters.remove(address);
+                if (deadWriter != null) deadWriter.close();
+                System.out.println("  ✗ Evicted dead peer " + address);
+                continue;
+            }
+
+            PrintWriter writer = peerWriters.get(address);
             if (writer != null) writer.println(pingJson);
         }
     }
