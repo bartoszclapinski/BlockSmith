@@ -20,11 +20,13 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ScheduledExecutorService;
 
+import com.blocksmith.core.Block;
 import com.blocksmith.core.Blockchain;
 import com.blocksmith.network.messages.PongMessage;
 import com.blocksmith.network.messages.HelloMessage;
 import com.blocksmith.network.messages.PingMessage;
 import com.blocksmith.network.messages.PeersMessage;
+import com.blocksmith.network.messages.NewBlockMessage;
 
 /**
  * THEORY: Network Node - The Heart of P2P
@@ -311,6 +313,51 @@ public class Node {
             System.out.println("  ← Received PEERS (" + received.size() + "), added "
                     + added + " new");
         });
+
+        // NEW_BLOCK -> validate, append, and re-gossip if newly accepted
+        registerHandler(MessageType.NEW_BLOCK, (message, context) -> {
+            Block block = ((NewBlockMessage) message).getBlock();
+            if (block == null) return;
+
+            // addBlock() returns false for duplicates and invalid blocks, so a
+            // block is only relayed once - this naturally stops gossip storms.
+            if (blockchain.addBlock(block)) {
+                System.out.println("  ← Accepted NEW_BLOCK #" + block.getIndex()
+                        + " from " + context.getRemoteNodeId());
+                broadcastBlock(block, context.getRemoteNodeId());
+            }
+        });
+    }
+
+    /**
+     * Broadcasts a block to every connected peer.
+     *
+     * @param block the block to announce
+     */
+    public void broadcastBlock(Block block) {
+        broadcastBlock(block, null);
+    }
+
+    /**
+     * THEORY: Block Propagation
+     *
+     * When a node mines or accepts a block it announces it to all connected
+     * peers via NEW_BLOCK. Each receiver validates, appends, and relays it
+     * onward, so the block floods the network. When relaying, we exclude the
+     * peer we received it from to avoid bouncing it straight back.
+     *
+     * @param block the block to announce
+     * @param excludeNodeId nodeId of a peer to skip (the sender on relay), or null
+     */
+    public void broadcastBlock(Block block, String excludeNodeId) {
+        if (block == null) return;
+
+        String json = new NewBlockMessage(nodeId, block).toJson();
+        for (PeerInfo peer : peerManager.getConnectedPeers()) {
+            if (excludeNodeId != null && excludeNodeId.equals(peer.getNodeId())) continue;
+            PrintWriter writer = peerWriters.get(peer.getAddress());
+            if (writer != null) writer.println(json);
+        }
     }
 
     /**
