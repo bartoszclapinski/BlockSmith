@@ -27,8 +27,10 @@ import com.blocksmith.network.messages.HelloMessage;
 import com.blocksmith.network.messages.PingMessage;
 import com.blocksmith.network.messages.PeersMessage;
 import com.blocksmith.network.messages.NewBlockMessage;
+import com.blocksmith.network.messages.NewTransactionMessage;
 import com.blocksmith.network.messages.GetBlocksMessage;
 import com.blocksmith.network.messages.BlocksMessage;
+import com.blocksmith.core.Transaction;
 
 /**
  * THEORY: Network Node - The Heart of P2P
@@ -362,6 +364,20 @@ public class Node {
                         + context.getRemoteNodeId());
             }
         });
+
+        // NEW_TRANSACTION -> validate, add to mempool, and re-gossip if new
+        registerHandler(MessageType.NEW_TRANSACTION, (message, context) -> {
+            Transaction tx = ((NewTransactionMessage) message).getTransaction();
+            if (tx == null) return;
+
+            // addTransaction() returns false for duplicates and invalid txs, so
+            // a transaction is only relayed once - this stops gossip storms.
+            if (blockchain.addTransaction(tx)) {
+                System.out.println("  ← Accepted NEW_TRANSACTION from "
+                        + context.getRemoteNodeId());
+                broadcastTransaction(tx, context.getRemoteNodeId());
+            }
+        });
     }
 
     /**
@@ -388,6 +404,35 @@ public class Node {
         if (block == null) return;
 
         String json = new NewBlockMessage(nodeId, block).toJson();
+        for (PeerInfo peer : peerManager.getConnectedPeers()) {
+            if (excludeNodeId != null && excludeNodeId.equals(peer.getNodeId())) continue;
+            PrintWriter writer = peerWriters.get(peer.getAddress());
+            if (writer != null) writer.println(json);
+        }
+    }
+
+    /**
+     * Broadcasts a transaction to every connected peer.
+     *
+     * @param tx the transaction to announce
+     */
+    public void broadcastTransaction(Transaction tx) {
+        broadcastTransaction(tx, null);
+    }
+
+    /**
+     * Announces a transaction to all connected peers via NEW_TRANSACTION.
+     * Each receiver validates, adds it to its mempool, and relays it onward,
+     * so the transaction floods the network. When relaying, we exclude the
+     * peer we received it from to avoid bouncing it straight back.
+     *
+     * @param tx the transaction to announce
+     * @param excludeNodeId nodeId of a peer to skip (the sender on relay), or null
+     */
+    public void broadcastTransaction(Transaction tx, String excludeNodeId) {
+        if (tx == null) return;
+
+        String json = new NewTransactionMessage(nodeId, tx).toJson();
         for (PeerInfo peer : peerManager.getConnectedPeers()) {
             if (excludeNodeId != null && excludeNodeId.equals(peer.getNodeId())) continue;
             PrintWriter writer = peerWriters.get(peer.getAddress());
