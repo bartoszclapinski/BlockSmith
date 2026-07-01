@@ -6,7 +6,7 @@ BlockSmith is a comprehensive blockchain project that goes beyond tutorials - im
 
 [![Java](https://img.shields.io/badge/Java-20+-orange.svg)](https://openjdk.org/)
 [![Maven](https://img.shields.io/badge/Maven-3.9+-blue.svg)](https://maven.apache.org/)
-[![Tests](https://img.shields.io/badge/Tests-137%20passing-brightgreen.svg)](#)
+[![Tests](https://img.shields.io/badge/Tests-155%20passing-brightgreen.svg)](#)
 [![Phase](https://img.shields.io/badge/Phase%202-In%20Progress-yellow.svg)](#)
 [![Version](https://img.shields.io/badge/Version-1.0.0-blue.svg)](#)
 
@@ -29,7 +29,7 @@ BlockSmith is a comprehensive blockchain project that goes beyond tutorials - im
 - ✅ Balance validation before transfers
 - ✅ Double-spend prevention (pending tracking)
 
-### Phase 2: Network Layer 🔄 In Progress (50%)
+### Phase 2: Network Layer 🔄 In Progress (75%)
 - ✅ Message protocol with JSON serialization (Sprint 8a)
 - ✅ Server-side TCP socket node (Sprint 8b)
 - ✅ Client-side peer connections with handshake (Sprint 8c)
@@ -39,7 +39,11 @@ BlockSmith is a comprehensive blockchain project that goes beyond tutorials - im
   - ✅ PeerManager registry with MAX_PEERS enforcement (Sprint 9b)
   - ✅ Heartbeat PING/PONG with dead-peer eviction (Sprint 9c)
   - ✅ Peer discovery (GET_PEERS/PEERS) + seed-node bootstrap (Sprint 9d)
-- 🔜 Block and transaction broadcasting (Sprint 10)
+- ✅ Block broadcasting (Sprint 10)
+  - ✅ Blockchain wired into Node + external block append (Sprint 10a)
+  - ✅ NEW_BLOCK broadcast, validate, and re-gossip (Sprint 10b)
+  - ✅ Orphan block buffering and attachment (Sprint 10c)
+  - ✅ Chain sync (GET_BLOCKS/BLOCKS) for behind nodes (Sprint 10d)
 - 🔜 Mempool synchronization (Sprint 11)
 
 ### Phase 3: API & Interface 🔜 Planned
@@ -189,7 +193,7 @@ Average attempts: ~16^difficulty (~65,536 for difficulty 4)
 mvn clean compile
 ```
 
-### Run all tests (137 tests)
+### Run all tests (155 tests)
 ```bash
 mvn test
 ```
@@ -245,7 +249,7 @@ BlockSmith/
 │   │   ├── PeerManager.java   # Peer registry with MAX_PEERS enforcement
 │   │   └── messages/           # Concrete message classes (incl. GetPeers/Peers)
 │   └── BlockSmithDemo.java     # Main demo application
-├── src/test/java/              # 137 unit tests
+├── src/test/java/              # 155 unit tests
 ├── data/                       # Blockchain persistence (JSON)
 ├── pom.xml                     # Maven configuration
 └── README.md
@@ -271,7 +275,12 @@ BlockSmith/
 | PeerManagerTest | 8 | Peer registry, MAX_PEERS enforcement |
 | HeartbeatTest | 4 | Heartbeat ping, dead-peer eviction |
 | PeerDiscoveryTest | 5 | Peer discovery messages and handlers |
-| **Total** | **137** | All passing ✅ |
+| ChainIntegrationTest | 2 | Node-backed blockchain, HELLO chain length |
+| ExternalBlockTest | 4 | External block append + validation |
+| BlockBroadcastTest | 4 | NEW_BLOCK serialization and handler |
+| OrphanBlockTest | 3 | Orphan buffering and attachment |
+| ChainSyncTest | 5 | GET_BLOCKS/BLOCKS sync handlers |
+| **Total** | **155** | All passing ✅ |
 
 ---
 
@@ -312,12 +321,12 @@ BlockSmith/
 | Sprint 5 | Wallets & Digital Signatures | ✅ Complete |
 | Sprint 6 | Economic System | ✅ Complete |
 
-### Phase 2: Network Layer (50% Complete)
+### Phase 2: Network Layer (75% Complete)
 | Sprint | Title | Status |
 |--------|-------|--------|
 | Sprint 8 | P2P Networking | ✅ Complete (8a, 8b, 8c, 8d) |
 | Sprint 9 | Node Discovery | ✅ Complete (9a, 9b, 9c, 9d) |
-| Sprint 10 | Block Broadcasting | ⬜ Planned |
+| Sprint 10 | Block Broadcasting | ✅ Complete (10a, 10b, 10c, 10d) |
 | Sprint 11 | Mempool Sync | ⬜ Planned |
 
 ### Phase 3: API & Interface
@@ -352,4 +361,4 @@ This project is for educational purposes.
 
 ---
 
-*Last updated: 2026-06-30 | Phase 2 Sprint 9 Complete (Node Discovery)*
+*Last updated: 2026-06-30 | Phase 2 Sprint 10 Complete (Block Broadcasting)*
