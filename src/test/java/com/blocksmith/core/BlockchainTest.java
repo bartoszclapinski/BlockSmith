@@ -50,10 +50,24 @@ public class BlockchainTest {
     @Test
     @DisplayName("Genesis block hash meets mining difficulty")
     void genesisBlockIsMinedCorrectly() {
-        Block genesis = blockchain.getBlock(0);        
+        Block genesis = blockchain.getBlock(0);
         String target = "0".repeat(BlockchainConfig.MINING_DIFFICULTY);
         assertTrue(genesis.getHash().startsWith(target),
                 "Genesis block hash should start with " + target);
+    }
+
+    @Test
+    @DisplayName("Independent chains share an identical genesis block")
+    void genesisIsDeterministicAcrossInstances() {
+        Block genesisA = new Blockchain().getBlock(0);
+        Block genesisB = new Blockchain().getBlock(0);
+
+        assertEquals(BlockchainConfig.GENESIS_TIMESTAMP, genesisA.getTimestamp(),
+                "Genesis uses the fixed timestamp, not wall-clock time");
+        assertEquals(genesisA.getHash(), genesisB.getHash(),
+                "Two independent nodes must share the same genesis hash");
+        assertEquals(genesisA.getNonce(), genesisB.getNonce(),
+                "Deterministic mining yields the same genesis nonce");
     }
 
     // ==================== ADD BLOCK TESTS ====================

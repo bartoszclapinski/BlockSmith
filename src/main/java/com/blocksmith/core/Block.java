@@ -64,8 +64,22 @@ public class Block {
      * @param previousHash Hash of the previous block
      */
     public Block(int index, String data, String previousHash) {
+        this(index, data, previousHash, System.currentTimeMillis());
+    }
+
+    /**
+     * Creates a data block with an explicit timestamp.
+     * Used for the Genesis block, whose timestamp must be fixed so its hash is
+     * identical on every node.
+     *
+     * @param index Block number in the chain
+     * @param data Block content (simple string)
+     * @param previousHash Hash of the previous block
+     * @param timestamp Creation time (Unix millis)
+     */
+    public Block(int index, String data, String previousHash, long timestamp) {
         this.index = index;
-        this.timestamp = System.currentTimeMillis();
+        this.timestamp = timestamp;
         this.data = data;
         this.transactions = new ArrayList<>();  // Empty list
         this.previousHash = previousHash;
@@ -211,7 +225,8 @@ public class Block {
         return new Block(
             0,
             "Genesis Block - BlockSmith Blockchain initialized",
-            BlockchainConfig.GENESIS_PREV_HASH
+            BlockchainConfig.GENESIS_PREV_HASH,
+            BlockchainConfig.GENESIS_TIMESTAMP
         );
     }
 

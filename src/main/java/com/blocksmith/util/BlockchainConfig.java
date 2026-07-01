@@ -44,6 +44,15 @@ public final class BlockchainConfig {
     public static final String GENESIS_PREV_HASH = "0";
 
     /**
+     * Fixed creation timestamp for the Genesis block (2024-01-01T00:00:00Z).
+     * The genesis hash must be identical on every node, so it cannot depend on
+     * wall-clock time. With this fixed timestamp, mining (a deterministic nonce
+     * search) yields a byte-identical genesis block network-wide, which lets
+     * independent nodes share a common chain root for broadcast and sync.
+    */
+    public static final long GENESIS_TIMESTAMP = 1704067200000L;
+
+    /**
      * Address used as sender for mining reward transactions.
      * Coinbase transactions create new coins "from nothing".
     */
