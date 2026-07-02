@@ -19,6 +19,7 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <junit.version>5.10.1</junit.version>
         <gson.version>2.10.1</gson.version>
+        <javalin.version>6.3.0</javalin.version>
     </properties>
 
     <dependencies>
@@ -27,6 +28,13 @@
             <groupId>com.google.code.gson</groupId>
             <artifactId>gson</artifactId>
             <version>${gson.version}</version>
+        </dependency>
+
+        <!-- REST API (embedded Jetty) -->
+        <dependency>
+            <groupId>io.javalin</groupId>
+            <artifactId>javalin</artifactId>
+            <version>${javalin.version}</version>
         </dependency>
 
         <!-- Testing -->
