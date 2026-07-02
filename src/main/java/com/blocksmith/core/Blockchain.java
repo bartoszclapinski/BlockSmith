@@ -4,9 +4,11 @@ import com.blocksmith.util.BlockchainConfig;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Manages the blockchain - a linked list of blocks.
@@ -149,6 +151,7 @@ public class Blockchain {
         if (block.getIndex() == tip.getIndex() + 1
                 && block.getPreviousHash().equals(tip.getHash())) {
             chain.add(block);
+            removeConfirmed(block);
             attachOrphans();
             return true;
         }
@@ -187,10 +190,30 @@ public class Blockchain {
             orphans.remove(tip.getHash());
             if (child.getIndex() == tip.getIndex() + 1 && isWellFormed(child)) {
                 chain.add(child);
+                removeConfirmed(child);
             } else {
                 break; // stale/ill-fitting orphan: drop and stop
             }
         }
+    }
+
+    /**
+     * Removes a newly-appended block's transactions from the pending pool.
+     *
+     * A transaction gossiped to us earlier may still be sitting in our mempool
+     * when the block that confirms it arrives from a peer. Without this it
+     * would linger and be re-gossiped, or even mined again into a later block.
+     * The local mine path clears the whole pool itself, so this covers the
+     * externally-appended (network) case.
+     */
+    private void removeConfirmed(Block block) {
+        if (block.getTransactions().isEmpty()) return;
+
+        Set<String> confirmedIds = new HashSet<>();
+        for (Transaction tx : block.getTransactions()) {
+            confirmedIds.add(tx.getTransactionId());
+        }
+        pendingTransactions.removeIf(tx -> confirmedIds.contains(tx.getTransactionId()));
     }
 
     /**
