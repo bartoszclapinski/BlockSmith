@@ -1,13 +1,17 @@
 package com.blocksmith.api;
 
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 import com.blocksmith.core.Block;
 import com.blocksmith.core.Blockchain;
 import com.blocksmith.core.Transaction;
+import com.blocksmith.core.Wallet;
 import com.blocksmith.network.NetworkConfig;
 import com.blocksmith.network.Node;
+import com.blocksmith.network.PeerInfo;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
@@ -82,6 +86,25 @@ public class ApiServer {
         app.post("/api/transactions", this::postTransaction);
         app.get("/api/transactions/{id}", this::getTransactionById);
         app.post("/api/mine", this::postMine);
+
+        // Wallet + network endpoints (Milestone 12c).
+        app.get("/api/wallet/{address}", this::getWallet);
+        app.post("/api/wallet/create", this::postWalletCreate);
+        app.get("/api/network/peers", this::getPeers);
+
+        // JSON error handling (Milestone 12c).
+        app.exception(Exception.class, (e, ctx) -> {
+            ctx.status(500);
+            json(ctx, error("Internal server error"));
+        });
+        app.error(404, ctx -> {
+            // Leave explicit JSON 404s (from our handlers) untouched; only
+            // replace the framework default for unmatched routes.
+            String contentType = ctx.res().getContentType();
+            if (contentType == null || !contentType.contains("application/json")) {
+                json(ctx, error("Not found: " + ctx.path()));
+            }
+        });
     }
 
     // ===== 12b: TRANSACTION + MINING =====
@@ -166,6 +189,53 @@ public class ApiServer {
             }
         }
         return null;
+    }
+
+    // ===== 12c: WALLET + NETWORK =====
+
+    /** Reports an address's confirmed balance and its pending outgoing total. */
+    private void getWallet(Context ctx) {
+        String address = ctx.pathParam("address");
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("address", address);
+        m.put("balance", blockchain.getBalance(address));
+        m.put("pendingOutgoing", pendingOutgoing(address));
+        json(ctx, m);
+    }
+
+    /**
+     * Creates a fresh wallet and returns its address ONLY. A real node must
+     * never expose the private key over the API - the key stays with the owner;
+     * here we simply never serialize it.
+     */
+    private void postWalletCreate(Context ctx) {
+        Wallet wallet = new Wallet();
+        Map<String, String> m = new LinkedHashMap<>();
+        m.put("address", wallet.getAddress());
+        ctx.status(201);
+        json(ctx, m);
+    }
+
+    /** Lists the currently connected peers. */
+    private void getPeers(Context ctx) {
+        List<Map<String, Object>> peers = new ArrayList<>();
+        for (PeerInfo peer : node.getPeerManager().getConnectedPeers()) {
+            Map<String, Object> m = new LinkedHashMap<>();
+            m.put("address", peer.getAddress());
+            m.put("nodeId", peer.getNodeId());
+            m.put("state", peer.getState().toString());
+            peers.add(m);
+        }
+        json(ctx, peers);
+    }
+
+    /** Sum of pending transactions sent by {@code address}. */
+    private double pendingOutgoing(String address) {
+        double sum = 0;
+        for (Transaction tx : blockchain.getPendingTransactions()) {
+            if (address.equals(tx.getSender())) sum += tx.getAmount();
+        }
+        return sum;
     }
 
     private void getBlockByIndex(Context ctx) {
