@@ -8,10 +8,10 @@
 
 | Field | Value |
 |-------|-------|
-| **Phase** | 2 - Network Layer |
-| **Current Sprint** | 10 (Block Broadcasting) - Complete |
-| **Current Milestone** | 10d Complete (Chain Sync) |
-| **Status** | Sprint 10 complete (10a-10d), next: Sprint 11 (Mempool Sync) |
+| **Phase** | 2 - Network Layer - Complete |
+| **Current Sprint** | 11 (Mempool Sync) - Complete |
+| **Current Milestone** | 11c Complete (Mempool sync on connect) |
+| **Status** | Phase 2 complete (Sprints 8-11), next: Phase 3 (API & Interface) |
 
 ---
 
@@ -40,11 +40,13 @@ Phase 1: Core Blockchain     [███████████████] 100
 ├── Sprint 5: Wallets        ✅
 └── Sprint 6: Economics      ✅
 
-Phase 2: Network Layer       [███████████░░░░] 75% ← CURRENT
+Phase 2: Network Layer       [███████████████] 100% ✅ COMPLETE
 ├── Sprint 8: P2P Networking ✅ COMPLETE (8a ✅, 8b ✅, 8c ✅, 8d ✅)
 ├── Sprint 9: Node Discovery ✅ COMPLETE (9a ✅, 9b ✅, 9c ✅, 9d ✅)
 ├── Sprint 10: Broadcasting  ✅ COMPLETE (10a ✅, 10b ✅, 10c ✅, 10d ✅)
-└── Sprint 11: Mempool Sync  ⬜ ← NEXT
+└── Sprint 11: Mempool Sync  ✅ COMPLETE (11a ✅, 11b ✅, 11c ✅)
+
+Phase 3: API & Interface     [░░░░░░░░░░░░░░░] 0% ← NEXT
 ```
 
 ---
@@ -55,7 +57,7 @@ Phase 2: Network Layer       [███████████░░░░] 75%
 |------------|-------|--------|
 | HashUtilTest | 6 | ✅ |
 | BlockTest | 12 | ✅ |
-| BlockchainTest | 25 | ✅ |
+| BlockchainTest | 26 | ✅ |
 | MiningTest | 9 | ✅ |
 | TransactionTest | 22 | ✅ |
 | WalletTest | 13 | ✅ |
@@ -72,7 +74,10 @@ Phase 2: Network Layer       [███████████░░░░] 75%
 | BlockBroadcastTest | 4 | ✅ |
 | OrphanBlockTest | 3 | ✅ |
 | ChainSyncTest | 5 | ✅ |
-| **Total** | **155** | ✅ |
+| TransactionBroadcastTest | 4 | ✅ |
+| MempoolPruneTest | 2 | ✅ |
+| MempoolSyncTest | 4 | ✅ |
+| **Total** | **166** | ✅ |
 
 Last test run: `mvn test` - All passing
 
@@ -85,7 +90,7 @@ Last test run: `mvn test` - All passing
 | Class | Status | Lines | Notes |
 |-------|--------|-------|-------|
 | Block.java | ✅ Complete | ~268 | Transactions + Merkle root |
-| Blockchain.java | ✅ Complete | ~470 | Pending pool + mining + external append + orphan buffer (Sprint 10) |
+| Blockchain.java | ✅ Complete | ~495 | Pending pool + mining + external append + orphan buffer (Sprint 10) + tx dedupe + mempool prune (Sprint 11) |
 | Transaction.java | ✅ Complete | ~200 | Validation + signing + verification |
 | Wallet.java | ✅ Complete | ~169 | ECDSA keys + signing |
 
@@ -104,7 +109,7 @@ Last test run: `mvn test` - All passing
 | MessageType.java | ✅ Complete | ~45 | Message types enum |
 | Message.java | ✅ Complete | ~82 | Base message class |
 | NetworkConfig.java | ✅ Complete | ~103 | Network constants + heartbeat + seed nodes |
-| Node.java | ✅ Complete | ~595 | Server + message loop + peer tracking + heartbeat eviction + peer discovery + seed bootstrap + block broadcast + chain sync (Sprint 10) |
+| Node.java | ✅ Complete | ~650 | Server + message loop + peer tracking + heartbeat eviction + peer discovery + seed bootstrap + block broadcast + chain sync (Sprint 10) + tx broadcast + mempool sync (Sprint 11) |
 | Peer.java | ✅ Complete | ~294 | Client + async listener thread |
 | MessageParser.java | ✅ Complete | ~116 | JSON-to-Message routing (Sprint 8d) |
 | MessageHandler.java | ✅ Complete | ~36 | Handler functional interface (Sprint 8d) |
@@ -113,7 +118,7 @@ Last test run: `mvn test` - All passing
 | PeerState.java | ✅ Complete | ~43 | Peer connection lifecycle enum (Sprint 9a) |
 | PeerInfo.java | ✅ Complete | ~110 | Peer metadata tracking (Sprint 9a) |
 | PeerManager.java | ✅ Complete | ~145 | Peer registry, MAX_PEERS enforcement (Sprint 9b) |
-| messages/*.java | ✅ Complete | ~230 | 9 concrete message types (+ GetBlocks/Blocks, Sprint 10d) |
+| messages/*.java | ✅ Complete | ~280 | 11 concrete message types (+ GetMempool/Mempool, Sprint 11c) |
 
 ### Demo
 
@@ -170,6 +175,12 @@ Last test run: `mvn test` - All passing
 - [x] Bounded orphan buffer with attach-on-parent-arrival (Sprint 10c)
 - [x] GetBlocksMessage / BlocksMessage for chain sync (Sprint 10d)
 - [x] GET_BLOCKS / BLOCKS handlers + behind-peer sync trigger (Sprint 10d)
+- [x] Deterministic genesis block (fixed timestamp, shared chain root)
+- [x] Node.broadcastTransaction + NEW_TRANSACTION validate/add/re-gossip (Sprint 11a)
+- [x] Transaction dedupe in the mempool to stop gossip storms (Sprint 11a)
+- [x] Prune confirmed transactions from the mempool on append (Sprint 11b)
+- [x] GetMempoolMessage / MempoolMessage for mempool sync (Sprint 11c)
+- [x] GET_MEMPOOL / MEMPOOL handlers + mempool request on connect (Sprint 11c)
 
 ---
 
@@ -178,7 +189,7 @@ Last test run: `mvn test` - All passing
 | Item | Value |
 |------|-------|
 | **Current Branch** | `master` |
-| **Last Commit** | Sprint 10 complete (chain sync merged, PR #91) |
+| **Last Commit** | Sprint 11 complete (mempool sync merged, PR #106) |
 | **Tag** | `v1.0.0` (Phase 1) |
 | **Main Branch** | `master` |
 
@@ -192,20 +203,25 @@ _None currently._
 
 ## 📝 Notes for Next Session
 
-1. **Sprint 10 COMPLETE** - Block Broadcasting
-   - All milestones 10a, 10b, 10c, 10d merged to master
-   - Block gossip (NEW_BLOCK), orphan buffering, and chain sync (GET_BLOCKS/BLOCKS) live
-   - Node now carries a real Blockchain; HELLO reports the true chain length
+1. **Sprint 11 COMPLETE** - Mempool Sync
+   - All milestones 11a, 11b, 11c merged to master
+   - Transaction gossip (NEW_TRANSACTION), confirmed-tx pruning, and mempool
+     sync on connect (GET_MEMPOOL/MEMPOOL) live
+   - Genesis block is now deterministic, so nodes share a common chain root
 
-2. **Next: Sprint 11** - Mempool Sync
-   - Gossip pending transactions across the peer network
+2. **Phase 2 COMPLETE** - Network Layer (Sprints 8-11)
+   - P2P networking, node discovery, block broadcasting, mempool sync all done
 
-3. **Deferred / future work**
-   - Deterministic genesis block (current genesis uses a wall-clock timestamp,
-     so independent nodes cannot sync in a real multi-node demo)
+3. **Next: Phase 3** - API & Interface
+   - REST API, dashboard/block explorer, and related tooling (Sprints 12+)
+   - Plan Sprint 12 to kick off the phase
+
+4. **Deferred / future work**
    - Gossip auto-connect to DISCOVERED peers (needs MAX_PEERS guarding)
    - Self-identification filtering in peer lists
+   - Mempool request is sent on outbound connect only; inbound side does not
+     yet pull the peer's mempool
 
 ---
 
-*Last updated: 2026-06-30 | Sprint 10 Complete (Milestone 10d)*
+*Last updated: 2026-07-02 | Sprint 11 Complete (Milestone 11c) - Phase 2 Complete*
