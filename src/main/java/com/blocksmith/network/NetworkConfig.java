@@ -25,7 +25,14 @@ public class NetworkConfig {
      * Bitcoin uses 8333, we use 8335 to avoid conflicts.
      */
     public static final int DEFAULT_PORT = 8335;
-    
+
+    /**
+     * Default port for the REST API (HTTP).
+     * Kept separate from the P2P port so a node can serve peers and users at
+     * the same time.
+     */
+    public static final int API_PORT = 7070;
+
     /**
      * Maximum number of peer connections.
      * Keeps resource usage manageable for educational purposes.
