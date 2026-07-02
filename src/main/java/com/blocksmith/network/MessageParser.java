@@ -5,8 +5,10 @@ import java.util.Map;
 
 import com.blocksmith.network.messages.BlocksMessage;
 import com.blocksmith.network.messages.GetBlocksMessage;
+import com.blocksmith.network.messages.GetMempoolMessage;
 import com.blocksmith.network.messages.GetPeersMessage;
 import com.blocksmith.network.messages.HelloMessage;
+import com.blocksmith.network.messages.MempoolMessage;
 import com.blocksmith.network.messages.NewBlockMessage;
 import com.blocksmith.network.messages.NewTransactionMessage;
 import com.blocksmith.network.messages.PeersMessage;
@@ -59,6 +61,8 @@ public class MessageParser {
         TYPE_REGISTRY.put(MessageType.PEERS, PeersMessage.class);
         TYPE_REGISTRY.put(MessageType.GET_BLOCKS, GetBlocksMessage.class);
         TYPE_REGISTRY.put(MessageType.BLOCKS, BlocksMessage.class);
+        TYPE_REGISTRY.put(MessageType.GET_MEMPOOL, GetMempoolMessage.class);
+        TYPE_REGISTRY.put(MessageType.MEMPOOL, MempoolMessage.class);
     }
 
     /**

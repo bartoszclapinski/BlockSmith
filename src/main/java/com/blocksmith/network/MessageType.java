@@ -46,7 +46,14 @@ public enum MessageType {
 
     /** Request the length of the chain */
     GET_CHAIN_LENGTH,
-    
+
+    // === Mempool synchronization ===
+    /** Request the peer's pending transactions (mempool) */
+    GET_MEMPOOL,
+
+    /** Response with the pending transactions */
+    MEMPOOL,
+
     // === Broadcasting ===
     /** Broadcast a newly mined or received block */
     NEW_BLOCK,

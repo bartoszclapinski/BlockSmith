@@ -30,6 +30,8 @@ import com.blocksmith.network.messages.NewBlockMessage;
 import com.blocksmith.network.messages.NewTransactionMessage;
 import com.blocksmith.network.messages.GetBlocksMessage;
 import com.blocksmith.network.messages.BlocksMessage;
+import com.blocksmith.network.messages.GetMempoolMessage;
+import com.blocksmith.network.messages.MempoolMessage;
 import com.blocksmith.core.Transaction;
 
 /**
@@ -378,6 +380,27 @@ public class Node {
                 broadcastTransaction(tx, context.getRemoteNodeId());
             }
         });
+
+        // GET_MEMPOOL -> serve our current pending transactions
+        registerHandler(MessageType.GET_MEMPOOL, (message, context) -> {
+            List<Transaction> pending = new ArrayList<>(blockchain.getPendingTransactions());
+            context.sendMessage(new MempoolMessage(nodeId, pending));
+        });
+
+        // MEMPOOL -> add received pending transactions to our pool
+        registerHandler(MessageType.MEMPOOL, (message, context) -> {
+            List<Transaction> txs = ((MempoolMessage) message).getTransactions();
+            if (txs == null) return;
+
+            int added = 0;
+            for (Transaction tx : txs) {
+                if (blockchain.addTransaction(tx)) added++;
+            }
+            if (added > 0) {
+                System.out.println("  ← Synced " + added + " mempool tx(s) from "
+                        + context.getRemoteNodeId());
+            }
+        });
     }
 
     /**
@@ -635,6 +658,11 @@ public class Node {
 
         outboundPeers.add(peer);
         System.out.println("  ✓ Outbound connection established to " + address);
+
+        // Catch up on the peer's pending transactions now that we're connected.
+        new PrintWriter(peer.getOutputStream(), true)
+                .println(new GetMempoolMessage(nodeId).toJson());
+
         return peer;
     }
 
