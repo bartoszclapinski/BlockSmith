@@ -1,0 +1,58 @@
+/* BlockSmith dashboard styles (Sprint 13). */
+
+:root {
+    --bg: #0f1420;
+    --panel: #1a2130;
+    --text: #e6edf3;
+    --muted: #8b98a9;
+    --accent: #f5a623;
+    --border: #2a3446;
+}
+
+* { box-sizing: border-box; }
+
+body {
+    margin: 0;
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.5;
+}
+
+header {
+    padding: 1.5rem 2rem;
+    border-bottom: 1px solid var(--border);
+}
+
+header h1 {
+    margin: 0;
+    color: var(--accent);
+    letter-spacing: 0.5px;
+}
+
+.tagline {
+    margin: 0.25rem 0 0;
+    color: var(--muted);
+}
+
+main {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 2rem;
+    display: grid;
+    gap: 1.5rem;
+}
+
+section {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1.25rem;
+}
+
+footer {
+    padding: 1.5rem 2rem;
+    border-top: 1px solid var(--border);
+    color: var(--muted);
+    text-align: center;
+}

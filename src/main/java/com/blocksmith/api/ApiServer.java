@@ -19,6 +19,7 @@ import com.google.gson.JsonSyntaxException;
 
 import io.javalin.Javalin;
 import io.javalin.http.Context;
+import io.javalin.http.staticfiles.Location;
 
 /**
  * THEORY: REST API in front of a P2P node.
@@ -56,7 +57,12 @@ public class ApiServer {
 
     /** Starts the HTTP server and registers routes. */
     public void start() {
-        app = Javalin.create(config -> config.showJavalinBanner = false);
+        app = Javalin.create(config -> {
+            config.showJavalinBanner = false;
+            // Serve the web dashboard from the classpath (src/main/resources/public).
+            // API routes take precedence; "/" falls through to index.html.
+            config.staticFiles.add("/public", Location.CLASSPATH);
+        });
         registerRoutes();
         app.start(port);
     }
