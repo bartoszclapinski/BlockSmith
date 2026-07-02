@@ -234,6 +234,15 @@ public class Blockchain {
             return false;
         }
 
+        // Reject duplicates already waiting in the pool. This also stops a
+        // gossiped transaction from being relayed twice (returns false).
+        String txId = transaction.getTransactionId();
+        for (Transaction pending : pendingTransactions) {
+            if (pending.getTransactionId().equals(txId)) {
+                return false;
+            }
+        }
+
         // Check sender has sufficient balance
         double senderBalance = getBalance(transaction.getSender());
         double pendingOutgoing = getPendingOutgoing(transaction.getSender());
