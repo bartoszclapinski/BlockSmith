@@ -8,10 +8,10 @@
 
 | Field | Value |
 |-------|-------|
-| **Phase** | 2 - Network Layer - Complete |
-| **Current Sprint** | 11 (Mempool Sync) - Complete |
-| **Current Milestone** | 11c Complete (Mempool sync on connect) |
-| **Status** | Phase 2 complete (Sprints 8-11), next: Phase 3 (API & Interface) |
+| **Phase** | 3 - API & Interface - In Progress |
+| **Current Sprint** | 12 (REST API) - Complete |
+| **Current Milestone** | 12c Complete (Wallet + network endpoints) |
+| **Status** | Sprint 12 complete (12a-12c), next: Sprint 13 (Web Dashboard) |
 
 ---
 
@@ -46,7 +46,11 @@ Phase 2: Network Layer       [███████████████] 100
 ├── Sprint 10: Broadcasting  ✅ COMPLETE (10a ✅, 10b ✅, 10c ✅, 10d ✅)
 └── Sprint 11: Mempool Sync  ✅ COMPLETE (11a ✅, 11b ✅, 11c ✅)
 
-Phase 3: API & Interface     [░░░░░░░░░░░░░░░] 0% ← NEXT
+Phase 3: API & Interface     [████░░░░░░░░░░░] 25% ← CURRENT
+├── Sprint 12: REST API      ✅ COMPLETE (12a ✅, 12b ✅, 12c ✅)
+├── Sprint 13: Web Dashboard ⬜ ← NEXT
+├── Sprint 14: Smart Contracts ⬜
+└── Sprint 15: Multi-sig Wallets ⬜
 ```
 
 ---
@@ -77,7 +81,10 @@ Phase 3: API & Interface     [░░░░░░░░░░░░░░░] 0% 
 | TransactionBroadcastTest | 4 | ✅ |
 | MempoolPruneTest | 2 | ✅ |
 | MempoolSyncTest | 4 | ✅ |
-| **Total** | **166** | ✅ |
+| ApiReadEndpointsTest | 5 | ✅ |
+| ApiTransactionEndpointsTest | 5 | ✅ |
+| ApiWalletNetworkEndpointsTest | 4 | ✅ |
+| **Total** | **180** | ✅ |
 
 Last test run: `mvn test` - All passing
 
@@ -119,6 +126,12 @@ Last test run: `mvn test` - All passing
 | PeerInfo.java | ✅ Complete | ~110 | Peer metadata tracking (Sprint 9a) |
 | PeerManager.java | ✅ Complete | ~145 | Peer registry, MAX_PEERS enforcement (Sprint 9b) |
 | messages/*.java | ✅ Complete | ~280 | 11 concrete message types (+ GetMempool/Mempool, Sprint 11c) |
+
+### API Classes (`com.blocksmith.api`)
+
+| Class | Status | Lines | Notes |
+|-------|--------|-------|-------|
+| ApiServer.java | ✅ Complete | ~300 | Javalin REST API: blocks, transactions, mining, wallet, network, JSON errors (Sprint 12) |
 
 ### Demo
 
@@ -181,6 +194,11 @@ Last test run: `mvn test` - All passing
 - [x] Prune confirmed transactions from the mempool on append (Sprint 11b)
 - [x] GetMempoolMessage / MempoolMessage for mempool sync (Sprint 11c)
 - [x] GET_MEMPOOL / MEMPOOL handlers + mempool request on connect (Sprint 11c)
+- [x] Javalin REST API server on a dedicated port (Sprint 12a)
+- [x] Block read endpoints + network status (Sprint 12a)
+- [x] Transaction submit/lookup + mining endpoints, broadcast on write (Sprint 12b)
+- [x] Wallet balance/create + peers endpoints (Sprint 12c)
+- [x] Consistent JSON error envelope (400/404/500) (Sprint 12c)
 
 ---
 
@@ -189,7 +207,7 @@ Last test run: `mvn test` - All passing
 | Item | Value |
 |------|-------|
 | **Current Branch** | `master` |
-| **Last Commit** | Sprint 11 complete (mempool sync merged, PR #106) |
+| **Last Commit** | Sprint 12 complete (REST API merged, PR #121) |
 | **Tag** | `v1.0.0` (Phase 1) |
 | **Main Branch** | `master` |
 
@@ -203,25 +221,29 @@ _None currently._
 
 ## 📝 Notes for Next Session
 
-1. **Sprint 11 COMPLETE** - Mempool Sync
-   - All milestones 11a, 11b, 11c merged to master
-   - Transaction gossip (NEW_TRANSACTION), confirmed-tx pruning, and mempool
-     sync on connect (GET_MEMPOOL/MEMPOOL) live
-   - Genesis block is now deterministic, so nodes share a common chain root
+1. **Sprint 12 COMPLETE** - REST API
+   - All milestones 12a, 12b, 12c merged to master
+   - Javalin `ApiServer` on port 7070: blocks, transactions, mining, wallet,
+     network endpoints + JSON error handling
+   - Writes over HTTP (submit tx, mine) propagate to peers via the existing
+     broadcast paths
+   - First dependency beyond Gson/JUnit: `io.javalin:javalin` 6.3.0
 
-2. **Phase 2 COMPLETE** - Network Layer (Sprints 8-11)
-   - P2P networking, node discovery, block broadcasting, mempool sync all done
+2. **Phase 3 IN PROGRESS** - API & Interface (Sprint 12 done, 25%)
 
-3. **Next: Phase 3** - API & Interface
-   - REST API, dashboard/block explorer, and related tooling (Sprints 12+)
-   - Plan Sprint 12 to kick off the phase
+3. **Next: Sprint 13** - Web Dashboard
+   - HTML/JS frontend over the REST API (chain view, wallet UI, live updates)
+   - `ApiServer` is not yet wired into `BlockSmithDemo` / a runnable main - a
+     small entry point that starts a Node + ApiServer would help the dashboard
 
 4. **Deferred / future work**
    - Gossip auto-connect to DISCOVERED peers (needs MAX_PEERS guarding)
    - Self-identification filtering in peer lists
    - Mempool request is sent on outbound connect only; inbound side does not
      yet pull the peer's mempool
+   - API transactions are unsigned (educational); signature-carrying submission
+     would need public-key + signature fields in the request body
 
 ---
 
-*Last updated: 2026-07-02 | Sprint 11 Complete (Milestone 11c) - Phase 2 Complete*
+*Last updated: 2026-07-02 | Sprint 12 Complete (Milestone 12c) - Phase 3 In Progress*

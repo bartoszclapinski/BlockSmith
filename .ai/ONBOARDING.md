@@ -38,10 +38,10 @@
 | **Build Tool** | Maven 3.9.x |
 | **Test Framework** | JUnit 5 |
 | **Serialization** | Gson 2.10.1 |
-| **Current Phase** | Phase 2: Network Layer — Complete |
-| **Current Sprint** | Sprint 11 (Mempool Sync) — Complete |
-| **Current Milestone** | 11c Complete; next: Phase 3 (API & Interface) |
-| **Total Tests** | 166 (all passing) |
+| **Current Phase** | Phase 3: API & Interface — In Progress |
+| **Current Sprint** | Sprint 12 (REST API) — Complete |
+| **Current Milestone** | 12c Complete; next: Sprint 13 (Web Dashboard) |
+| **Total Tests** | 180 (all passing) |
 | **Main Branch** | `master` |
 
 ---
@@ -112,8 +112,11 @@ BlockSmith/
 │           ├── GetMempoolMessage.java # ✅ Complete (Sprint 11c)
 │           └── MempoolMessage.java   # ✅ Complete (Sprint 11c)
 │
-├── src/test/java/com/blocksmith/     # 166 unit tests
-├── pom.xml                           # Maven configuration
+│   └── api/                          # REST API (Sprint 12)
+│       └── ApiServer.java            # ✅ Complete (Javalin: blocks, tx, mine, wallet, network)
+│
+├── src/test/java/com/blocksmith/     # 180 unit tests
+├── pom.xml                           # Maven configuration (Gson, JUnit, Javalin)
 └── README.md                         # Public documentation
 ```
 
@@ -140,12 +143,16 @@ BlockSmith/
 
 **Sprint 11: Mempool Sync** — NEW_TRANSACTION broadcast/relay + mempool dedupe, prune confirmed transactions on append, GET_MEMPOOL/MEMPOOL sync with request-on-connect.
 
+### Phase 3: API & Interface 🔄 In Progress (Sprint 12+)
+
+**Sprint 12: REST API** — Javalin `ApiServer` on port 7070: block read endpoints + network status, transaction submit/lookup + mining (broadcast on write), wallet balance/create + peers, JSON error envelope (400/404/500).
+
 ---
 
 ## What's NOT Implemented Yet
 
-### Phase 3: API & Interface (Sprints 12-15) ← NEXT
-- REST API, web dashboard, basic smart contracts, multi-sig wallets
+### Phase 3 remaining (Sprints 13-15) ← NEXT
+- Web dashboard (Sprint 13), basic smart contracts (Sprint 14), multi-sig wallets (Sprint 15)
 
 ### Phase 4: Production Features (Sprints 16-19)
 - Database persistence, dynamic difficulty, block limits, fee market
@@ -230,7 +237,10 @@ mvn compile -q; java -cp target/classes com.blocksmith.BlockSmithDemo
 | TransactionBroadcastTest | 4 | NEW_TRANSACTION serialization and handler (Sprint 11a) |
 | MempoolPruneTest | 2 | Confirmed-tx pruning on block append (Sprint 11b) |
 | MempoolSyncTest | 4 | GET_MEMPOOL/MEMPOOL sync handlers (Sprint 11c) |
-| **Total** | **166** | All passing ✅ |
+| ApiReadEndpointsTest | 5 | REST block/status read endpoints (Sprint 12a) |
+| ApiTransactionEndpointsTest | 5 | REST transaction submit/lookup + mining (Sprint 12b) |
+| ApiWalletNetworkEndpointsTest | 4 | REST wallet/network endpoints + JSON errors (Sprint 12c) |
+| **Total** | **180** | All passing ✅ |
 
 ---
 
@@ -241,7 +251,7 @@ mvn compile -q; java -cp target/classes com.blocksmith.BlockSmithDemo
 - **Doc branches**: `docs/{description}` (e.g., `docs/sprint11-complete`)
 - **Commits**: One per issue, format: `feat(scope): description #NN` — never add `Co-Authored-By`
 - **PRs**: created with `gh`, include `Closes #NN` lines, ff-only merge to sync local master
-- **Latest**: Sprint 11 complete (PR #106); docs at PR #107
+- **Latest**: Sprint 12 complete (REST API, PR #121); Phase 3 in progress
 
 ---
 
@@ -253,9 +263,9 @@ mvn compile -q; java -cp target/classes com.blocksmith.BlockSmithDemo
 | `CONVENTIONS.md` | Need full code style rules, THEORY comment format, test conventions |
 | `STATUS.md` | Need exact current status, implementation table, feature checklist |
 | `roadmap.md` | Need full project phases and timeline |
-| `sprints/sprint11/sprint-plan.md` | Most recent sprint's milestones, issues, acceptance criteria |
-| `sprints/sprint11/sprint-log.md` | What was completed in the latest sprint |
+| `sprints/sprint12/sprint-plan.md` | Most recent sprint's milestones, issues, acceptance criteria |
+| `sprints/sprint12/sprint-log.md` | What was completed in the latest sprint |
 
 ---
 
-*Last updated: 2026-07-02 | Sprint 11 Complete (Milestone 11c) — Phase 2 Complete*
+*Last updated: 2026-07-02 | Sprint 12 Complete (Milestone 12c) — Phase 3 In Progress*

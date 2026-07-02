@@ -6,7 +6,7 @@ BlockSmith is a comprehensive blockchain project that goes beyond tutorials - im
 
 [![Java](https://img.shields.io/badge/Java-20+-orange.svg)](https://openjdk.org/)
 [![Maven](https://img.shields.io/badge/Maven-3.9+-blue.svg)](https://maven.apache.org/)
-[![Tests](https://img.shields.io/badge/Tests-166%20passing-brightgreen.svg)](#)
+[![Tests](https://img.shields.io/badge/Tests-180%20passing-brightgreen.svg)](#)
 [![Phase](https://img.shields.io/badge/Phase%202-In%20Progress-yellow.svg)](#)
 [![Version](https://img.shields.io/badge/Version-1.0.0-blue.svg)](#)
 
@@ -49,12 +49,14 @@ BlockSmith is a comprehensive blockchain project that goes beyond tutorials - im
   - ✅ Prune confirmed transactions from the mempool (Sprint 11b)
   - ✅ Mempool sync on connect (GET_MEMPOOL/MEMPOOL) (Sprint 11c)
 
-### Phase 3: API & Interface 🔜 Planned
-- REST API for blockchain interaction
-- Web dashboard for monitoring
-- BlockExplorer UI
-- Basic smart contract support
-- Multi-signature wallets
+### Phase 3: API & Interface 🔄 In Progress (25%)
+- ✅ REST API for blockchain interaction (Sprint 12)
+  - ✅ Javalin server + block read endpoints (Sprint 12a)
+  - ✅ Transaction submit/lookup + mining endpoints (Sprint 12b)
+  - ✅ Wallet + network endpoints + JSON errors (Sprint 12c)
+- 🔜 Web dashboard for monitoring (Sprint 13)
+- 🔜 Basic smart contract support (Sprint 14)
+- 🔜 Multi-signature wallets (Sprint 15)
 
 ### Phase 4: Production Features 🔜 Planned
 - Database persistence (SQLite)
@@ -196,7 +198,7 @@ Average attempts: ~16^difficulty (~65,536 for difficulty 4)
 mvn clean compile
 ```
 
-### Run all tests (166 tests)
+### Run all tests (180 tests)
 ```bash
 mvn test
 ```
@@ -252,7 +254,7 @@ BlockSmith/
 │   │   ├── PeerManager.java   # Peer registry with MAX_PEERS enforcement
 │   │   └── messages/           # Concrete message classes (incl. GetPeers/Peers)
 │   └── BlockSmithDemo.java     # Main demo application
-├── src/test/java/              # 166 unit tests
+├── src/test/java/              # 180 unit tests
 ├── data/                       # Blockchain persistence (JSON)
 ├── pom.xml                     # Maven configuration
 └── README.md
@@ -286,7 +288,10 @@ BlockSmith/
 | TransactionBroadcastTest | 4 | NEW_TRANSACTION serialization and handler |
 | MempoolPruneTest | 2 | Confirmed-tx pruning on block append |
 | MempoolSyncTest | 4 | GET_MEMPOOL/MEMPOOL sync handlers |
-| **Total** | **166** | All passing ✅ |
+| ApiReadEndpointsTest | 5 | REST block/status read endpoints |
+| ApiTransactionEndpointsTest | 5 | REST transaction submit/lookup + mining |
+| ApiWalletNetworkEndpointsTest | 4 | REST wallet/network endpoints + JSON errors |
+| **Total** | **180** | All passing ✅ |
 
 ---
 
@@ -298,6 +303,11 @@ BlockSmith/
 - Proof-of-Work consensus
 - Merkle trees & data structures
 - Transaction pools (mempool)
+
+### Networking & API
+- TCP socket P2P networking
+- JSON messaging (Gson)
+- REST API over HTTP (Javalin / embedded Jetty)
 
 ### Java
 - Java Cryptography Architecture (JCA)
@@ -335,10 +345,13 @@ BlockSmith/
 | Sprint 10 | Block Broadcasting | ✅ Complete (10a, 10b, 10c, 10d) |
 | Sprint 11 | Mempool Sync | ✅ Complete (11a, 11b, 11c) |
 
-### Phase 3: API & Interface
+### Phase 3: API & Interface 🔄 In Progress (25%)
 | Sprint | Title | Status |
 |--------|-------|--------|
-| Sprint 12-15 | REST API, Dashboard, Contracts | ⬜ Planned |
+| Sprint 12 | REST API | ✅ Complete (12a, 12b, 12c) |
+| Sprint 13 | Web Dashboard | ⬜ Planned |
+| Sprint 14 | Smart Contracts | ⬜ Planned |
+| Sprint 15 | Multi-sig Wallets | ⬜ Planned |
 
 ### Phase 4: Production
 | Sprint | Title | Status |
@@ -367,4 +380,4 @@ This project is for educational purposes.
 
 ---
 
-*Last updated: 2026-07-02 | Phase 2 Complete (Sprint 11 - Mempool Sync)*
+*Last updated: 2026-07-02 | Phase 3 In Progress (Sprint 12 - REST API Complete)*

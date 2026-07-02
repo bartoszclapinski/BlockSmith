@@ -28,8 +28,8 @@ Transform BlockSmith from an educational blockchain into a **fully functional di
 │  ├── Block Broadcasting                          ✅ Sprint 10       │
 │  └── Mempool Synchronization                     ✅ Sprint 11       │
 │                                                                     │
-│  PHASE 3: API & Interface (Sprint 12-15)        ░░░░░░░░░░░░ 0% ←NEXT│
-│  ├── REST API                                    ⬜ Sprint 12       │
+│  PHASE 3: API & Interface (Sprint 12-15)        ████░░░░░░░░ 25% ←NOW│
+│  ├── REST API                                    ✅ Sprint 12       │
 │  ├── Web Dashboard                               ⬜ Sprint 13       │
 │  ├── Basic Smart Contracts                       ⬜ Sprint 14       │
 │  └── Multi-signature Wallets                     ⬜ Sprint 15       │
@@ -98,16 +98,16 @@ com.blocksmith.network/
 
 ---
 
-## 🖥️ Phase 3: API & Interface ← NEXT
+## 🖥️ Phase 3: API & Interface 🔄 In Progress (25%)
 
 **Goal:** Add REST API and web dashboard for easy interaction.
 
-| Sprint | Title | Key Deliverables |
-|--------|-------|------------------|
-| 12 | REST API | HTTP endpoints, JSON responses, Swagger docs |
-| 13 | Web Dashboard | HTML/JS frontend, real-time updates, wallet UI |
-| 14 | Smart Contracts | Script interpreter, basic conditions, contract storage |
-| 15 | Multi-sig Wallets | M-of-N signatures, threshold signing |
+| Sprint | Title | Key Deliverables | Status |
+|--------|-------|------------------|--------|
+| 12 | REST API | Javalin HTTP endpoints (blocks, tx, mine, wallet, network), JSON responses | ✅ Complete |
+| 13 | Web Dashboard | HTML/JS frontend, real-time updates, wallet UI | ⬜ Next |
+| 14 | Smart Contracts | Script interpreter, basic conditions, contract storage | ⬜ Planned |
+| 15 | Multi-sig Wallets | M-of-N signatures, threshold signing | ⬜ Planned |
 
 ### API Endpoints (Sprint 12)
 ```
