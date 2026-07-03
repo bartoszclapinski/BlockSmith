@@ -6,7 +6,7 @@ BlockSmith is a comprehensive blockchain project that goes beyond tutorials - im
 
 [![Java](https://img.shields.io/badge/Java-20+-orange.svg)](https://openjdk.org/)
 [![Maven](https://img.shields.io/badge/Maven-3.9+-blue.svg)](https://maven.apache.org/)
-[![Tests](https://img.shields.io/badge/Tests-180%20passing-brightgreen.svg)](#)
+[![Tests](https://img.shields.io/badge/Tests-187%20passing-brightgreen.svg)](#)
 [![Phase](https://img.shields.io/badge/Phase%202-In%20Progress-yellow.svg)](#)
 [![Version](https://img.shields.io/badge/Version-1.0.0-blue.svg)](#)
 
@@ -49,12 +49,16 @@ BlockSmith is a comprehensive blockchain project that goes beyond tutorials - im
   - ✅ Prune confirmed transactions from the mempool (Sprint 11b)
   - ✅ Mempool sync on connect (GET_MEMPOOL/MEMPOOL) (Sprint 11c)
 
-### Phase 3: API & Interface 🔄 In Progress (25%)
+### Phase 3: API & Interface 🔄 In Progress (50%)
 - ✅ REST API for blockchain interaction (Sprint 12)
   - ✅ Javalin server + block read endpoints (Sprint 12a)
   - ✅ Transaction submit/lookup + mining endpoints (Sprint 12b)
   - ✅ Wallet + network endpoints + JSON errors (Sprint 12c)
-- 🔜 Web dashboard for monitoring (Sprint 13)
+- ✅ Web dashboard (Sprint 13)
+  - ✅ Runnable node entry point + static hosting (Sprint 13a)
+  - ✅ Explorer view: blocks + network, polling refresh (Sprint 13b)
+  - ✅ Wallet, transaction, and mine actions in the UI (Sprint 13c)
+- 🔜 Basic smart contracts (Sprint 14)
 - 🔜 Basic smart contract support (Sprint 14)
 - 🔜 Multi-signature wallets (Sprint 15)
 
@@ -198,9 +202,16 @@ Average attempts: ~16^difficulty (~65,536 for difficulty 4)
 mvn clean compile
 ```
 
-### Run all tests (180 tests)
+### Run all tests (187 tests)
 ```bash
 mvn test
+```
+
+### Run a node with the web dashboard
+```bash
+mvn -q compile
+java -cp target/classes com.blocksmith.BlockSmithNode
+# open http://localhost:7070/
 ```
 
 ### Run the demo
@@ -253,8 +264,12 @@ BlockSmith/
 │   │   ├── PeerInfo.java      # Peer metadata tracking
 │   │   ├── PeerManager.java   # Peer registry with MAX_PEERS enforcement
 │   │   └── messages/           # Concrete message classes (incl. GetPeers/Peers)
+│   ├── api/
+│   │   └── ApiServer.java      # Javalin REST API + static dashboard hosting
+│   ├── BlockSmithNode.java     # Runnable node (P2P + API + dashboard)
 │   └── BlockSmithDemo.java     # Main demo application
-├── src/test/java/              # 180 unit tests
+├── src/main/resources/public/  # Web dashboard (index.html, app.js, style.css)
+├── src/test/java/              # 187 unit tests
 ├── data/                       # Blockchain persistence (JSON)
 ├── pom.xml                     # Maven configuration
 └── README.md
@@ -291,7 +306,10 @@ BlockSmith/
 | ApiReadEndpointsTest | 5 | REST block/status read endpoints |
 | ApiTransactionEndpointsTest | 5 | REST transaction submit/lookup + mining |
 | ApiWalletNetworkEndpointsTest | 4 | REST wallet/network endpoints + JSON errors |
-| **Total** | **180** | All passing ✅ |
+| ApiStaticHostingTest | 3 | Dashboard shell + static assets alongside the API |
+| ApiExplorerTest | 2 | Explorer mount points + block JSON shape |
+| ApiDashboardActionsTest | 2 | Dashboard action chain end to end |
+| **Total** | **187** | All passing ✅ |
 
 ---
 
@@ -345,11 +363,11 @@ BlockSmith/
 | Sprint 10 | Block Broadcasting | ✅ Complete (10a, 10b, 10c, 10d) |
 | Sprint 11 | Mempool Sync | ✅ Complete (11a, 11b, 11c) |
 
-### Phase 3: API & Interface 🔄 In Progress (25%)
+### Phase 3: API & Interface 🔄 In Progress (50%)
 | Sprint | Title | Status |
 |--------|-------|--------|
 | Sprint 12 | REST API | ✅ Complete (12a, 12b, 12c) |
-| Sprint 13 | Web Dashboard | ⬜ Planned |
+| Sprint 13 | Web Dashboard | ✅ Complete (13a, 13b, 13c) |
 | Sprint 14 | Smart Contracts | ⬜ Planned |
 | Sprint 15 | Multi-sig Wallets | ⬜ Planned |
 
@@ -380,4 +398,4 @@ This project is for educational purposes.
 
 ---
 
-*Last updated: 2026-07-02 | Phase 3 In Progress (Sprint 12 - REST API Complete)*
+*Last updated: 2026-07-03 | Phase 3 In Progress (Sprint 13 - Web Dashboard Complete)*

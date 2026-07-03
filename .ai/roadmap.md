@@ -28,9 +28,9 @@ Transform BlockSmith from an educational blockchain into a **fully functional di
 │  ├── Block Broadcasting                          ✅ Sprint 10       │
 │  └── Mempool Synchronization                     ✅ Sprint 11       │
 │                                                                     │
-│  PHASE 3: API & Interface (Sprint 12-15)        ████░░░░░░░░ 25% ←NOW│
+│  PHASE 3: API & Interface (Sprint 12-15)        ██████░░░░░░ 50% ←NOW│
 │  ├── REST API                                    ✅ Sprint 12       │
-│  ├── Web Dashboard                               ⬜ Sprint 13       │
+│  ├── Web Dashboard                               ✅ Sprint 13       │
 │  ├── Basic Smart Contracts                       ⬜ Sprint 14       │
 │  └── Multi-signature Wallets                     ⬜ Sprint 15       │
 │                                                                     │
@@ -98,15 +98,15 @@ com.blocksmith.network/
 
 ---
 
-## 🖥️ Phase 3: API & Interface 🔄 In Progress (25%)
+## 🖥️ Phase 3: API & Interface 🔄 In Progress (50%)
 
 **Goal:** Add REST API and web dashboard for easy interaction.
 
 | Sprint | Title | Key Deliverables | Status |
 |--------|-------|------------------|--------|
 | 12 | REST API | Javalin HTTP endpoints (blocks, tx, mine, wallet, network), JSON responses | ✅ Complete |
-| 13 | Web Dashboard | HTML/JS frontend, real-time updates, wallet UI | ⬜ Next |
-| 14 | Smart Contracts | Script interpreter, basic conditions, contract storage | ⬜ Planned |
+| 13 | Web Dashboard | Runnable node entry point, explorer view (blocks + network), wallet/tx/mine actions, polling refresh | ✅ Complete |
+| 14 | Smart Contracts | Script interpreter, basic conditions, contract storage | ⬜ Next |
 | 15 | Multi-sig Wallets | M-of-N signatures, threshold signing | ⬜ Planned |
 
 ### API Endpoints (Sprint 12)
@@ -124,9 +124,9 @@ GET  /api/network/status      # Network status
 ```
 
 ### Technologies
-- Javalin or Spark Java (lightweight HTTP server)
-- HTML5 + Vanilla JS (or htmx for simplicity)
-- WebSocket for real-time updates
+- Javalin 6.3.0 (lightweight HTTP server, embedded Jetty) ✅
+- HTML5 + Vanilla JS, no build step ✅
+- Polling refresh (4s); WebSocket push is a possible later enhancement
 
 ---
 
