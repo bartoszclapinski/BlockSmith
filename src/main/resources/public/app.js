@@ -8,11 +8,28 @@
 
 const REFRESH_MS = 4000;
 
-/** Fetches JSON from the node's API, throwing on a non-2xx response. */
-async function fetchJson(path) {
-    const res = await fetch(path);
-    if (!res.ok) throw new Error(path + " -> HTTP " + res.status);
-    return res.json();
+/**
+ * Fetches JSON from the node's API. On a non-2xx response, throws an Error
+ * carrying the API's error envelope message when present, so action handlers
+ * can surface exactly what the node reported.
+ */
+async function fetchJson(path, options) {
+    const res = await fetch(path, options);
+    const data = await res.json().catch(function () { return null; });
+    if (!res.ok) {
+        const message = data && data.error ? data.error : "HTTP " + res.status;
+        throw new Error(message);
+    }
+    return data;
+}
+
+/** POSTs a JSON body and returns the parsed response (throws on API error). */
+function postJson(path, body) {
+    return fetchJson(path, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body || {})
+    });
 }
 
 /** Small DOM helper: element with optional class and text. */
@@ -89,6 +106,69 @@ function setStatus(text, ok) {
     bar.classList.toggle("error", !ok);
 }
 
+// ===== Actions (Sprint 13c) =====
+
+/** Writes an action's outcome into its result line, styled ok/error. */
+function showResult(id, text, ok) {
+    const line = document.getElementById(id);
+    line.textContent = text;
+    line.classList.toggle("error", !ok);
+    line.classList.toggle("ok", ok);
+}
+
+/**
+ * Runs an action, surfacing success or the API error message, and refreshes
+ * the explorer afterwards so any resulting state change is visible at once.
+ */
+async function runAction(resultId, work) {
+    try {
+        const message = await work();
+        showResult(resultId, message, true);
+        refresh();
+    } catch (e) {
+        showResult(resultId, e.message, false);
+    }
+}
+
+function wireActions() {
+    document.getElementById("create-wallet").addEventListener("click", function () {
+        runAction("wallet-result", async function () {
+            const wallet = await postJson("/api/wallet/create");
+            const input = document.getElementById("balance-address");
+            if (!input.value) input.value = wallet.address;
+            return "Created wallet " + wallet.address;
+        });
+    });
+
+    document.getElementById("check-balance").addEventListener("click", function () {
+        runAction("wallet-result", async function () {
+            const address = document.getElementById("balance-address").value.trim();
+            if (!address) throw new Error("Enter an address to look up");
+            const w = await fetchJson("/api/wallet/" + encodeURIComponent(address));
+            return "Balance " + w.balance + " · pending out " + w.pendingOutgoing;
+        });
+    });
+
+    document.getElementById("send-tx").addEventListener("click", function () {
+        runAction("tx-result", async function () {
+            const tx = await postJson("/api/transactions", {
+                sender: document.getElementById("tx-sender").value.trim(),
+                recipient: document.getElementById("tx-recipient").value.trim(),
+                amount: Number(document.getElementById("tx-amount").value)
+            });
+            return "Submitted tx " + shortHash(tx.transactionId);
+        });
+    });
+
+    document.getElementById("mine-block").addEventListener("click", function () {
+        runAction("mine-result", async function () {
+            const address = document.getElementById("mine-address").value.trim();
+            const block = await postJson("/api/mine", { minerAddress: address });
+            return "Mined block #" + block.index + " (" + shortHash(block.hash) + ")";
+        });
+    });
+}
+
 async function refresh() {
     try {
         const [status, peers, blocks] = await Promise.all([
@@ -104,5 +184,6 @@ async function refresh() {
     }
 }
 
+wireActions();
 refresh();
 setInterval(refresh, REFRESH_MS);

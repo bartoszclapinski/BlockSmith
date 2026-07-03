@@ -19,6 +19,37 @@
             <div id="peers"></div>
         </section>
 
+        <section id="actions">
+            <h2>Actions</h2>
+            <div class="action-grid">
+                <div class="action">
+                    <h3>Wallet</h3>
+                    <button id="create-wallet">Create wallet</button>
+                    <div class="action-row">
+                        <input id="balance-address" type="text" placeholder="address" autocomplete="off">
+                        <button id="check-balance">Check balance</button>
+                    </div>
+                    <p id="wallet-result" class="action-result"></p>
+                </div>
+
+                <div class="action">
+                    <h3>Send transaction</h3>
+                    <input id="tx-sender" type="text" placeholder="sender address" autocomplete="off">
+                    <input id="tx-recipient" type="text" placeholder="recipient address" autocomplete="off">
+                    <input id="tx-amount" type="number" placeholder="amount" min="0" step="any" autocomplete="off">
+                    <button id="send-tx">Submit transaction</button>
+                    <p id="tx-result" class="action-result"></p>
+                </div>
+
+                <div class="action">
+                    <h3>Mine</h3>
+                    <input id="mine-address" type="text" placeholder="miner address" autocomplete="off">
+                    <button id="mine-block">Mine pending block</button>
+                    <p id="mine-result" class="action-result"></p>
+                </div>
+            </div>
+        </section>
+
         <section id="blocks">
             <h2>Blocks</h2>
             <div id="block-list"></div>
