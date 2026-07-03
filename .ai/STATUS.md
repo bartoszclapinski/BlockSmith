@@ -9,9 +9,9 @@
 | Field | Value |
 |-------|-------|
 | **Phase** | 3 - API & Interface - In Progress |
-| **Current Sprint** | 12 (REST API) - Complete |
-| **Current Milestone** | 12c Complete (Wallet + network endpoints) |
-| **Status** | Sprint 12 complete (12a-12c), next: Sprint 13 (Web Dashboard) |
+| **Current Sprint** | 13 (Web Dashboard) - Complete |
+| **Current Milestone** | 13c Complete (Wallet + transaction actions) |
+| **Status** | Sprint 13 complete (13a-13c), next: Sprint 14 (Smart Contracts) |
 
 ---
 
@@ -46,10 +46,10 @@ Phase 2: Network Layer       [███████████████] 100
 ├── Sprint 10: Broadcasting  ✅ COMPLETE (10a ✅, 10b ✅, 10c ✅, 10d ✅)
 └── Sprint 11: Mempool Sync  ✅ COMPLETE (11a ✅, 11b ✅, 11c ✅)
 
-Phase 3: API & Interface     [████░░░░░░░░░░░] 25% ← CURRENT
+Phase 3: API & Interface     [████████░░░░░░░] 50% ← CURRENT
 ├── Sprint 12: REST API      ✅ COMPLETE (12a ✅, 12b ✅, 12c ✅)
-├── Sprint 13: Web Dashboard ⬜ ← NEXT
-├── Sprint 14: Smart Contracts ⬜
+├── Sprint 13: Web Dashboard ✅ COMPLETE (13a ✅, 13b ✅, 13c ✅)
+├── Sprint 14: Smart Contracts ⬜ ← NEXT
 └── Sprint 15: Multi-sig Wallets ⬜
 ```
 
@@ -84,7 +84,10 @@ Phase 3: API & Interface     [████░░░░░░░░░░░] 25%
 | ApiReadEndpointsTest | 5 | ✅ |
 | ApiTransactionEndpointsTest | 5 | ✅ |
 | ApiWalletNetworkEndpointsTest | 4 | ✅ |
-| **Total** | **180** | ✅ |
+| ApiStaticHostingTest | 3 | ✅ |
+| ApiExplorerTest | 2 | ✅ |
+| ApiDashboardActionsTest | 2 | ✅ |
+| **Total** | **187** | ✅ |
 
 Last test run: `mvn test` - All passing
 
@@ -131,13 +134,22 @@ Last test run: `mvn test` - All passing
 
 | Class | Status | Lines | Notes |
 |-------|--------|-------|-------|
-| ApiServer.java | ✅ Complete | ~300 | Javalin REST API: blocks, transactions, mining, wallet, network, JSON errors (Sprint 12) |
+| ApiServer.java | ✅ Complete | ~300 | Javalin REST API: blocks, transactions, mining, wallet, network, JSON errors (Sprint 12) + static dashboard hosting (Sprint 13a) |
 
-### Demo
+### Web Dashboard (`src/main/resources/public`)
+
+| File | Status | Notes |
+|------|--------|-------|
+| index.html | ✅ Complete | Dashboard shell: network, actions, blocks sections (Sprint 13) |
+| app.js | ✅ Complete | Vanilla JS explorer + actions, 4s polling, textContent-only rendering (Sprint 13b/13c) |
+| style.css | ✅ Complete | Dark theme, stat tiles, block cards, action forms (Sprint 13) |
+
+### Entry Points
 
 | Class | Status | Notes |
 |-------|--------|-------|
-| BlockSmithDemo.java | ✅ Complete | Mining + Transactions |
+| BlockSmithNode.java | ✅ Complete | Runnable node: P2P Node + ApiServer + dashboard in one process (Sprint 13a) |
+| BlockSmithDemo.java | ✅ Complete | Mining + Transactions demo |
 
 ---
 
@@ -199,6 +211,11 @@ Last test run: `mvn test` - All passing
 - [x] Transaction submit/lookup + mining endpoints, broadcast on write (Sprint 12b)
 - [x] Wallet balance/create + peers endpoints (Sprint 12c)
 - [x] Consistent JSON error envelope (400/404/500) (Sprint 12c)
+- [x] Runnable node entry point: Node + ApiServer in one process (Sprint 13a)
+- [x] Javalin static hosting for the dashboard at `/` (Sprint 13a)
+- [x] Explorer view: blocks + network panel with polling refresh (Sprint 13b)
+- [x] Dashboard actions: create wallet, balance lookup, send tx, mine (Sprint 13c)
+- [x] API error envelopes surfaced inline in the UI (Sprint 13c)
 
 ---
 
@@ -207,7 +224,7 @@ Last test run: `mvn test` - All passing
 | Item | Value |
 |------|-------|
 | **Current Branch** | `master` |
-| **Last Commit** | Sprint 12 complete (REST API merged, PR #121) |
+| **Last Commit** | Sprint 13 complete (dashboard actions merged, PR #133) |
 | **Tag** | `v1.0.0` (Phase 1) |
 | **Main Branch** | `master` |
 
@@ -221,20 +238,19 @@ _None currently._
 
 ## 📝 Notes for Next Session
 
-1. **Sprint 12 COMPLETE** - REST API
-   - All milestones 12a, 12b, 12c merged to master
-   - Javalin `ApiServer` on port 7070: blocks, transactions, mining, wallet,
-     network endpoints + JSON error handling
-   - Writes over HTTP (submit tx, mine) propagate to peers via the existing
-     broadcast paths
-   - First dependency beyond Gson/JUnit: `io.javalin:javalin` 6.3.0
+1. **Sprint 13 COMPLETE** - Web Dashboard
+   - All milestones 13a, 13b, 13c merged to master
+   - `BlockSmithNode` boots Node + ApiServer in one process; dashboard served
+     at `http://localhost:7070/` from `src/main/resources/public`
+   - Explorer (blocks + network, 4s polling) and actions (create wallet,
+     balance, send tx, mine) drive the Sprint 12 endpoints; API errors surface
+     inline in the UI
+   - Vanilla HTML/JS/CSS, no build step; values rendered with `textContent`
 
-2. **Phase 3 IN PROGRESS** - API & Interface (Sprint 12 done, 25%)
+2. **Phase 3 IN PROGRESS** - API & Interface (Sprints 12-13 done, 50%)
 
-3. **Next: Sprint 13** - Web Dashboard
-   - HTML/JS frontend over the REST API (chain view, wallet UI, live updates)
-   - `ApiServer` is not yet wired into `BlockSmithDemo` / a runnable main - a
-     small entry point that starts a Node + ApiServer would help the dashboard
+3. **Next: Sprint 14** - Smart Contracts
+   - Not yet planned; scope and milestones TBD in sprint planning
 
 4. **Deferred / future work**
    - Gossip auto-connect to DISCOVERED peers (needs MAX_PEERS guarding)
@@ -243,7 +259,10 @@ _None currently._
      yet pull the peer's mempool
    - API transactions are unsigned (educational); signature-carrying submission
      would need public-key + signature fields in the request body
+   - WebSocket push for the dashboard (currently 4s polling)
+   - `pom.xml` exec/jar main class still points at `BlockSmithDemo`, not
+     `BlockSmithNode`
 
 ---
 
-*Last updated: 2026-07-02 | Sprint 12 Complete (Milestone 12c) - Phase 3 In Progress*
+*Last updated: 2026-07-03 | Sprint 13 Complete (Milestone 13c) - Phase 3 In Progress*
