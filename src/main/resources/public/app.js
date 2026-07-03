@@ -100,6 +100,36 @@ function renderBlocks(blocks) {
     }
 }
 
+function renderContracts(contracts) {
+    const list = document.getElementById("contract-list");
+    list.replaceChildren();
+
+    if (contracts.length === 0) {
+        list.appendChild(el("p", "muted", "No contracts deployed yet"));
+        return;
+    }
+
+    // Newest first (registry is insertion-ordered by deploy).
+    for (let i = contracts.length - 1; i >= 0; i--) {
+        const c = contracts[i];
+        const claimed = c.status === "CLAIMED";
+        const card = el("div", claimed ? "contract claimed" : "contract");
+
+        const head = el("div", "block-head");
+        head.appendChild(el("span", "block-index", c.amount + " BSC"));
+        head.appendChild(el("span", claimed ? "contract-status claimed" : "contract-status open", c.status));
+        card.appendChild(head);
+
+        card.appendChild(el("div", "block-hash", "id " + shortHash(c.contractId)));
+        card.appendChild(el("div", "block-prev", "lock " + c.lockingScript));
+        card.appendChild(el("div", "block-nonce", "funder " + shortHash(c.funder)));
+        if (claimed && c.claimer) {
+            card.appendChild(el("div", "block-nonce", "claimer " + shortHash(c.claimer)));
+        }
+        list.appendChild(card);
+    }
+}
+
 function setStatus(text, ok) {
     const bar = document.getElementById("refresh-status");
     bar.textContent = text;
@@ -167,17 +197,44 @@ function wireActions() {
             return "Mined block #" + block.index + " (" + shortHash(block.hash) + ")";
         });
     });
+
+    document.getElementById("deploy-contract").addEventListener("click", function () {
+        runAction("deploy-result", async function () {
+            const contract = await postJson("/api/contracts", {
+                funder: document.getElementById("deploy-funder").value.trim(),
+                amount: Number(document.getElementById("deploy-amount").value),
+                lockingScript: document.getElementById("deploy-script").value.trim()
+            });
+            // Hand the id straight to the claim form; mine to activate it.
+            document.getElementById("claim-id").value = contract.contractId;
+            return "Deployed " + shortHash(contract.contractId) + " (mine to activate)";
+        });
+    });
+
+    document.getElementById("claim-contract").addEventListener("click", function () {
+        runAction("claim-result", async function () {
+            const id = document.getElementById("claim-id").value.trim();
+            if (!id) throw new Error("Enter a contract id to claim");
+            const contract = await postJson("/api/contracts/" + encodeURIComponent(id) + "/claim", {
+                claimer: document.getElementById("claim-claimer").value.trim(),
+                unlockingScript: document.getElementById("claim-unlock").value.trim()
+            });
+            return "Claim submitted for " + shortHash(contract.contractId) + " (mine to settle)";
+        });
+    });
 }
 
 async function refresh() {
     try {
-        const [status, peers, blocks] = await Promise.all([
+        const [status, peers, blocks, contracts] = await Promise.all([
             fetchJson("/api/network/status"),
             fetchJson("/api/network/peers"),
-            fetchJson("/api/blocks")
+            fetchJson("/api/blocks"),
+            fetchJson("/api/contracts")
         ]);
         renderNetwork(status, peers);
         renderBlocks(blocks);
+        renderContracts(contracts);
         setStatus("Updated · refreshing every " + (REFRESH_MS / 1000) + "s", true);
     } catch (e) {
         setStatus("Cannot reach the node API: " + e.message, false);
