@@ -62,4 +62,12 @@ public final class BlockchainConfig {
      * Currency symbol for display purposes.
     */
     public static final String CURRENCY_SYMBOL = "BSC";
+
+    /**
+     * Address prefix for contract funds (Sprint 14).
+     * A deploy sends funds TO "CONTRACT:<id>"; a claim sends them FROM it.
+     * Like COINBASE, this is a system address convention: no wallet owns it,
+     * and the blockchain enforces who may spend from it (the script VM).
+    */
+    public static final String CONTRACT_ADDRESS_PREFIX = "CONTRACT:";
 }

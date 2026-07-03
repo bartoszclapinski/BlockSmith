@@ -42,6 +42,17 @@ public class Transaction {
     private PublicKey senderPublicKey;
 
     /**
+     * Contract scripts (Sprint 14). A DEPLOY transaction (recipient is a
+     * CONTRACT: address) carries the locking script that guards the funds;
+     * a CLAIM transaction (sender is a CONTRACT: address) carries the
+     * unlocking data that satisfies it. Both travel inside blocks so every
+     * node can re-verify the claim and converge on the same contract state.
+     * Null for ordinary transfers.
+     */
+    private String lockingScript;
+    private String unlockingScript;
+
+    /**
      * Creates a new transaction.
      * 
      * @param sender The address sending funds
@@ -186,7 +197,35 @@ public class Transaction {
      */
     public void setSenderPublicKey(PublicKey senderPublicKey) {
         this.senderPublicKey = senderPublicKey;
-    }    
+    }
+
+    /**
+     * Returns the locking script (contract deploy transactions only).
+     */
+    public String getLockingScript() {
+        return lockingScript;
+    }
+
+    /**
+     * Sets the locking script for a contract deploy transaction.
+     */
+    public void setLockingScript(String lockingScript) {
+        this.lockingScript = lockingScript;
+    }
+
+    /**
+     * Returns the unlocking script (contract claim transactions only).
+     */
+    public String getUnlockingScript() {
+        return unlockingScript;
+    }
+
+    /**
+     * Sets the unlocking script for a contract claim transaction.
+     */
+    public void setUnlockingScript(String unlockingScript) {
+        this.unlockingScript = unlockingScript;
+    }
 
     @Override
     public String toString() {
