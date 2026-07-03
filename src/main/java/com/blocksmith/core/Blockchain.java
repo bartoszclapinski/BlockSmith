@@ -1,6 +1,10 @@
 package com.blocksmith.core;
 
+import com.blocksmith.contract.Contract;
+import com.blocksmith.contract.ContractStatus;
+import com.blocksmith.contract.ScriptVM;
 import com.blocksmith.util.BlockchainConfig;
+import com.blocksmith.util.HashUtil;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -39,6 +43,21 @@ public class Blockchain {
 
     private final List<Block> chain;
     private final List<Transaction> pendingTransactions;
+
+    /**
+     * THEORY: CONTRACT REGISTRY (Sprint 14)
+     *
+     * Contract state is DERIVED from the chain, never stored independently:
+     * every appended block is scanned for deploy transactions (recipient =
+     * CONTRACT:<id>, carrying a locking script) and claim transactions
+     * (sender = CONTRACT:<id>). Since all nodes replay the same blocks, all
+     * nodes derive the same registry - like balances, contract state is a
+     * view over the chain.
+     */
+    private final Map<String, Contract> contracts = new LinkedHashMap<>();
+
+    /** Evaluates contract scripts; never throws (consensus safety). */
+    private final ScriptVM scriptVM = new ScriptVM();
 
     /**
      * Largest number of orphan blocks held at once. Caps memory if a peer
@@ -152,6 +171,7 @@ public class Blockchain {
                 && block.getPreviousHash().equals(tip.getHash())) {
             chain.add(block);
             removeConfirmed(block);
+            registerContracts(block);
             attachOrphans();
             return true;
         }
@@ -191,6 +211,7 @@ public class Blockchain {
             if (child.getIndex() == tip.getIndex() + 1 && isWellFormed(child)) {
                 chain.add(child);
                 removeConfirmed(child);
+                registerContracts(child);
             } else {
                 break; // stale/ill-fitting orphan: drop and stop
             }
@@ -254,6 +275,20 @@ public class Blockchain {
         // Reject COINBASE transactions (only mining creates these)
         if (transaction.getSender().equals(BlockchainConfig.COINBASE_ADDRESS)) {
             System.out.println("Transaction rejected: Cannot manually create COINBASE transactions");
+            return false;
+        }
+
+        // Contract rules (Sprint 14). A transfer TO a contract address must
+        // carry a locking script (otherwise the funds would be burned); a
+        // transfer FROM one is a claim and must satisfy the contract's script.
+        if (transaction.getRecipient().startsWith(BlockchainConfig.CONTRACT_ADDRESS_PREFIX)
+                && (transaction.getLockingScript() == null
+                    || transaction.getLockingScript().isBlank())) {
+            System.out.println("Transaction rejected: Contract deploy requires a locking script");
+            return false;
+        }
+        if (transaction.getSender().startsWith(BlockchainConfig.CONTRACT_ADDRESS_PREFIX)
+                && !isValidClaim(transaction)) {
             return false;
         }
 
@@ -348,6 +383,7 @@ public class Blockchain {
 
         // Add block to chain
         chain.add(newBlock);
+        registerContracts(newBlock);
 
         // Clear pending transactions (they're now in a block)
         pendingTransactions.clear();
@@ -390,9 +426,152 @@ public class Blockchain {
         return balance;
     }
 
+    // ===== CONTRACTS (Sprint 14) =====
+
+    /**
+     * Locks {@code amount} of the funder's balance behind a script.
+     *
+     * THEORY: DEPLOY = A TRANSFER TO A CONDITION
+     *
+     * The deploy is an ordinary transaction whose recipient is the contract's
+     * address (CONTRACT:<id>) and which carries the locking script. It goes
+     * through the pending pool and into a block like any other transfer, so
+     * the funder's balance check, gossip, and mining need no special cases.
+     * The contract becomes OPEN (claimable) once the deploy is mined.
+     *
+     * @param funder Address funding the contract
+     * @param lockingScript Script that guards the funds (e.g. a hashlock)
+     * @param amount Amount to lock
+     * @return The pending deploy transaction, or null if rejected
+     */
+    public Transaction deployContract(String funder, String lockingScript, double amount) {
+        if (funder == null || funder.isBlank()
+                || lockingScript == null || lockingScript.isBlank()) {
+            System.out.println("Contract rejected: funder and locking script are required");
+            return null;
+        }
+
+        // The contract id seeds the contract's address; hashing the deploy
+        // parameters keeps it unique and lets every node derive the same id
+        // from the transaction once it arrives in a block.
+        String contractId = HashUtil.applySha256(
+                funder + lockingScript + amount + System.currentTimeMillis());
+
+        Transaction deploy = new Transaction(
+                funder,
+                BlockchainConfig.CONTRACT_ADDRESS_PREFIX + contractId,
+                amount);
+        deploy.setLockingScript(lockingScript);
+
+        return addTransaction(deploy) ? deploy : null;
+    }
+
+    /**
+     * Claims an OPEN contract by presenting unlocking data.
+     *
+     * The claim is a transaction FROM the contract's address TO the claimer.
+     * addTransaction() runs the unlocking data and the locking script through
+     * the VM; the funds move once the claim is mined. The pending-outgoing
+     * balance check doubles as double-claim protection: a second claim on the
+     * same contract finds no available funds.
+     *
+     * @param contractId Id of the contract to claim
+     * @param claimer Address to credit
+     * @param unlockingScript Data satisfying the locking script (may be empty
+     *                        for pure timelocks)
+     * @return The pending claim transaction, or null if rejected
+     */
+    public Transaction claimContract(String contractId, String claimer, String unlockingScript) {
+        Contract contract = contracts.get(contractId);
+        if (contract == null || claimer == null || claimer.isBlank()) {
+            System.out.println("Claim rejected: Unknown contract or missing claimer");
+            return null;
+        }
+
+        Transaction claim = new Transaction(contract.getAddress(), claimer, contract.getAmount());
+        claim.setUnlockingScript(unlockingScript);
+
+        return addTransaction(claim) ? claim : null;
+    }
+
+    /**
+     * Validates a claim transaction against the contract registry and the
+     * script VM. Used by addTransaction for locally-created claims and for
+     * claims gossiped by peers alike - every node re-verifies every claim.
+     */
+    private boolean isValidClaim(Transaction claim) {
+        String contractId = claim.getSender()
+                .substring(BlockchainConfig.CONTRACT_ADDRESS_PREFIX.length());
+
+        Contract contract = contracts.get(contractId);
+        if (contract == null) {
+            System.out.println("Claim rejected: Unknown contract " + contractId);
+            return false;
+        }
+        if (contract.getStatus() != ContractStatus.OPEN) {
+            System.out.println("Claim rejected: Contract already claimed");
+            return false;
+        }
+        if (claim.getAmount() != contract.getAmount()) {
+            System.out.println("Claim rejected: Amount must equal the locked amount");
+            return false;
+        }
+
+        // The claim height is the index the NEXT block will have - the
+        // earliest height the claim could be mined at (CHECKLOCKTIME).
+        if (!scriptVM.execute(claim.getUnlockingScript(), contract.getLockingScript(), chain.size())) {
+            System.out.println("Claim rejected: Script evaluated to false");
+            return false;
+        }
+        return true;
+    }
+
+    /**
+     * Scans an appended block for contract deploys and claims and updates the
+     * registry. Called on every block-append path (local mine, external
+     * append, orphan attach), so contract state always mirrors the chain.
+     */
+    private void registerContracts(Block block) {
+        for (Transaction tx : block.getTransactions()) {
+            String recipient = tx.getRecipient();
+            if (recipient.startsWith(BlockchainConfig.CONTRACT_ADDRESS_PREFIX)
+                    && tx.getLockingScript() != null && !tx.getLockingScript().isBlank()) {
+                String id = recipient.substring(BlockchainConfig.CONTRACT_ADDRESS_PREFIX.length());
+                contracts.putIfAbsent(id, new Contract(
+                        id, tx.getSender(), tx.getLockingScript(),
+                        tx.getAmount(), block.getIndex()));
+            }
+
+            String sender = tx.getSender();
+            if (sender.startsWith(BlockchainConfig.CONTRACT_ADDRESS_PREFIX)) {
+                Contract contract = contracts.get(
+                        sender.substring(BlockchainConfig.CONTRACT_ADDRESS_PREFIX.length()));
+                if (contract != null && contract.getStatus() == ContractStatus.OPEN) {
+                    contract.markClaimed(tx.getRecipient());
+                }
+            }
+        }
+    }
+
+    /**
+     * Looks up a contract by id.
+     *
+     * @return The contract, or null if no deploy for this id has been mined
+     */
+    public Contract getContract(String contractId) {
+        return contracts.get(contractId);
+    }
+
+    /**
+     * @return Unmodifiable view of all contracts derived from the chain
+     */
+    public List<Contract> getContracts() {
+        return Collections.unmodifiableList(new ArrayList<>(contracts.values()));
+    }
+
     /**
      * Return the pending transaction pool.
-     * 
+     *
      * @return Unmodifiable list of pending transactions
      */
     public List<Transaction> getPendingTransactions() {
