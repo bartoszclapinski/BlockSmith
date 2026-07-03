@@ -9,9 +9,9 @@
 | Field | Value |
 |-------|-------|
 | **Phase** | 3 - API & Interface - In Progress |
-| **Current Sprint** | 13 (Web Dashboard) - Complete |
-| **Current Milestone** | 13c Complete (Wallet + transaction actions) |
-| **Status** | Sprint 13 complete (13a-13c), next: Sprint 14 (Smart Contracts) |
+| **Current Sprint** | 14 (Smart Contracts) - Complete |
+| **Current Milestone** | 14c Complete (Contract endpoints + dashboard panel) |
+| **Status** | Sprint 14 complete (14a-14c), next: Sprint 15 (Multi-sig Wallets) |
 
 ---
 
@@ -46,11 +46,11 @@ Phase 2: Network Layer       [███████████████] 100
 ├── Sprint 10: Broadcasting  ✅ COMPLETE (10a ✅, 10b ✅, 10c ✅, 10d ✅)
 └── Sprint 11: Mempool Sync  ✅ COMPLETE (11a ✅, 11b ✅, 11c ✅)
 
-Phase 3: API & Interface     [████████░░░░░░░] 50% ← CURRENT
+Phase 3: API & Interface     [███████████░░░░] 75% ← CURRENT
 ├── Sprint 12: REST API      ✅ COMPLETE (12a ✅, 12b ✅, 12c ✅)
 ├── Sprint 13: Web Dashboard ✅ COMPLETE (13a ✅, 13b ✅, 13c ✅)
-├── Sprint 14: Smart Contracts ⬜ ← NEXT
-└── Sprint 15: Multi-sig Wallets ⬜
+├── Sprint 14: Smart Contracts ✅ COMPLETE (14a ✅, 14b ✅, 14c ✅)
+└── Sprint 15: Multi-sig Wallets ⬜ ← NEXT
 ```
 
 ---
@@ -87,7 +87,10 @@ Phase 3: API & Interface     [████████░░░░░░░] 50%
 | ApiStaticHostingTest | 3 | ✅ |
 | ApiExplorerTest | 2 | ✅ |
 | ApiDashboardActionsTest | 2 | ✅ |
-| **Total** | **187** | ✅ |
+| ScriptVMTest | 21 | ✅ |
+| ChainContractTest | 9 | ✅ |
+| ApiContractsTest | 3 | ✅ |
+| **Total** | **220** | ✅ |
 
 Last test run: `mvn test` - All passing
 
@@ -100,8 +103,8 @@ Last test run: `mvn test` - All passing
 | Class | Status | Lines | Notes |
 |-------|--------|-------|-------|
 | Block.java | ✅ Complete | ~268 | Transactions + Merkle root |
-| Blockchain.java | ✅ Complete | ~495 | Pending pool + mining + external append + orphan buffer (Sprint 10) + tx dedupe + mempool prune (Sprint 11) |
-| Transaction.java | ✅ Complete | ~200 | Validation + signing + verification |
+| Blockchain.java | ✅ Complete | ~640 | Pending pool + mining + external append + orphan buffer (Sprint 10) + tx dedupe + mempool prune (Sprint 11) + contract registry (deploy/claim, derived from chain) (Sprint 14b) |
+| Transaction.java | ✅ Complete | ~230 | Validation + signing + verification + optional contract locking/unlocking scripts (Sprint 14b) |
 | Wallet.java | ✅ Complete | ~169 | ECDSA keys + signing |
 
 ### Utility Classes (`com.blocksmith.util`)
@@ -134,7 +137,16 @@ Last test run: `mvn test` - All passing
 
 | Class | Status | Lines | Notes |
 |-------|--------|-------|-------|
-| ApiServer.java | ✅ Complete | ~300 | Javalin REST API: blocks, transactions, mining, wallet, network, JSON errors (Sprint 12) + static dashboard hosting (Sprint 13a) |
+| ApiServer.java | ✅ Complete | ~420 | Javalin REST API: blocks, transactions, mining, wallet, network, JSON errors (Sprint 12) + static dashboard hosting (Sprint 13a) + contract deploy/claim/inspect endpoints (Sprint 14c) |
+
+### Contract Classes (`com.blocksmith.contract`)
+
+| Class | Status | Lines | Notes |
+|-------|--------|-------|-------|
+| ScriptOp.java | ✅ Complete | ~50 | Opcode enum: PUSH/DUP/DROP/SHA256/EQUAL(VERIFY)/VERIFY/ADD/SUB/GREATER/LESS/CHECKLOCKTIME (Sprint 14a) |
+| ScriptVM.java | ✅ Complete | ~200 | Stack machine; hashlock/timelock; never throws (malformed = false) (Sprint 14a) |
+| Contract.java | ✅ Complete | ~100 | Contract model: locking script, amount, funder, status, derived from chain (Sprint 14b) |
+| ContractStatus.java | ✅ Complete | ~12 | OPEN / CLAIMED (Sprint 14b) |
 
 ### Web Dashboard (`src/main/resources/public`)
 
@@ -148,8 +160,8 @@ Last test run: `mvn test` - All passing
 
 | Class | Status | Notes |
 |-------|--------|-------|
-| BlockSmithNode.java | ✅ Complete | Runnable node: P2P Node + ApiServer + dashboard in one process (Sprint 13a) |
-| BlockSmithDemo.java | ✅ Complete | Mining + Transactions demo |
+| BlockSmithNode.java | ✅ Complete | Runnable node: P2P Node + ApiServer + dashboard in one process (Sprint 13a). Default `mvn exec:java` target + jar main class (Sprint 14) |
+| BlockSmithDemo.java | ✅ Complete | Mining + Transactions demo (`mvn exec:java -Dexec.mainClass=com.blocksmith.BlockSmithDemo`) |
 
 ---
 
@@ -216,6 +228,10 @@ Last test run: `mvn test` - All passing
 - [x] Explorer view: blocks + network panel with polling refresh (Sprint 13b)
 - [x] Dashboard actions: create wallet, balance lookup, send tx, mine (Sprint 13c)
 - [x] API error envelopes surfaced inline in the UI (Sprint 13c)
+- [x] Stack-based script VM with hashlock/timelock opcodes; never throws (Sprint 14a)
+- [x] Contract deploy/claim on the chain, registry derived from blocks (Sprint 14b)
+- [x] Contract balance rules + script-verified claims + double-claim protection (Sprint 14b)
+- [x] Contract REST endpoints + dashboard panel (deploy/claim) (Sprint 14c)
 
 ---
 
@@ -224,7 +240,7 @@ Last test run: `mvn test` - All passing
 | Item | Value |
 |------|-------|
 | **Current Branch** | `master` |
-| **Last Commit** | Sprint 13 complete (dashboard actions merged, PR #133) |
+| **Last Commit** | Sprint 14 complete (contract endpoints merged, PR #144) |
 | **Tag** | `v1.0.0` (Phase 1) |
 | **Main Branch** | `master` |
 
@@ -238,19 +254,23 @@ _None currently._
 
 ## 📝 Notes for Next Session
 
-1. **Sprint 13 COMPLETE** - Web Dashboard
-   - All milestones 13a, 13b, 13c merged to master
-   - `BlockSmithNode` boots Node + ApiServer in one process; dashboard served
-     at `http://localhost:7070/` from `src/main/resources/public`
-   - Explorer (blocks + network, 4s polling) and actions (create wallet,
-     balance, send tx, mine) drive the Sprint 12 endpoints; API errors surface
-     inline in the UI
-   - Vanilla HTML/JS/CSS, no build step; values rendered with `textContent`
+1. **Sprint 14 COMPLETE** - Smart Contracts
+   - All milestones 14a, 14b, 14c merged to master
+   - `com.blocksmith.contract`: `ScriptVM` stack machine (hashlock/timelock,
+     never throws), `Contract`/`ContractStatus`
+   - Contracts modelled as transactions (deploy TO `CONTRACT:<id>` with a
+     locking script, claim FROM it with unlocking data); registry derived from
+     blocks so all nodes converge - no changes needed to `getBalance`
+   - REST: `POST /api/contracts`, `GET /api/contracts[/{id}]`,
+     `POST /api/contracts/{id}/claim`; dashboard Contracts panel
+   - Tooling: `mvn exec:java` now runs the node + dashboard by default; jar main
+     class is `BlockSmithNode`; demo via `-Dexec.mainClass=...BlockSmithDemo`
 
-2. **Phase 3 IN PROGRESS** - API & Interface (Sprints 12-13 done, 50%)
+2. **Phase 3 IN PROGRESS** - API & Interface (Sprints 12-14 done, 75%)
 
-3. **Next: Sprint 14** - Smart Contracts
-   - Not yet planned; scope and milestones TBD in sprint planning
+3. **Next: Sprint 15** - Multi-sig Wallets
+   - Not yet planned; M-of-N signatures, threshold signing. The Sprint 14
+     script VM is a natural foundation (a CHECKMULTISIG-style opcode)
 
 4. **Deferred / future work**
    - Gossip auto-connect to DISCOVERED peers (needs MAX_PEERS guarding)
@@ -260,9 +280,9 @@ _None currently._
    - API transactions are unsigned (educational); signature-carrying submission
      would need public-key + signature fields in the request body
    - WebSocket push for the dashboard (currently 4s polling)
-   - `pom.xml` exec/jar main class still points at `BlockSmithDemo`, not
-     `BlockSmithNode`
+   - Contract deploy uses `System.currentTimeMillis()` in the id seed; fine for
+     uniqueness but not reproducible across a re-mine
 
 ---
 
-*Last updated: 2026-07-03 | Sprint 13 Complete (Milestone 13c) - Phase 3 In Progress*
+*Last updated: 2026-07-03 | Sprint 14 Complete (Milestone 14c) - Phase 3 In Progress*

@@ -39,9 +39,9 @@
 | **Test Framework** | JUnit 5 |
 | **Serialization** | Gson 2.10.1 |
 | **Current Phase** | Phase 3: API & Interface — In Progress |
-| **Current Sprint** | Sprint 13 (Web Dashboard) — Complete |
-| **Current Milestone** | 13c Complete; next: Sprint 14 (Smart Contracts) |
-| **Total Tests** | 187 (all passing) |
+| **Current Sprint** | Sprint 14 (Smart Contracts) — Complete |
+| **Current Milestone** | 14c Complete; next: Sprint 15 (Multi-sig Wallets) |
+| **Total Tests** | 220 (all passing) |
 | **Main Branch** | `master` |
 
 ---
@@ -113,11 +113,16 @@ BlockSmith/
 │           └── MempoolMessage.java   # ✅ Complete (Sprint 11c)
 │
 │   ├── api/                          # REST API (Sprint 12)
-│   │   └── ApiServer.java            # ✅ Complete (Javalin: blocks, tx, mine, wallet, network + static hosting)
+│   │   └── ApiServer.java            # ✅ Complete (Javalin: blocks, tx, mine, wallet, network, contracts + static hosting)
+│   ├── contract/                     # Smart contracts (Sprint 14)
+│   │   ├── ScriptOp.java             # ✅ Opcode set
+│   │   ├── ScriptVM.java             # ✅ Stack-based interpreter (hashlock/timelock)
+│   │   ├── Contract.java             # ✅ Contract model (derived from chain)
+│   │   └── ContractStatus.java       # ✅ OPEN / CLAIMED
 │   └── BlockSmithNode.java           # ✅ Complete (runnable node: P2P + API + dashboard, Sprint 13a)
 │
-├── src/main/resources/public/        # Web dashboard (Sprint 13): index.html, app.js, style.css
-├── src/test/java/com/blocksmith/     # 187 unit tests
+├── src/main/resources/public/        # Web dashboard (Sprint 13-14): index.html, app.js, style.css
+├── src/test/java/com/blocksmith/     # 220 unit tests
 ├── pom.xml                           # Maven configuration (Gson, JUnit, Javalin)
 └── README.md                         # Public documentation
 ```
@@ -149,14 +154,16 @@ BlockSmith/
 
 **Sprint 12: REST API** — Javalin `ApiServer` on port 7070: block read endpoints + network status, transaction submit/lookup + mining (broadcast on write), wallet balance/create + peers, JSON error envelope (400/404/500).
 
-**Sprint 13: Web Dashboard** — `BlockSmithNode` runnable entry point (Node + ApiServer in one process), Javalin static hosting of a vanilla HTML/JS/CSS dashboard at `/`: explorer view (blocks + network, 4s polling) and actions (create wallet, balance lookup, send tx, mine) with API errors surfaced inline. Run: `java -cp target/classes com.blocksmith.BlockSmithNode` → `http://localhost:7070/`.
+**Sprint 13: Web Dashboard** — `BlockSmithNode` runnable entry point (Node + ApiServer in one process), Javalin static hosting of a vanilla HTML/JS/CSS dashboard at `/`: explorer view (blocks + network, 4s polling) and actions (create wallet, balance lookup, send tx, mine) with API errors surfaced inline. Run: `mvn exec:java` → `http://localhost:7070/`.
+
+**Sprint 14: Smart Contracts** — `com.blocksmith.contract`: `ScriptVM` stack machine (opcodes for hashlock/timelock; never throws — malformed scripts evaluate to false). Contracts are modelled as transactions (deploy TO `CONTRACT:<id>` with a locking script, claim FROM it with unlocking data), so the balance model needs no changes; the contract registry is derived from blocks so all nodes converge. REST: `POST /api/contracts`, `GET /api/contracts[/{id}]`, `POST /api/contracts/{id}/claim`; dashboard Contracts panel.
 
 ---
 
 ## What's NOT Implemented Yet
 
-### Phase 3 remaining (Sprints 14-15) ← NEXT
-- Basic smart contracts (Sprint 14), multi-sig wallets (Sprint 15)
+### Phase 3 remaining (Sprint 15) ← NEXT
+- Multi-sig wallets (Sprint 15): M-of-N signatures, threshold signing
 
 ### Phase 4: Production Features (Sprints 16-19)
 - Database persistence, dynamic difficulty, block limits, fee market
@@ -180,8 +187,11 @@ mvn test
 # Run specific test class
 mvn test -Dtest=MempoolSyncTest
 
-# Run the demo (PowerShell)
-mvn compile -q; java -cp target/classes com.blocksmith.BlockSmithDemo
+# Run the node + web dashboard (http://localhost:7070/)
+mvn exec:java
+
+# Run the teaching demo
+mvn exec:java -Dexec.mainClass=com.blocksmith.BlockSmithDemo
 ```
 
 ---
@@ -247,7 +257,10 @@ mvn compile -q; java -cp target/classes com.blocksmith.BlockSmithDemo
 | ApiStaticHostingTest | 3 | Dashboard shell + static assets alongside the API (Sprint 13a) |
 | ApiExplorerTest | 2 | Explorer mount points + block JSON shape (Sprint 13b) |
 | ApiDashboardActionsTest | 2 | Dashboard action chain end to end (Sprint 13c) |
-| **Total** | **187** | All passing ✅ |
+| ScriptVMTest | 21 | Script opcodes, hashlock/timelock, failure semantics (Sprint 14a) |
+| ChainContractTest | 9 | Contract deploy/claim, timelock, double-claim, convergence (Sprint 14b) |
+| ApiContractsTest | 3 | Contract lifecycle over HTTP + error envelopes (Sprint 14c) |
+| **Total** | **220** | All passing ✅ |
 
 ---
 
@@ -258,7 +271,7 @@ mvn compile -q; java -cp target/classes com.blocksmith.BlockSmithDemo
 - **Doc branches**: `docs/{description}` (e.g., `docs/sprint11-complete`)
 - **Commits**: One per issue, format: `feat(scope): description #NN` — never add `Co-Authored-By`
 - **PRs**: created with `gh`, include `Closes #NN` lines, ff-only merge to sync local master
-- **Latest**: Sprint 13 complete (Web Dashboard, PR #133); Phase 3 in progress
+- **Latest**: Sprint 14 complete (Smart Contracts, PR #144); Phase 3 in progress
 
 ---
 
@@ -270,9 +283,9 @@ mvn compile -q; java -cp target/classes com.blocksmith.BlockSmithDemo
 | `CONVENTIONS.md` | Need full code style rules, THEORY comment format, test conventions |
 | `STATUS.md` | Need exact current status, implementation table, feature checklist |
 | `roadmap.md` | Need full project phases and timeline |
-| `sprints/sprint13/sprint-plan.md` | Most recent sprint's milestones, issues, acceptance criteria |
-| `sprints/sprint13/sprint-log.md` | What was completed in the latest sprint |
+| `sprints/sprint14/sprint-plan.md` | Most recent sprint's milestones, issues, acceptance criteria |
+| `sprints/sprint14/sprint-log.md` | What was completed in the latest sprint |
 
 ---
 
-*Last updated: 2026-07-03 | Sprint 13 Complete (Milestone 13c) — Phase 3 In Progress*
+*Last updated: 2026-07-03 | Sprint 14 Complete (Milestone 14c) — Phase 3 In Progress*
