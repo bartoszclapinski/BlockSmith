@@ -50,6 +50,30 @@
             </div>
         </section>
 
+        <section id="contracts">
+            <h2>Contracts</h2>
+            <div class="action-grid">
+                <div class="action">
+                    <h3>Deploy</h3>
+                    <input id="deploy-funder" type="text" placeholder="funder address" autocomplete="off">
+                    <input id="deploy-amount" type="number" placeholder="amount to lock" min="0" step="any" autocomplete="off">
+                    <input id="deploy-script" type="text" placeholder="locking script (e.g. SHA256 PUSH &lt;hash&gt; EQUAL)" autocomplete="off">
+                    <button id="deploy-contract">Deploy contract</button>
+                    <p id="deploy-result" class="action-result"></p>
+                </div>
+
+                <div class="action">
+                    <h3>Claim</h3>
+                    <input id="claim-id" type="text" placeholder="contract id" autocomplete="off">
+                    <input id="claim-claimer" type="text" placeholder="claimer address" autocomplete="off">
+                    <input id="claim-unlock" type="text" placeholder="unlocking data (e.g. PUSH &lt;preimage&gt;)" autocomplete="off">
+                    <button id="claim-contract">Claim contract</button>
+                    <p id="claim-result" class="action-result"></p>
+                </div>
+            </div>
+            <div id="contract-list"></div>
+        </section>
+
         <section id="blocks">
             <h2>Blocks</h2>
             <div id="block-list"></div>

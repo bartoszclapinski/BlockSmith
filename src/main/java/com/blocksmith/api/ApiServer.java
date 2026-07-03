@@ -5,10 +5,12 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+import com.blocksmith.contract.Contract;
 import com.blocksmith.core.Block;
 import com.blocksmith.core.Blockchain;
 import com.blocksmith.core.Transaction;
 import com.blocksmith.core.Wallet;
+import com.blocksmith.util.BlockchainConfig;
 import com.blocksmith.network.NetworkConfig;
 import com.blocksmith.network.Node;
 import com.blocksmith.network.PeerInfo;
@@ -97,6 +99,12 @@ public class ApiServer {
         app.get("/api/wallet/{address}", this::getWallet);
         app.post("/api/wallet/create", this::postWalletCreate);
         app.get("/api/network/peers", this::getPeers);
+
+        // Contract endpoints (Milestone 14c).
+        app.get("/api/contracts", ctx -> json(ctx, contractsList()));
+        app.get("/api/contracts/{id}", this::getContract);
+        app.post("/api/contracts", this::postContract);
+        app.post("/api/contracts/{id}/claim", this::postContractClaim);
 
         // JSON error handling (Milestone 12c).
         app.exception(Exception.class, (e, ctx) -> {
@@ -242,6 +250,123 @@ public class ApiServer {
             if (address.equals(tx.getSender())) sum += tx.getAmount();
         }
         return sum;
+    }
+
+    // ===== 14c: CONTRACTS =====
+
+    /**
+     * Deploys a contract: locks an amount behind a locking script. The deploy
+     * enters the mempool as a transaction and propagates to peers; the contract
+     * itself becomes OPEN once the deploy is mined.
+     */
+    private void postContract(Context ctx) {
+        JsonObject body;
+        try {
+            body = JsonParser.parseString(ctx.body()).getAsJsonObject();
+        } catch (JsonSyntaxException | IllegalStateException e) {
+            ctx.status(400);
+            json(ctx, error("Request body must be a JSON object"));
+            return;
+        }
+
+        if (!body.has("funder") || !body.has("amount") || !body.has("lockingScript")) {
+            ctx.status(400);
+            json(ctx, error("Contract requires funder, amount, and lockingScript"));
+            return;
+        }
+
+        Transaction deploy = blockchain.deployContract(
+                body.get("funder").getAsString(),
+                body.get("lockingScript").getAsString(),
+                body.get("amount").getAsDouble());
+
+        if (deploy == null) {
+            ctx.status(400);
+            json(ctx, error("Contract deploy rejected (invalid script or insufficient funds)"));
+            return;
+        }
+
+        node.broadcastTransaction(deploy);
+        ctx.status(201);
+
+        // The contract id is the deploy recipient minus the address prefix.
+        String contractId = deploy.getRecipient()
+                .substring(BlockchainConfig.CONTRACT_ADDRESS_PREFIX.length());
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("contractId", contractId);
+        m.put("funder", deploy.getSender());
+        m.put("amount", deploy.getAmount());
+        m.put("lockingScript", deploy.getLockingScript());
+        m.put("status", "PENDING"); // OPEN once the deploy is mined
+        json(ctx, m);
+    }
+
+    /** Claims an OPEN contract with unlocking data. */
+    private void postContractClaim(Context ctx) {
+        String id = ctx.pathParam("id");
+
+        JsonObject body;
+        try {
+            body = JsonParser.parseString(ctx.body()).getAsJsonObject();
+        } catch (JsonSyntaxException | IllegalStateException e) {
+            ctx.status(400);
+            json(ctx, error("Request body must be a JSON object"));
+            return;
+        }
+
+        if (!body.has("claimer")) {
+            ctx.status(400);
+            json(ctx, error("Claim requires a claimer address"));
+            return;
+        }
+
+        String unlockingScript = body.has("unlockingScript")
+                ? body.get("unlockingScript").getAsString() : "";
+
+        Transaction claim = blockchain.claimContract(
+                id, body.get("claimer").getAsString(), unlockingScript);
+
+        if (claim == null) {
+            ctx.status(400);
+            json(ctx, error("Claim rejected (unknown/claimed contract or script failed)"));
+            return;
+        }
+
+        node.broadcastTransaction(claim);
+        ctx.status(201);
+        json(ctx, contractInfo(blockchain.getContract(id)));
+    }
+
+    /** Returns a single contract by id (404 if no deploy has been mined). */
+    private void getContract(Context ctx) {
+        Contract contract = blockchain.getContract(ctx.pathParam("id"));
+        if (contract == null) {
+            ctx.status(404);
+            json(ctx, error("No contract with id " + ctx.pathParam("id")));
+            return;
+        }
+        json(ctx, contractInfo(contract));
+    }
+
+    private List<Map<String, Object>> contractsList() {
+        List<Map<String, Object>> list = new ArrayList<>();
+        for (Contract contract : blockchain.getContracts()) {
+            list.add(contractInfo(contract));
+        }
+        return list;
+    }
+
+    /** Serializes a contract to a stable JSON shape for the UI. */
+    private Map<String, Object> contractInfo(Contract contract) {
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("contractId", contract.getContractId());
+        m.put("funder", contract.getFunder());
+        m.put("lockingScript", contract.getLockingScript());
+        m.put("amount", contract.getAmount());
+        m.put("creationHeight", contract.getCreationHeight());
+        m.put("status", contract.getStatus().toString());
+        m.put("claimer", contract.getClaimer());
+        return m;
     }
 
     private void getBlockByIndex(Context ctx) {
