@@ -318,7 +318,7 @@ byte[] hash = digest.digest(input.getBytes(StandardCharsets.UTF_8));
 
 **Run With**:
 ```bash
-mvn compile -q; java -cp target/classes com.blocksmith.BlockSmithDemo
+mvn exec:java -Dexec.mainClass=com.blocksmith.BlockSmithDemo
 ```
 
 ---

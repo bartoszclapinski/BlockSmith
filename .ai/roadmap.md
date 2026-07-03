@@ -28,10 +28,10 @@ Transform BlockSmith from an educational blockchain into a **fully functional di
 │  ├── Block Broadcasting                          ✅ Sprint 10       │
 │  └── Mempool Synchronization                     ✅ Sprint 11       │
 │                                                                     │
-│  PHASE 3: API & Interface (Sprint 12-15)        ██████░░░░░░ 50% ←NOW│
+│  PHASE 3: API & Interface (Sprint 12-15)        █████████░░░ 75% ←NOW│
 │  ├── REST API                                    ✅ Sprint 12       │
 │  ├── Web Dashboard                               ✅ Sprint 13       │
-│  ├── Basic Smart Contracts                       ⬜ Sprint 14       │
+│  ├── Basic Smart Contracts                       ✅ Sprint 14       │
 │  └── Multi-signature Wallets                     ⬜ Sprint 15       │
 │                                                                     │
 │  PHASE 4: Production Features (Sprint 16-19)    ░░░░░░░░░░░░ 0%     │
@@ -98,7 +98,7 @@ com.blocksmith.network/
 
 ---
 
-## 🖥️ Phase 3: API & Interface 🔄 In Progress (50%)
+## 🖥️ Phase 3: API & Interface 🔄 In Progress (75%)
 
 **Goal:** Add REST API and web dashboard for easy interaction.
 
@@ -106,21 +106,25 @@ com.blocksmith.network/
 |--------|-------|------------------|--------|
 | 12 | REST API | Javalin HTTP endpoints (blocks, tx, mine, wallet, network), JSON responses | ✅ Complete |
 | 13 | Web Dashboard | Runnable node entry point, explorer view (blocks + network), wallet/tx/mine actions, polling refresh | ✅ Complete |
-| 14 | Smart Contracts | Script interpreter, basic conditions, contract storage | ⬜ Next |
+| 14 | Smart Contracts | Stack-based script VM (hashlock/timelock), contract deploy/claim on chain, REST + dashboard panel | ✅ Complete |
 | 15 | Multi-sig Wallets | M-of-N signatures, threshold signing | ⬜ Planned |
 
-### API Endpoints (Sprint 12)
+### API Endpoints (Sprint 12 + 14)
 ```
-GET  /api/blocks              # List all blocks
-GET  /api/blocks/{index}      # Get block by index
-GET  /api/blocks/latest       # Get latest block
-POST /api/transactions        # Submit transaction
-GET  /api/transactions/{id}   # Get transaction
-GET  /api/wallet/{address}    # Get wallet balance
-POST /api/wallet/create       # Create new wallet
-POST /api/mine                # Mine pending transactions
-GET  /api/network/peers       # List connected peers
-GET  /api/network/status      # Network status
+GET  /api/blocks               # List all blocks
+GET  /api/blocks/{index}       # Get block by index
+GET  /api/blocks/latest        # Get latest block
+POST /api/transactions         # Submit transaction
+GET  /api/transactions/{id}    # Get transaction
+GET  /api/wallet/{address}     # Get wallet balance
+POST /api/wallet/create        # Create new wallet
+POST /api/mine                 # Mine pending transactions
+GET  /api/network/peers        # List connected peers
+GET  /api/network/status       # Network status
+POST /api/contracts            # Deploy a contract (Sprint 14c)
+GET  /api/contracts            # List contracts
+GET  /api/contracts/{id}       # Inspect a contract
+POST /api/contracts/{id}/claim # Claim a contract
 ```
 
 ### Technologies
