@@ -13,13 +13,22 @@
     </header>
 
     <main>
-        <!-- Explorer view (blocks + network) is filled in during Sprint 13b. -->
-        <section id="network"></section>
-        <section id="blocks"></section>
+        <section id="network">
+            <h2>Network</h2>
+            <div id="network-stats" class="stats"></div>
+            <div id="peers"></div>
+        </section>
+
+        <section id="blocks">
+            <h2>Blocks</h2>
+            <div id="block-list"></div>
+        </section>
     </main>
 
     <footer>
-        <p>Served by the node's REST API &middot; Sprint 13a</p>
+        <p id="refresh-status" class="refresh">Connecting&hellip;</p>
     </footer>
+
+    <script src="/app.js"></script>
 </body>
 </html>
