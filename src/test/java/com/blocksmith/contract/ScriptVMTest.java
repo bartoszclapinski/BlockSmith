@@ -6,6 +6,12 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
 import com.blocksmith.util.HashUtil;
+import com.blocksmith.util.SignatureUtil;
+
+import java.security.KeyPair;
+import java.security.KeyPairGenerator;
+import java.security.PublicKey;
+import java.security.spec.ECGenParameterSpec;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -228,6 +234,131 @@ class ScriptVMTest {
         @DisplayName("CHECKLOCKTIME with non-numeric height fails the script")
         void checkLockTime_nonNumeric_fails() {
             assertFalse(vm.execute("PUSH soon CHECKLOCKTIME", 0));
+        }
+    }
+
+    // ===== SIGNATURE OPCODES (Sprint 15a) =====
+
+    @Nested
+    @DisplayName("Signature opcodes - CHECKSIG and CHECKMULTISIG")
+    class SignatureOpcodes {
+
+        /** The message a claim authorizes; the VM verifies signatures over it. */
+        private final String sighash = "claim:contract-1:0xbob:100";
+
+        @Test
+        @DisplayName("CHECKSIG: true only for a valid signature over the sighash")
+        void checkSig_trueForValidSignature_falseOtherwise() {
+            KeyPair kp = newKeyPair();
+            String pubKey = SignatureUtil.publicKeyToHex(kp.getPublic());
+            String sig = SignatureUtil.sign(kp.getPrivate(), sighash);
+            String locking = "PUSH " + pubKey + " CHECKSIG";
+
+            // Valid signature over the sighash -> true.
+            assertTrue(vm.execute("PUSH " + sig, locking, 0, sighash));
+
+            // The same signature against a different sighash -> false (replay-safe).
+            assertFalse(vm.execute("PUSH " + sig, locking, 0, "other-message"));
+
+            // A signature from a different key -> false.
+            String wrongSig = SignatureUtil.sign(newKeyPair().getPrivate(), sighash);
+            assertFalse(vm.execute("PUSH " + wrongSig, locking, 0, sighash));
+
+            // No sighash context (the 3-arg path) -> signature scripts never pass.
+            assertFalse(vm.execute("PUSH " + sig, locking, 0));
+        }
+
+        @Test
+        @DisplayName("CHECKMULTISIG: 2-of-3 valid with two correct signatures")
+        void checkMultiSig_twoOfThree_valid() {
+            KeyPair k1 = newKeyPair(), k2 = newKeyPair(), k3 = newKeyPair();
+            String locking = multisigLock(2, k1.getPublic(), k2.getPublic(), k3.getPublic());
+
+            String unlocking = "PUSH " + SignatureUtil.sign(k1.getPrivate(), sighash)
+                             + " PUSH " + SignatureUtil.sign(k2.getPrivate(), sighash);
+
+            assertTrue(vm.execute(unlocking, locking, 0, sighash));
+        }
+
+        @Test
+        @DisplayName("CHECKMULTISIG: fewer signatures than the threshold fails")
+        void checkMultiSig_insufficientSignatures_false() {
+            KeyPair k1 = newKeyPair(), k2 = newKeyPair(), k3 = newKeyPair();
+            String locking = multisigLock(2, k1.getPublic(), k2.getPublic(), k3.getPublic());
+
+            // Only one signature supplied against a 2-of-3 lock.
+            String unlocking = "PUSH " + SignatureUtil.sign(k1.getPrivate(), sighash);
+
+            assertFalse(vm.execute(unlocking, locking, 0, sighash));
+        }
+
+        @Test
+        @DisplayName("CHECKMULTISIG: a signature from a non-member key fails")
+        void checkMultiSig_wrongKeySignature_false() {
+            KeyPair k1 = newKeyPair(), k2 = newKeyPair(), k3 = newKeyPair();
+            KeyPair outsider = newKeyPair();
+            String locking = multisigLock(2, k1.getPublic(), k2.getPublic(), k3.getPublic());
+
+            // One valid member signature plus one from a key not in the set.
+            String unlocking = "PUSH " + SignatureUtil.sign(k1.getPrivate(), sighash)
+                             + " PUSH " + SignatureUtil.sign(outsider.getPrivate(), sighash);
+
+            assertFalse(vm.execute(unlocking, locking, 0, sighash));
+        }
+
+        @Test
+        @DisplayName("CHECKMULTISIG: the same signature cannot satisfy two slots")
+        void checkMultiSig_duplicateSignatureNotDoubleCounted() {
+            KeyPair k1 = newKeyPair(), k2 = newKeyPair(), k3 = newKeyPair();
+            String locking = multisigLock(2, k1.getPublic(), k2.getPublic(), k3.getPublic());
+
+            // One member's signature presented twice - distinct-key rule rejects it.
+            String sig1 = SignatureUtil.sign(k1.getPrivate(), sighash);
+            String unlocking = "PUSH " + sig1 + " PUSH " + sig1;
+
+            assertFalse(vm.execute(unlocking, locking, 0, sighash));
+        }
+
+        @Test
+        @DisplayName("Malformed keys, signatures, and counts are false, never a crash")
+        void malformedInput_isFalse_neverThrows() {
+            // Garbage CHECKSIG operands (non-hex pubkey).
+            assertFalse(vm.execute("PUSH deadbeef PUSH nothex CHECKSIG", 0, sighash));
+
+            // Non-numeric N for CHECKMULTISIG.
+            assertFalse(vm.execute("PUSH notanumber CHECKMULTISIG", 0, sighash));
+
+            // Count mismatch: M (3) greater than N (2).
+            KeyPair k1 = newKeyPair(), k2 = newKeyPair();
+            String badCounts = "PUSH 3 PUSH " + SignatureUtil.publicKeyToHex(k1.getPublic())
+                             + " PUSH " + SignatureUtil.publicKeyToHex(k2.getPublic())
+                             + " PUSH 2 CHECKMULTISIG";
+            assertFalse(vm.execute("", badCounts, 0, sighash));
+
+            // Bare opcodes with an empty stack underflow to false.
+            assertFalse(vm.execute("CHECKSIG", 0, sighash));
+            assertFalse(vm.execute("CHECKMULTISIG", 0, sighash));
+        }
+
+        /** Builds an M-of-N lock: {@code M <pub1> ... <pubN> N CHECKMULTISIG}. */
+        private String multisigLock(int m, PublicKey... keys) {
+            StringBuilder sb = new StringBuilder("PUSH ").append(m);
+            for (PublicKey key : keys) {
+                sb.append(" PUSH ").append(SignatureUtil.publicKeyToHex(key));
+            }
+            sb.append(" PUSH ").append(keys.length).append(" CHECKMULTISIG");
+            return sb.toString();
+        }
+    }
+
+    /** Generates a fresh secp256r1 key pair for signature tests. */
+    private KeyPair newKeyPair() {
+        try {
+            KeyPairGenerator keyGen = KeyPairGenerator.getInstance("EC");
+            keyGen.initialize(new ECGenParameterSpec("secp256r1"));
+            return keyGen.generateKeyPair();
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to generate key pair", e);
         }
     }
 }

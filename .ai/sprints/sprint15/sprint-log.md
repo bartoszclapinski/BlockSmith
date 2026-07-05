@@ -9,7 +9,22 @@
 
 ---
 
-## Milestone 15a: Signature opcodes in the VM - Pending
+## Milestone 15a: Signature opcodes in the VM - Complete
+
+- `SignatureUtil` added: ECDSA sign/verify (secp256r1, SHA256withECDSA) with
+  hex encode/decode for public keys (X.509) and signatures (DER). `verify`
+  never throws - malformed input is "not valid" (false), consistent with the
+  VM's consensus-safety rule.
+- `ScriptVM.execute(...)` gained a sighash overload; the existing 3-arg and
+  2-arg forms delegate with an empty sighash, so every Sprint 14 call site and
+  test is unchanged (signature scripts simply fail without a sighash context).
+- `CHECKSIG` and `CHECKMULTISIG` opcodes added. Multisig layout is Bitcoin's
+  bare form `<sigs> M <pubkeys> N CHECKMULTISIG`; matching is ordered and
+  distinct-key, so a duplicate signature cannot satisfy two slots.
+- 6 new tests in `ScriptVMTest` (valid single-sig, 2-of-3, insufficient,
+  wrong-key, duplicate-not-double-counted, malformed-never-throws). Suite:
+  220 -> 226, all green.
+- Issues #147 (opcodes), #148 (tests).
 
 ---
 

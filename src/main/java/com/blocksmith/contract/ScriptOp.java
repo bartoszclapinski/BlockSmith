@@ -33,6 +33,13 @@ package com.blocksmith.contract;
  * CONTRACT:
  * - CHECKLOCKTIME Pops a height N; pushes 1 if the current block height
  *                 is >= N else 0 (the timelock building block)
+ *
+ * SIGNATURES (Sprint 15):
+ * - CHECKSIG      Pops a public key and a signature; pushes 1 if the signature
+ *                 is valid for the sighash under that key else 0
+ * - CHECKMULTISIG Pops N, N public keys, M, and M signatures; pushes 1 iff at
+ *                 least M signatures are valid under distinct keys (ordered).
+ *                 Layout: {@code <sigs> M <pubkeys> N CHECKMULTISIG}
  */
 public enum ScriptOp {
     PUSH,
@@ -46,5 +53,7 @@ public enum ScriptOp {
     SUB,
     GREATERTHAN,
     LESSTHAN,
-    CHECKLOCKTIME
+    CHECKLOCKTIME,
+    CHECKSIG,
+    CHECKMULTISIG
 }
