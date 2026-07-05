@@ -5,7 +5,7 @@
 | Event | Date |
 |-------|------|
 | **Sprint Start** | 2026-07-03 |
-| **Sprint End** | TBD |
+| **Sprint End** | 2026-07-05 |
 
 ---
 

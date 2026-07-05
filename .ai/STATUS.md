@@ -8,10 +8,10 @@
 
 | Field | Value |
 |-------|-------|
-| **Phase** | 3 - API & Interface - In Progress |
-| **Current Sprint** | 14 (Smart Contracts) - Complete |
-| **Current Milestone** | 14c Complete (Contract endpoints + dashboard panel) |
-| **Status** | Sprint 14 complete (14a-14c), next: Sprint 15 (Multi-sig Wallets) |
+| **Phase** | 3 - API & Interface - ✅ COMPLETE |
+| **Current Sprint** | 15 (Multi-signature Wallets) - Complete |
+| **Current Milestone** | 15c Complete (Multisig endpoints + dashboard panel) |
+| **Status** | Sprint 15 complete (15a-15c); Phase 3 complete, next: Phase 4 (Sprint 16 - Persistence) |
 
 ---
 
@@ -46,11 +46,14 @@ Phase 2: Network Layer       [███████████████] 100
 ├── Sprint 10: Broadcasting  ✅ COMPLETE (10a ✅, 10b ✅, 10c ✅, 10d ✅)
 └── Sprint 11: Mempool Sync  ✅ COMPLETE (11a ✅, 11b ✅, 11c ✅)
 
-Phase 3: API & Interface     [███████████░░░░] 75% ← CURRENT
+Phase 3: API & Interface     [███████████████] 100% ✅ COMPLETE
 ├── Sprint 12: REST API      ✅ COMPLETE (12a ✅, 12b ✅, 12c ✅)
 ├── Sprint 13: Web Dashboard ✅ COMPLETE (13a ✅, 13b ✅, 13c ✅)
 ├── Sprint 14: Smart Contracts ✅ COMPLETE (14a ✅, 14b ✅, 14c ✅)
-└── Sprint 15: Multi-sig Wallets ⬜ ← NEXT
+└── Sprint 15: Multi-sig Wallets ✅ COMPLETE (15a ✅, 15b ✅, 15c ✅)
+
+Phase 4: Production Features  [░░░░░░░░░░░░░░░] 0% ← NEXT
+└── Sprint 16: Persistence   ⬜ ← NEXT
 ```
 
 ---
@@ -87,10 +90,12 @@ Phase 3: API & Interface     [███████████░░░░] 75%
 | ApiStaticHostingTest | 3 | ✅ |
 | ApiExplorerTest | 2 | ✅ |
 | ApiDashboardActionsTest | 2 | ✅ |
-| ScriptVMTest | 21 | ✅ |
+| ScriptVMTest | 27 | ✅ |
 | ChainContractTest | 9 | ✅ |
 | ApiContractsTest | 3 | ✅ |
-| **Total** | **220** | ✅ |
+| MultiSigContractTest | 5 | ✅ |
+| ApiMultiSigTest | 2 | ✅ |
+| **Total** | **233** | ✅ |
 
 Last test run: `mvn test` - All passing
 
@@ -112,6 +117,7 @@ Last test run: `mvn test` - All passing
 | Class | Status | Lines | Notes |
 |-------|--------|-------|-------|
 | HashUtil.java | ✅ Complete | ~50 | SHA-256 |
+| SignatureUtil.java | ✅ Complete | ~140 | ECDSA sign/verify (secp256r1) + hex encode/decode; verify never throws (Sprint 15a) |
 | BlockchainConfig.java | ✅ Complete | ~56 | Constants |
 | BlockExplorer.java | ⬜ TODO | ~14 | Sprint 7 |
 
@@ -137,23 +143,24 @@ Last test run: `mvn test` - All passing
 
 | Class | Status | Lines | Notes |
 |-------|--------|-------|-------|
-| ApiServer.java | ✅ Complete | ~420 | Javalin REST API: blocks, transactions, mining, wallet, network, JSON errors (Sprint 12) + static dashboard hosting (Sprint 13a) + contract deploy/claim/inspect endpoints (Sprint 14c) |
+| ApiServer.java | ✅ Complete | ~530 | Javalin REST API: blocks, transactions, mining, wallet, network, JSON errors (Sprint 12) + static dashboard hosting (Sprint 13a) + contract deploy/claim/inspect endpoints (Sprint 14c) + multisig create/claim endpoints, server-held member keys (Sprint 15c) |
 
 ### Contract Classes (`com.blocksmith.contract`)
 
 | Class | Status | Lines | Notes |
 |-------|--------|-------|-------|
-| ScriptOp.java | ✅ Complete | ~50 | Opcode enum: PUSH/DUP/DROP/SHA256/EQUAL(VERIFY)/VERIFY/ADD/SUB/GREATER/LESS/CHECKLOCKTIME (Sprint 14a) |
-| ScriptVM.java | ✅ Complete | ~200 | Stack machine; hashlock/timelock; never throws (malformed = false) (Sprint 14a) |
-| Contract.java | ✅ Complete | ~100 | Contract model: locking script, amount, funder, status, derived from chain (Sprint 14b) |
+| ScriptOp.java | ✅ Complete | ~55 | Opcode enum: PUSH/DUP/DROP/SHA256/EQUAL(VERIFY)/VERIFY/ADD/SUB/GREATER/LESS/CHECKLOCKTIME (Sprint 14a) + CHECKSIG/CHECKMULTISIG (Sprint 15a) |
+| ScriptVM.java | ✅ Complete | ~290 | Stack machine; hashlock/timelock; sighash + signature opcodes; never throws (malformed = false) (Sprint 14a, 15a) |
+| Contract.java | ✅ Complete | ~120 | Contract model: locking script, amount, funder, status, derived from chain (Sprint 14b) + claimSighash (Sprint 15b) |
 | ContractStatus.java | ✅ Complete | ~12 | OPEN / CLAIMED (Sprint 14b) |
+| MultiSigWallet.java | ✅ Complete | ~130 | M-of-N wallet: builds CHECKMULTISIG lock, derives MS: address; public keys only (Sprint 15b) |
 
 ### Web Dashboard (`src/main/resources/public`)
 
 | File | Status | Notes |
 |------|--------|-------|
-| index.html | ✅ Complete | Dashboard shell: network, actions, blocks sections (Sprint 13) |
-| app.js | ✅ Complete | Vanilla JS explorer + actions, 4s polling, textContent-only rendering (Sprint 13b/13c) |
+| index.html | ✅ Complete | Dashboard shell: network, actions, blocks, contracts (Sprint 14c) + multisig (Sprint 15c) sections |
+| app.js | ✅ Complete | Vanilla JS explorer + actions, 4s polling, textContent-only rendering (Sprint 13b/13c) + contract + multisig actions (Sprint 14c/15c) |
 | style.css | ✅ Complete | Dark theme, stat tiles, block cards, action forms (Sprint 13) |
 
 ### Entry Points
@@ -232,6 +239,11 @@ Last test run: `mvn test` - All passing
 - [x] Contract deploy/claim on the chain, registry derived from blocks (Sprint 14b)
 - [x] Contract balance rules + script-verified claims + double-claim protection (Sprint 14b)
 - [x] Contract REST endpoints + dashboard panel (deploy/claim) (Sprint 14c)
+- [x] Signature opcodes CHECKSIG/CHECKMULTISIG + sighash in the script VM (Sprint 15a)
+- [x] ECDSA sign/verify helper (SignatureUtil); verify never throws (Sprint 15a)
+- [x] M-of-N multisig as a contract (MultiSigWallet + CHECKMULTISIG lock) (Sprint 15b)
+- [x] Claim sighash SHA256(contractId+claimer+amount) binds signatures, replay-safe (Sprint 15b)
+- [x] Multisig REST endpoints + dashboard panel; server-held keys, never serialized (Sprint 15c)
 
 ---
 
@@ -240,7 +252,7 @@ Last test run: `mvn test` - All passing
 | Item | Value |
 |------|-------|
 | **Current Branch** | `master` |
-| **Last Commit** | Sprint 14 complete (contract endpoints merged, PR #144) |
+| **Last Commit** | Sprint 15 complete (multisig API + dashboard merged, PR #155) |
 | **Tag** | `v1.0.0` (Phase 1) |
 | **Main Branch** | `master` |
 
@@ -254,23 +266,27 @@ _None currently._
 
 ## 📝 Notes for Next Session
 
-1. **Sprint 14 COMPLETE** - Smart Contracts
-   - All milestones 14a, 14b, 14c merged to master
-   - `com.blocksmith.contract`: `ScriptVM` stack machine (hashlock/timelock,
-     never throws), `Contract`/`ContractStatus`
-   - Contracts modelled as transactions (deploy TO `CONTRACT:<id>` with a
-     locking script, claim FROM it with unlocking data); registry derived from
-     blocks so all nodes converge - no changes needed to `getBalance`
-   - REST: `POST /api/contracts`, `GET /api/contracts[/{id}]`,
-     `POST /api/contracts/{id}/claim`; dashboard Contracts panel
-   - Tooling: `mvn exec:java` now runs the node + dashboard by default; jar main
-     class is `BlockSmithNode`; demo via `-Dexec.mainClass=...BlockSmithDemo`
+1. **Sprint 15 COMPLETE** - Multi-signature Wallets
+   - All milestones 15a, 15b, 15c merged to master
+   - 15a: `SignatureUtil` (ECDSA sign/verify, hex, never throws) + `CHECKSIG`/
+     `CHECKMULTISIG` opcodes; `ScriptVM.execute` gained a sighash overload
+     (existing call sites delegate with an empty sighash, so Sprint 14 is
+     untouched)
+   - 15b: `MultiSigWallet` (builds the CHECKMULTISIG lock, MS: address);
+     `Contract.claimSighash(claimer)` = `SHA256(contractId+claimer+amount)`; the
+     one wiring change is `Blockchain.isValidClaim` feeding the sighash to the
+     VM. A multisig is just a Sprint 14 contract with a signature lock
+   - 15c: `POST /api/multisig/create` + `POST /api/multisig/claim` (server-held
+     member keys, an educational signing convenience; private keys never
+     serialized); dashboard Multisig panel. Verified live end to end
 
-2. **Phase 3 IN PROGRESS** - API & Interface (Sprints 12-14 done, 75%)
+2. **Phase 3 COMPLETE** - API & Interface (Sprints 12-15 all done, 100%).
+   The wallet -> contract -> VM -> multisig arc is finished.
 
-3. **Next: Sprint 15** - Multi-sig Wallets
-   - Not yet planned; M-of-N signatures, threshold signing. The Sprint 14
-     script VM is a natural foundation (a CHECKMULTISIG-style opcode)
+3. **Next: Phase 4 (Production Features)** - starting Sprint 16 (Persistence)
+   - Not yet planned; likely SQLite/H2 persistence for the chain + mempool,
+     indexed queries, and backup/restore. Then difficulty adjustment (17),
+     block limits (18), fee market (19)
 
 4. **Deferred / future work**
    - Gossip auto-connect to DISCOVERED peers (needs MAX_PEERS guarding)
@@ -279,10 +295,13 @@ _None currently._
      yet pull the peer's mempool
    - API transactions are unsigned (educational); signature-carrying submission
      would need public-key + signature fields in the request body
+   - Multisig signing is a server-side convenience (the node holds the member
+     keys and signs claims); a production design signs client-side and submits
+     only signatures. Member keys live in memory only (lost on restart)
    - WebSocket push for the dashboard (currently 4s polling)
    - Contract deploy uses `System.currentTimeMillis()` in the id seed; fine for
      uniqueness but not reproducible across a re-mine
 
 ---
 
-*Last updated: 2026-07-03 | Sprint 14 Complete (Milestone 14c) - Phase 3 In Progress*
+*Last updated: 2026-07-05 | Sprint 15 Complete (Milestone 15c) - Phase 3 ✅ COMPLETE*

@@ -7,7 +7,7 @@
 | **Sprint** | 15 |
 | **Title** | Multi-signature Wallets |
 | **Phase** | Phase 3: API & Interface |
-| **Status** | Planning |
+| **Status** | ✅ Complete (15a, 15b, 15c) |
 | **Depends On** | Sprint 14 Complete (Smart Contracts / script VM) |
 
 > **Approach (recommended):** build multisig ON the Sprint 14 script VM. Add
@@ -34,9 +34,9 @@ end to end from the dashboard.
 
 | Milestone | Title | Branch | Status |
 |-----------|-------|--------|--------|
-| **15a** | Signature opcodes in the VM | `sprint15a/sig-opcodes` | Pending |
-| **15b** | Multisig contracts (M-of-N) | `sprint15b/multisig-contracts` | Pending |
-| **15c** | API + dashboard integration | `sprint15c/multisig-api` | Pending |
+| **15a** | Signature opcodes in the VM | `sprint15a/sig-opcodes` | ✅ Complete (PR #149) |
+| **15b** | Multisig contracts (M-of-N) | `sprint15b/multisig-contracts` | ✅ Complete (PR #152) |
+| **15c** | API + dashboard integration | `sprint15c/multisig-api` | ✅ Complete (PR #155) |
 
 ---
 
