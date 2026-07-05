@@ -6,8 +6,8 @@ BlockSmith is a comprehensive blockchain project that goes beyond tutorials - im
 
 [![Java](https://img.shields.io/badge/Java-20+-orange.svg)](https://openjdk.org/)
 [![Maven](https://img.shields.io/badge/Maven-3.9+-blue.svg)](https://maven.apache.org/)
-[![Tests](https://img.shields.io/badge/Tests-220%20passing-brightgreen.svg)](#)
-[![Phase](https://img.shields.io/badge/Phase%202-In%20Progress-yellow.svg)](#)
+[![Tests](https://img.shields.io/badge/Tests-233%20passing-brightgreen.svg)](#)
+[![Phase](https://img.shields.io/badge/Phase%203-Complete-brightgreen.svg)](#)
 [![Version](https://img.shields.io/badge/Version-1.0.0-blue.svg)](#)
 
 ---
@@ -49,7 +49,7 @@ BlockSmith is a comprehensive blockchain project that goes beyond tutorials - im
   - ✅ Prune confirmed transactions from the mempool (Sprint 11b)
   - ✅ Mempool sync on connect (GET_MEMPOOL/MEMPOOL) (Sprint 11c)
 
-### Phase 3: API & Interface 🔄 In Progress (75%)
+### Phase 3: API & Interface ✅ Complete (100%)
 - ✅ REST API for blockchain interaction (Sprint 12)
   - ✅ Javalin server + block read endpoints (Sprint 12a)
   - ✅ Transaction submit/lookup + mining endpoints (Sprint 12b)
@@ -62,9 +62,10 @@ BlockSmith is a comprehensive blockchain project that goes beyond tutorials - im
   - ✅ Stack-based script VM: hashlock + timelock opcodes (Sprint 14a)
   - ✅ Contract deploy/claim on the chain, registry derived from blocks (Sprint 14b)
   - ✅ Contract REST endpoints + dashboard panel (Sprint 14c)
-- 🔜 Multi-signature wallets (Sprint 15)
-- 🔜 Basic smart contract support (Sprint 14)
-- 🔜 Multi-signature wallets (Sprint 15)
+- ✅ Multi-signature wallets (Sprint 15)
+  - ✅ CHECKSIG/CHECKMULTISIG opcodes + sighash in the script VM (Sprint 15a)
+  - ✅ M-of-N multisig contracts, replay-safe claim sighash (Sprint 15b)
+  - ✅ Multisig REST endpoints + dashboard panel (Sprint 15c)
 
 ### Phase 4: Production Features 🔜 Planned
 - Database persistence (SQLite)
@@ -206,7 +207,7 @@ Average attempts: ~16^difficulty (~65,536 for difficulty 4)
 mvn clean compile
 ```
 
-### Run all tests (220 tests)
+### Run all tests (233 tests)
 ```bash
 mvn test
 ```
@@ -252,6 +253,7 @@ BlockSmith/
 │   │   └── Wallet.java         # ECDSA keys & signing
 │   ├── util/
 │   │   ├── HashUtil.java       # SHA-256 hashing
+│   │   ├── SignatureUtil.java  # ECDSA sign/verify + hex (Sprint 15a)
 │   │   ├── BlockchainConfig.java # Configuration constants
 │   │   └── BlockExplorer.java  # Chain viewer (TODO)
 │   ├── network/                # P2P networking (Sprint 8)
@@ -270,15 +272,16 @@ BlockSmith/
 │   │   └── messages/           # Concrete message classes (incl. GetPeers/Peers)
 │   ├── api/
 │   │   └── ApiServer.java      # Javalin REST API + static dashboard hosting
-│   ├── contract/               # Smart contracts (Sprint 14)
-│   │   ├── ScriptOp.java       # Script opcode set
-│   │   ├── ScriptVM.java       # Stack-based script interpreter
-│   │   ├── Contract.java       # Contract model (locking script + funds)
-│   │   └── ContractStatus.java # OPEN / CLAIMED
+│   ├── contract/               # Smart contracts (Sprint 14) + multisig (Sprint 15)
+│   │   ├── ScriptOp.java       # Script opcode set (+ CHECKSIG/CHECKMULTISIG)
+│   │   ├── ScriptVM.java       # Stack-based script interpreter (+ sighash)
+│   │   ├── Contract.java       # Contract model (locking script + funds + claim sighash)
+│   │   ├── ContractStatus.java # OPEN / CLAIMED
+│   │   └── MultiSigWallet.java # M-of-N wallet + CHECKMULTISIG lock (Sprint 15b)
 │   ├── BlockSmithNode.java     # Runnable node (P2P + API + dashboard)
 │   └── BlockSmithDemo.java     # Teaching demo application
 ├── src/main/resources/public/  # Web dashboard (index.html, app.js, style.css)
-├── src/test/java/              # 220 unit tests
+├── src/test/java/              # 233 unit tests
 ├── data/                       # Blockchain persistence (JSON)
 ├── pom.xml                     # Maven configuration
 └── README.md
@@ -318,10 +321,12 @@ BlockSmith/
 | ApiStaticHostingTest | 3 | Dashboard shell + static assets alongside the API |
 | ApiExplorerTest | 2 | Explorer mount points + block JSON shape |
 | ApiDashboardActionsTest | 2 | Dashboard action chain end to end |
-| ScriptVMTest | 21 | Script opcodes, hashlock/timelock, failure semantics |
+| ScriptVMTest | 27 | Script opcodes, hashlock/timelock, signature opcodes, failure semantics |
 | ChainContractTest | 9 | Contract deploy/claim, timelock, double-claim, convergence |
 | ApiContractsTest | 3 | Contract lifecycle over HTTP + error envelopes |
-| **Total** | **220** | All passing ✅ |
+| MultiSigContractTest | 5 | M-of-N deploy/claim, threshold, wrong-key, replay safety, convergence |
+| ApiMultiSigTest | 2 | Multisig lifecycle over HTTP + error envelopes |
+| **Total** | **233** | All passing ✅ |
 
 ---
 
@@ -375,15 +380,15 @@ BlockSmith/
 | Sprint 10 | Block Broadcasting | ✅ Complete (10a, 10b, 10c, 10d) |
 | Sprint 11 | Mempool Sync | ✅ Complete (11a, 11b, 11c) |
 
-### Phase 3: API & Interface 🔄 In Progress (75%)
+### Phase 3: API & Interface ✅ Complete (100%)
 | Sprint | Title | Status |
 |--------|-------|--------|
 | Sprint 12 | REST API | ✅ Complete (12a, 12b, 12c) |
 | Sprint 13 | Web Dashboard | ✅ Complete (13a, 13b, 13c) |
 | Sprint 14 | Smart Contracts | ✅ Complete (14a, 14b, 14c) |
-| Sprint 15 | Multi-sig Wallets | ⬜ Planned |
+| Sprint 15 | Multi-sig Wallets | ✅ Complete (15a, 15b, 15c) |
 
-### Phase 4: Production
+### Phase 4: Production 🔜 Next
 | Sprint | Title | Status |
 |--------|-------|--------|
 | Sprint 16-19 | Database, Difficulty, Fees | ⬜ Planned |
@@ -410,4 +415,4 @@ This project is for educational purposes.
 
 ---
 
-*Last updated: 2026-07-03 | Phase 3 In Progress (Sprint 14 - Smart Contracts Complete)*
+*Last updated: 2026-07-05 | Phase 3 ✅ Complete (Sprint 15 - Multi-signature Wallets Complete)*

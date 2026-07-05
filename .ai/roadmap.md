@@ -28,13 +28,13 @@ Transform BlockSmith from an educational blockchain into a **fully functional di
 │  ├── Block Broadcasting                          ✅ Sprint 10       │
 │  └── Mempool Synchronization                     ✅ Sprint 11       │
 │                                                                     │
-│  PHASE 3: API & Interface (Sprint 12-15)        █████████░░░ 75% ←NOW│
+│  PHASE 3: API & Interface (Sprint 12-15)        ███████████████ 100%│
 │  ├── REST API                                    ✅ Sprint 12       │
 │  ├── Web Dashboard                               ✅ Sprint 13       │
 │  ├── Basic Smart Contracts                       ✅ Sprint 14       │
-│  └── Multi-signature Wallets                     ⬜ Sprint 15       │
+│  └── Multi-signature Wallets                     ✅ Sprint 15       │
 │                                                                     │
-│  PHASE 4: Production Features (Sprint 16-19)    ░░░░░░░░░░░░ 0%     │
+│  PHASE 4: Production Features (Sprint 16-19)    ░░░░░░░░░░░░ 0% ←NOW│
 │  ├── Database Persistence                        ⬜ Sprint 16       │
 │  ├── Difficulty Adjustment                       ⬜ Sprint 17       │
 │  ├── Block Size & Limits                         ⬜ Sprint 18       │
@@ -98,7 +98,7 @@ com.blocksmith.network/
 
 ---
 
-## 🖥️ Phase 3: API & Interface 🔄 In Progress (75%)
+## 🖥️ Phase 3: API & Interface ✅ Complete (100%)
 
 **Goal:** Add REST API and web dashboard for easy interaction.
 
@@ -107,9 +107,9 @@ com.blocksmith.network/
 | 12 | REST API | Javalin HTTP endpoints (blocks, tx, mine, wallet, network), JSON responses | ✅ Complete |
 | 13 | Web Dashboard | Runnable node entry point, explorer view (blocks + network), wallet/tx/mine actions, polling refresh | ✅ Complete |
 | 14 | Smart Contracts | Stack-based script VM (hashlock/timelock), contract deploy/claim on chain, REST + dashboard panel | ✅ Complete |
-| 15 | Multi-sig Wallets | M-of-N signatures, threshold signing | ⬜ Planned |
+| 15 | Multi-sig Wallets | CHECKSIG/CHECKMULTISIG opcodes, M-of-N multisig contracts, sighash replay safety, REST + dashboard panel | ✅ Complete |
 
-### API Endpoints (Sprint 12 + 14)
+### API Endpoints (Sprint 12 + 14 + 15)
 ```
 GET  /api/blocks               # List all blocks
 GET  /api/blocks/{index}       # Get block by index
@@ -125,6 +125,8 @@ POST /api/contracts            # Deploy a contract (Sprint 14c)
 GET  /api/contracts            # List contracts
 GET  /api/contracts/{id}       # Inspect a contract
 POST /api/contracts/{id}/claim # Claim a contract
+POST /api/multisig/create      # Create an M-of-N multisig wallet (Sprint 15c)
+POST /api/multisig/claim       # Assemble + submit a multisig claim
 ```
 
 ### Technologies
@@ -190,13 +192,13 @@ POST /api/contracts/{id}/claim # Claim a contract
 - Concurrent programming
 - Distributed systems
 
-### Phase 3 (Next)
+### Phase 3 ✅
 - REST API design
 - Web development
-- Simple language interpreters
-- Cryptographic schemes (multi-sig)
+- Simple language interpreters (stack-based script VM)
+- Cryptographic schemes (multi-sig, sighash replay safety)
 
-### Phase 4
+### Phase 4 (Next)
 - Database design
 - Algorithm design (difficulty adjustment)
 - Economic incentive systems
