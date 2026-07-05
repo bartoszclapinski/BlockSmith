@@ -74,6 +74,28 @@
             <div id="contract-list"></div>
         </section>
 
+        <section id="multisig">
+            <h2>Multisig</h2>
+            <p class="muted">M-of-N wallets. The node generates the member keys and signs on your behalf (educational convenience; a real wallet signs client-side).</p>
+            <div class="action-grid">
+                <div class="action">
+                    <h3>Create wallet</h3>
+                    <input id="ms-members" type="number" placeholder="members (N)" min="1" step="1" autocomplete="off">
+                    <input id="ms-threshold" type="number" placeholder="threshold (M)" min="1" step="1" autocomplete="off">
+                    <button id="ms-create">Create multisig</button>
+                    <p id="ms-create-result" class="action-result"></p>
+                </div>
+
+                <div class="action">
+                    <h3>Claim</h3>
+                    <input id="ms-claim-id" type="text" placeholder="contract id" autocomplete="off">
+                    <input id="ms-claim-claimer" type="text" placeholder="claimer address" autocomplete="off">
+                    <button id="ms-claim">Claim multisig</button>
+                    <p id="ms-claim-result" class="action-result"></p>
+                </div>
+            </div>
+        </section>
+
         <section id="blocks">
             <h2>Blocks</h2>
             <div id="block-list"></div>
