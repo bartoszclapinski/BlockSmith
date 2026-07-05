@@ -1,6 +1,7 @@
 package com.blocksmith.contract;
 
 import com.blocksmith.util.BlockchainConfig;
+import com.blocksmith.util.HashUtil;
 
 /**
  * THEORY: A contract is funds locked behind a script instead of an owner.
@@ -50,6 +51,25 @@ public class Contract {
     /** The chain address holding this contract's locked funds. */
     public String getAddress() {
         return BlockchainConfig.CONTRACT_ADDRESS_PREFIX + contractId;
+    }
+
+    /**
+     * THEORY: THE CLAIM SIGHASH (Sprint 15)
+     *
+     * The message a spender must sign to authorize claiming this contract. It
+     * binds the signature to THIS contract, THIS claimer, and THIS amount, so a
+     * signature set that authorizes "pay Bob" cannot be replayed to "pay Carol"
+     * - the message signed is different. This is exactly why Bitcoin signs a
+     * transaction digest rather than a fixed string.
+     *
+     * Signature scripts (CHECKSIG/CHECKMULTISIG) verify against this value; a
+     * hashlock or timelock contract simply ignores it.
+     *
+     * @param claimer The address the claim would credit
+     * @return The 64-char hex sighash for a claim to {@code claimer}
+     */
+    public String claimSighash(String claimer) {
+        return HashUtil.applySha256(contractId + claimer + amount);
     }
 
     // ===== GETTERS =====

@@ -28,7 +28,25 @@
 
 ---
 
-## Milestone 15b: Multisig contracts (M-of-N) - Pending
+## Milestone 15b: Multisig contracts (M-of-N) - Complete
+
+- `MultiSigWallet` added: holds N member public keys (hex) + threshold M,
+  builds the `CHECKMULTISIG` locking script, and derives a stable `MS:` identity
+  address from that script. Holds public keys only - signing stays with the
+  member key holders. Factories `ofPublicKeys` / `ofHex`.
+- Claim sighash lives on `Contract.claimSighash(claimer)` =
+  `SHA256(contractId + claimer + amount)` - the data lives on the contract, so
+  both the signer and the verifier compute the identical message.
+- A multisig is just a Sprint 14 contract with a signature lock: deploy/claim/
+  registry are unchanged. The ONE wiring change is `Blockchain.isValidClaim`
+  now passing the claim sighash into `scriptVM.execute(...)`; hashlock and
+  timelock contracts ignore it, so nothing from Sprint 14 changes.
+- Replay safety falls out of the sighash: a 2-of-3 set signed for one claimer
+  fails when presented for another (different sighash).
+- 5 new tests in `MultiSigContractTest` (2-of-3 valid, one-sig rejected,
+  wrong-key rejected, replay-to-different-claimer rejected, cross-node
+  convergence). Suite: 226 -> 231, all green.
+- Issues #150 (multisig), #151 (tests).
 
 ---
 
