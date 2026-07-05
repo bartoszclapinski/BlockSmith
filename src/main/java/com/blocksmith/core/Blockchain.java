@@ -518,8 +518,13 @@ public class Blockchain {
         }
 
         // The claim height is the index the NEXT block will have - the
-        // earliest height the claim could be mined at (CHECKLOCKTIME).
-        if (!scriptVM.execute(claim.getUnlockingScript(), contract.getLockingScript(), chain.size())) {
+        // earliest height the claim could be mined at (CHECKLOCKTIME). The
+        // sighash binds any signature in the unlocking data to THIS claim
+        // (contract + claimer + amount), so a multisig CHECKMULTISIG can verify
+        // it; hashlock/timelock scripts ignore the sighash.
+        String sighash = contract.claimSighash(claim.getRecipient());
+        if (!scriptVM.execute(claim.getUnlockingScript(), contract.getLockingScript(),
+                chain.size(), sighash)) {
             System.out.println("Claim rejected: Script evaluated to false");
             return false;
         }
