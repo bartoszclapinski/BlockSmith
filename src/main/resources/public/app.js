@@ -222,6 +222,31 @@ function wireActions() {
             return "Claim submitted for " + shortHash(contract.contractId) + " (mine to settle)";
         });
     });
+
+    document.getElementById("ms-create").addEventListener("click", function () {
+        runAction("ms-create-result", async function () {
+            const wallet = await postJson("/api/multisig/create", {
+                members: Number(document.getElementById("ms-members").value),
+                threshold: Number(document.getElementById("ms-threshold").value)
+            });
+            // Hand the lock straight to the Deploy form so it can be funded.
+            document.getElementById("deploy-script").value = wallet.lockingScript;
+            return "Created " + wallet.threshold + "-of-" + wallet.memberCount
+                + " multisig " + shortHash(wallet.address) + " (deploy the lock to fund it)";
+        });
+    });
+
+    document.getElementById("ms-claim").addEventListener("click", function () {
+        runAction("ms-claim-result", async function () {
+            const id = document.getElementById("ms-claim-id").value.trim();
+            if (!id) throw new Error("Enter a contract id to claim");
+            const contract = await postJson("/api/multisig/claim", {
+                contractId: id,
+                claimer: document.getElementById("ms-claim-claimer").value.trim()
+            });
+            return "Multisig claim submitted for " + shortHash(contract.contractId) + " (mine to settle)";
+        });
+    });
 }
 
 async function refresh() {

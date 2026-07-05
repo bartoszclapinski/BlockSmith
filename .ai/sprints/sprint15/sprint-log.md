@@ -50,7 +50,28 @@
 
 ---
 
-## Milestone 15c: API + dashboard integration - Pending
+## Milestone 15c: API + dashboard integration - Complete
+
+- `POST /api/multisig/create` (members N + threshold M): the node generates the
+  N member key pairs, keeps the private keys server-side, and returns only the
+  address, member public keys, and CHECKMULTISIG locking script. Private keys
+  are NEVER serialized (verified live: no `privateKey` field in the response).
+- `POST /api/multisig/claim` (contractId + claimer): the node looks up the
+  member keys it holds for the contract's lock, signs the claim sighash with
+  the first M, assembles `PUSH sig1 ... PUSH sigM`, and submits the claim. This
+  is the educational server-side signing convenience, flagged as such and
+  consistent with the unsigned transaction endpoints from Sprint 12.
+- Member keys are stored in `ApiServer.multisigSessions`, keyed by locking
+  script, so a claim finds its keys from the contract alone.
+- Dashboard: a new Multisig panel creates a wallet (and hands the lock to the
+  Deploy form) and claims from a contract id; errors surface inline. Reuses the
+  existing action styles - no CSS change.
+- 2 new server tests in `ApiMultiSigTest` (full HTTP lifecycle; rejection
+  envelopes). Suite: 231 -> 233, all green.
+- Verified LIVE against a running node: create -> deploy -> mine -> claim ->
+  mine credited the claimer 20 BSC and closed the contract CLAIMED; rejections
+  returned a 400 error envelope; the dashboard serves the panel.
+- Issues #153 (endpoints/UI), #154 (tests).
 
 ---
 
