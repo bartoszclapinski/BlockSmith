@@ -1,0 +1,604 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{background:#f8f4ee;font-family:'Space Grotesk',system-ui,sans-serif}
+@keyframes bsPulse{0%,100%{opacity:1}50%{opacity:.35}}
+@keyframes bsIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+@keyframes bsDrawer{from{transform:translateX(24px);opacity:0}to{transform:none;opacity:1}}
+@keyframes bsToast{from{transform:translateY(16px);opacity:0}to{transform:none;opacity:1}}
+@keyframes bsFlash{0%{box-shadow:0 0 0 1px #c26b3d,0 0 26px #c26b3d66}100%{box-shadow:none}}
+::placeholder{color:#aba393}
+</style>
+</helmet>
+
+<div style="height:100vh;display:flex;flex-direction:column;background:#f8f4ee;color:#221c14;overflow:hidden;position:relative">
+
+  <canvas ref="{{ bgRef }}" style="position:absolute;inset:0;width:100%;height:100%;z-index:0;pointer-events:none"></canvas>
+
+  <!-- TOPBAR -->
+  <div style="height:58px;flex:none;background:#ffffff;border-bottom:1px solid #ece3d7;display:flex;align-items:center;padding:0 24px;gap:16px;position:relative;z-index:1">
+    <div style="display:flex;align-items:center;gap:9px;font-weight:700;font-size:16px"><div style="width:26px;height:26px;border-radius:7px;background:#c26b3d;color:#ffffff;display:flex;align-items:center;justify-content:center;font-size:14px">⚒</div>BlockSmith</div>
+    <div onClick="{{ openPalette }}" data-tour="palette" style="flex:1;max-width:440px;margin-left:10px;display:flex;align-items:center;gap:12px;background:#f8f4ee;border:1px solid #ece3d7;border-radius:9px;padding:10px 14px;cursor:pointer" style-hover="border-color:#d8cbb8">
+      <span style="font-size:14px;color:#c26b3d">⌘</span><span style="font-size:13px;color:#8a8073">Run a command — mine, send, deploy…</span><span style="margin-left:auto;font:600 10px 'IBM Plex Mono',monospace;color:#8a8073;border:1px solid #ece3d7;border-radius:4px;padding:2px 6px">⌘K</span>
+    </div>
+    <div style="margin-left:auto;display:flex;align-items:center;gap:8px;font:500 12px 'IBM Plex Mono',monospace;color:#1f8f4e"><span style="width:7px;height:7px;border-radius:50%;background:#1f8f4e;animation:bsPulse 2.6s ease-in-out infinite"></span>synced · node-7a3f · {{ peers }} peers</div>
+    <button onClick="{{ startTour }}" title="Samouczek" style="width:30px;height:30px;flex:none;border-radius:8px;border:1px solid #ece3d7;background:transparent;color:#8a8073;font-family:inherit;font-weight:700;font-size:14px;cursor:pointer" style-hover="border-color:#c26b3d;color:#c26b3d">?</button>
+  </div>
+
+  <!-- MAIN -->
+  <div style="flex:1;min-height:0;overflow:auto;display:flex;position:relative;z-index:1">
+   <div style="width:100%;max-width:1560px;margin:auto;padding:24px;display:flex;flex-direction:column;gap:18px">
+
+    <!-- CHAIN HERO -->
+    <div data-tour="chain" style="background:#ffffff;border:1px solid #ece3d7;border-radius:16px;padding:18px 20px;flex:none">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:15px">
+        <span style="font-weight:700;font-size:15px">The chain</span>
+        <span style="font:500 11.5px 'IBM Plex Mono',monospace;color:#8a8073">height {{ height }} · difficulty {{ difficulty }} · {{ pending }} pending</span>
+        <button onClick="{{ mine }}" style="margin-left:auto;background:#c26b3d;color:#ffffff;border:none;border-radius:8px;padding:9px 17px;font-weight:600;font-size:12.5px;font-family:inherit;cursor:pointer;display:flex;align-items:center;gap:7px" style-hover="background:#b25f31">⛏ Mine block</button>
+      </div>
+      <div style="display:flex;align-items:center;gap:0;overflow-x:auto;padding-bottom:2px">
+        <sc-for list="{{ blocksView }}" as="b" hint-placeholder-count="4">
+          <div style="display:flex;align-items:center;flex:none">
+            <sc-if value="{{ b.showConn }}" hint-placeholder-val="{{ true }}"><div style="width:26px;height:2px;background:#ddd0bf"></div></sc-if>
+            <sc-if value="{{ b.isTip }}" hint-placeholder-val="{{ true }}">
+              <div style="width:176px;background:#fbeee5;border:1px solid #c26b3d;border-radius:12px;padding:14px;animation:bsIn .3s ease both">
+                <div style="display:flex;align-items:center;justify-content:space-between"><span style="font:700 16px 'IBM Plex Mono',monospace;color:#c26b3d">#{{ b.height }}</span><span style="font-size:9px;font-weight:700;color:#ffffff;background:#c26b3d;padding:2px 6px;border-radius:4px">TIP</span></div>
+                <div style="font:500 11px 'IBM Plex Mono',monospace;color:#3a3226;margin-top:9px">{{ b.hash }}</div>
+                <div style="font:500 10px 'IBM Plex Mono',monospace;color:#8a8073;margin-top:6px">{{ b.tx }} tx · nonce {{ b.nonce }}</div>
+              </div>
+            </sc-if>
+            <sc-if value="{{ b.notTip }}" hint-placeholder-val="{{ true }}">
+              <div style="width:160px;background:#faf6f0;border:1px solid #ece3d7;border-radius:12px;padding:14px">
+                <div style="font:700 15px 'IBM Plex Mono',monospace;color:#3a3226">#{{ b.height }}</div>
+                <div style="font:500 11px 'IBM Plex Mono',monospace;color:#6e6456;margin-top:9px">{{ b.hash }}</div>
+                <div style="font:500 10px 'IBM Plex Mono',monospace;color:#8a8073;margin-top:6px">{{ b.tx }} tx · nonce {{ b.nonce }}</div>
+              </div>
+            </sc-if>
+          </div>
+        </sc-for>
+        <div style="width:26px;height:2px;background:#ddd0bf;flex:none"></div>
+        <div style="width:120px;flex:none;background:#f1e9dd;border:1px dashed #ddd0bf;border-radius:12px;padding:14px 8px;text-align:center;font:600 12px 'IBM Plex Mono',monospace;color:#aba393">genesis ···</div>
+      </div>
+    </div>
+
+    <!-- BOTTOM GRID -->
+    <div style="display:grid;grid-template-columns:1.4fr 1fr 1fr;gap:16px;height:420px">
+
+      <!-- FEED -->
+      <div data-tour="feed" style="background:#ffffff;border:1px solid #ece3d7;border-radius:14px;padding:18px 20px;display:flex;flex-direction:column;min-height:0">
+        <div style="font:600 10.5px 'IBM Plex Mono',monospace;color:#8a8073;text-transform:uppercase;letter-spacing:.7px;margin-bottom:8px">Activity feed</div>
+        <div style="display:flex;flex-direction:column;overflow:auto">
+          <sc-for list="{{ feed }}" as="f" hint-placeholder-count="4">
+            <div style="display:flex;align-items:center;gap:12px;padding:9px 0;border-bottom:1px solid #f0e9de">
+              <span style="width:7px;height:7px;border-radius:50%;background:{{ f.dot }};flex:none"></span>
+              <span style="font-weight:600;font-size:12.5px;color:#3a3226">{{ f.title }}</span>
+              <span style="font:500 11px 'IBM Plex Mono',monospace;color:#8a8073;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ f.meta }}</span>
+              <span style="margin-left:auto;font-size:11px;color:#aba393;flex:none">{{ f.time }}</span>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+
+      <!-- ACTIONS -->
+      <div data-tour="actions" style="background:#ffffff;border:1px solid #ece3d7;border-radius:14px;padding:18px 20px;display:flex;flex-direction:column;gap:9px">
+        <div style="font:600 10.5px 'IBM Plex Mono',monospace;color:#8a8073;text-transform:uppercase;letter-spacing:.7px">Actions</div>
+        <button onClick="{{ openSend }}" style="display:flex;align-items:center;gap:10px;padding:11px 13px;border-radius:9px;border:1px solid #ece3d7;background:transparent;font-family:inherit;font-weight:600;font-size:12.5px;color:#3a3226;cursor:pointer;text-align:left" style-hover="border-color:#c26b3d;background:#fbeee5">↗ Send transaction</button>
+        <button onClick="{{ openWallet }}" style="display:flex;align-items:center;gap:10px;padding:11px 13px;border-radius:9px;border:1px solid #ece3d7;background:transparent;font-family:inherit;font-weight:600;font-size:12.5px;color:#3a3226;cursor:pointer;text-align:left" style-hover="border-color:#c26b3d;background:#fbeee5">＋ Create wallet</button>
+        <button onClick="{{ openDeploy }}" style="display:flex;align-items:center;gap:10px;padding:11px 13px;border-radius:9px;border:1px solid #ece3d7;background:transparent;font-family:inherit;font-weight:600;font-size:12.5px;color:#3a3226;cursor:pointer;text-align:left" style-hover="border-color:#c26b3d;background:#fbeee5">▤ Deploy contract</button>
+        <button onClick="{{ openDeploy }}" style="display:flex;align-items:center;gap:10px;padding:11px 13px;border-radius:9px;border:1px solid #ece3d7;background:transparent;font-family:inherit;font-weight:600;font-size:12.5px;color:#3a3226;cursor:pointer;text-align:left" style-hover="border-color:#c26b3d;background:#fbeee5">⧉ Multisig wallet</button>
+      </div>
+
+      <!-- RIGHT COL -->
+      <div data-tour="side" style="display:flex;flex-direction:column;gap:16px;min-height:0">
+        <div style="background:#ffffff;border:1px solid #ece3d7;border-radius:14px;padding:16px 18px;flex:none">
+          <div style="font-size:11.5px;color:#8a8073">Balance</div>
+          <div style="font-size:24px;font-weight:700;margin-top:3px">{{ balanceStr }} <span style="font-size:12px;color:#8a8073;font-weight:500">BSC</span></div>
+          <div style="font:500 10.5px 'IBM Plex Mono',monospace;color:#aba393;margin-top:5px">{{ address }}</div>
+        </div>
+        <div style="background:#ffffff;border:1px solid #ece3d7;border-radius:14px;padding:16px 18px;flex:1;min-height:0;display:flex;flex-direction:column">
+          <div style="font-size:11.5px;color:#8a8073;margin-bottom:10px">Open contracts</div>
+          <div style="display:flex;flex-direction:column;overflow:auto">
+            <sc-for list="{{ contracts }}" as="c" hint-placeholder-count="2">
+              <div style="display:flex;align-items:center;gap:8px;padding:9px 0;border-bottom:1px solid #f0e9de">
+                <span style="font:700 12px 'IBM Plex Mono',monospace">{{ c.amount }} BSC</span>
+                <span style="font-size:8.5px;font-weight:700;color:{{ c.tagTx }};background:{{ c.tagBg }};padding:2px 6px;border-radius:4px">{{ c.type }}</span>
+                <span style="margin-left:auto;font:500 10.5px 'IBM Plex Mono',monospace;color:#aba393">{{ c.id }}</span>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </div>
+
+    </div>
+   </div>
+  </div>
+
+  <!-- FOOTER -->
+  <div style="flex:none;height:40px;background:#ffffff;border-top:1px solid #ece3d7;display:flex;align-items:center;justify-content:center;position:relative;z-index:1">
+    <div style="width:100%;max-width:1560px;padding:0 24px;display:flex;align-items:center;gap:16px;font:500 11px 'IBM Plex Mono',monospace;color:#aba393">
+      <span>BlockSmith Node v0.4.2</span>
+      <span style="color:#ddd0bf">·</span>
+      <span>P2P 8335</span>
+      <span>API 7070</span>
+      <span style="margin-left:auto;display:flex;align-items:center;gap:7px;color:#1f8f4e"><span style="width:6px;height:6px;border-radius:50%;background:#1f8f4e"></span>chain healthy · uptime 4d 12h</span>
+    </div>
+  </div>
+
+  <!-- ONBOARDING TOUR -->
+  <sc-if value="{{ tourActive }}" hint-placeholder-val="{{ false }}">
+    <div style="position:fixed;inset:0;z-index:90"></div>
+    <div style="{{ tourSpotStyle }}"></div>
+    <div style="{{ tourBubbleStyle }}">
+      <div style="{{ tourTailStyle }}"></div>
+      <div style="position:relative;background:#ffffff;border:1.5px solid #c26b3d;border-radius:14px;padding:16px 18px;box-shadow:0 22px 64px rgba(70,52,34,.16);animation:bsIn .2s ease both">
+        <div style="display:flex;align-items:center;gap:9px;margin-bottom:9px">
+          <span style="font:600 10px 'IBM Plex Mono',monospace;color:#c26b3d;background:#fbeee5;border:1px solid #ddd0bf;border-radius:5px;padding:3px 7px">{{ tourIndex }} / {{ tourTotal }}</span>
+          <span style="font-weight:700;font-size:14.5px;color:#221c14">{{ tourTitle }}</span>
+        </div>
+        <div style="font-size:12.5px;line-height:1.55;color:#6e6456">{{ tourBody }}</div>
+        <div style="display:flex;align-items:center;gap:12px;margin-top:16px">
+          <div onClick="{{ toggleRemember }}" style="display:flex;align-items:center;gap:8px;cursor:pointer;user-select:none">
+            <span style="width:16px;height:16px;flex:none;border-radius:4px;border:1.5px solid {{ rememberBorder }};background:{{ rememberBg }};display:flex;align-items:center;justify-content:center;color:#ffffff;font-size:11px;font-weight:700">{{ rememberCheck }}</span>
+            <span style="font-size:11.5px;color:#8a8073">Zapamiętaj mój wybór</span>
+          </div>
+          <button onClick="{{ skipTour }}" style="margin-left:auto;background:transparent;border:none;color:#8a8073;font-family:inherit;font-size:12.5px;cursor:pointer" style-hover="color:#221c14">Pomiń</button>
+          <button onClick="{{ tourNext }}" style="background:#c26b3d;color:#ffffff;border:none;border-radius:8px;padding:8px 17px;font-family:inherit;font-weight:600;font-size:12.5px;cursor:pointer" style-hover="background:#b25f31">{{ nextLabel }}</button>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- COMMAND PALETTE -->
+  <sc-if value="{{ paletteOpen }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ closeAll }}" style="position:fixed;inset:0;background:rgba(40,32,22,.4);backdrop-filter:blur(3px);display:flex;align-items:flex-start;justify-content:center;padding-top:14vh;z-index:50">
+      <div onClick="{{ stop }}" style="width:560px;max-width:90vw;background:#ffffff;border:1px solid #ddd0bf;border-radius:14px;box-shadow:0 24px 70px rgba(70,52,34,.16);overflow:hidden;animation:bsIn .16s ease both">
+        <div style="display:flex;align-items:center;gap:12px;padding:16px 18px;border-bottom:1px solid #ece3d7">
+          <span style="font-size:16px;color:#c26b3d">⌘</span>
+          <input value="{{ query }}" onInput="{{ onQuery }}" ref="{{ paletteRef }}" placeholder="Search a command…" style="flex:1;background:transparent;border:none;outline:none;color:#221c14;font-family:inherit;font-size:15px" />
+          <span style="font:600 10px 'IBM Plex Mono',monospace;color:#aba393;border:1px solid #ece3d7;border-radius:4px;padding:2px 6px">ESC</span>
+        </div>
+        <div style="padding:8px;max-height:340px;overflow:auto">
+          <sc-for list="{{ commands }}" as="cmd" hint-placeholder-count="5">
+            <div onClick="{{ cmd.run }}" style="display:flex;align-items:center;gap:13px;padding:11px 12px;border-radius:9px;cursor:pointer" style-hover="background:#fbeee5">
+              <span style="width:30px;height:30px;flex:none;display:flex;align-items:center;justify-content:center;border-radius:8px;background:#fbeee5;color:#c26b3d;font-size:14px">{{ cmd.icon }}</span>
+              <div style="display:flex;flex-direction:column;gap:1px">
+                <span style="font-weight:600;font-size:13.5px;color:#221c14">{{ cmd.label }}</span>
+                <span style="font-size:11.5px;color:#8a8073">{{ cmd.hint }}</span>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- SIDE DRAWER -->
+  <sc-if value="{{ panelOpen }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ closeAll }}" style="position:fixed;inset:0;background:rgba(40,32,22,.38);backdrop-filter:blur(2px);display:flex;justify-content:flex-end;z-index:40">
+      <div onClick="{{ stop }}" style="width:420px;max-width:92vw;height:100%;background:#ffffff;border-left:1px solid #ddd0bf;box-shadow:-20px 0 60px rgba(70,52,34,.14);padding:24px;display:flex;flex-direction:column;animation:bsDrawer .2s ease both;overflow:auto">
+        <div style="display:flex;align-items:center;margin-bottom:20px">
+          <span style="font-weight:700;font-size:17px">{{ panelTitle }}</span>
+          <button onClick="{{ closeAll }}" style="margin-left:auto;width:30px;height:30px;border-radius:8px;border:1px solid #ece3d7;background:transparent;color:#8a8073;font-size:16px;cursor:pointer" style-hover="border-color:#d8cbb8;color:#221c14">✕</button>
+        </div>
+
+        <!-- SEND -->
+        <sc-if value="{{ isSend }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;flex-direction:column;gap:15px">
+            <div style="display:flex;flex-direction:column;gap:7px">
+              <label style="font:500 11px 'IBM Plex Mono',monospace;color:#8a8073;text-transform:uppercase;letter-spacing:.5px">Recipient address</label>
+              <input value="{{ fRecipient }}" onInput="{{ onRecipient }}" placeholder="0x…" style="background:#f8f4ee;border:1px solid #ece3d7;border-radius:9px;padding:12px 14px;color:#221c14;font-family:'IBM Plex Mono',monospace;font-size:13px;outline:none" style-focus="border-color:#c26b3d" />
+            </div>
+            <div style="display:flex;flex-direction:column;gap:7px">
+              <label style="font:500 11px 'IBM Plex Mono',monospace;color:#8a8073;text-transform:uppercase;letter-spacing:.5px">Amount (BSC)</label>
+              <input value="{{ fAmount }}" onInput="{{ onAmount }}" placeholder="0.00" style="background:#f8f4ee;border:1px solid #ece3d7;border-radius:9px;padding:12px 14px;color:#221c14;font-family:'IBM Plex Mono',monospace;font-size:13px;outline:none" style-focus="border-color:#c26b3d" />
+              <span style="font-size:11px;color:#aba393">Available {{ balanceStr }} BSC</span>
+            </div>
+            <sc-if value="{{ formError }}" hint-placeholder-val="{{ false }}"><div style="font-size:12px;color:#b23c1e;background:#fdeee2;border:1px solid #f0cdb6;border-radius:8px;padding:9px 12px">{{ formError }}</div></sc-if>
+            <button onClick="{{ submitSend }}" style="margin-top:4px;background:#c26b3d;color:#ffffff;border:none;border-radius:9px;padding:13px;font-family:inherit;font-weight:600;font-size:13.5px;cursor:pointer" style-hover="background:#b25f31">Sign & submit transaction</button>
+          </div>
+        </sc-if>
+
+        <!-- WALLET -->
+        <sc-if value="{{ isWallet }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;flex-direction:column;gap:15px">
+            <p style="margin:0;font-size:13px;line-height:1.6;color:#6e6456">Generuje nową parę kluczy i dodaje adres do węzła. Klucz prywatny pozostaje lokalny.</p>
+            <div style="background:#f8f4ee;border:1px solid #ece3d7;border-radius:9px;padding:14px">
+              <div style="font:500 10.5px 'IBM Plex Mono',monospace;color:#8a8073;text-transform:uppercase;letter-spacing:.5px">New address</div>
+              <div style="font:600 14px 'IBM Plex Mono',monospace;color:#c26b3d;margin-top:7px">{{ newAddress }}</div>
+            </div>
+            <button onClick="{{ submitWallet }}" style="background:#c26b3d;color:#ffffff;border:none;border-radius:9px;padding:13px;font-family:inherit;font-weight:600;font-size:13.5px;cursor:pointer" style-hover="background:#b25f31">Create wallet</button>
+          </div>
+        </sc-if>
+
+        <!-- DEPLOY -->
+        <sc-if value="{{ isDeploy }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;flex-direction:column;gap:15px">
+            <div style="display:flex;flex-direction:column;gap:7px">
+              <label style="font:500 11px 'IBM Plex Mono',monospace;color:#8a8073;text-transform:uppercase;letter-spacing:.5px">Contract type</label>
+              <div style="display:flex;gap:8px">
+                <button onClick="{{ setTypeHash }}" style="flex:1;padding:10px;border-radius:9px;border:1px solid {{ typeHashBorder }};background:{{ typeHashBg }};color:#3a3226;font-family:inherit;font-weight:600;font-size:12px;cursor:pointer">Hashlock</button>
+                <button onClick="{{ setTypeMulti }}" style="flex:1;padding:10px;border-radius:9px;border:1px solid {{ typeMultiBorder }};background:{{ typeMultiBg }};color:#3a3226;font-family:inherit;font-weight:600;font-size:12px;cursor:pointer">Multisig 2-of-3</button>
+              </div>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:7px">
+              <label style="font:500 11px 'IBM Plex Mono',monospace;color:#8a8073;text-transform:uppercase;letter-spacing:.5px">Locked amount (BSC)</label>
+              <input value="{{ fAmount }}" onInput="{{ onAmount }}" placeholder="0.00" style="background:#f8f4ee;border:1px solid #ece3d7;border-radius:9px;padding:12px 14px;color:#221c14;font-family:'IBM Plex Mono',monospace;font-size:13px;outline:none" style-focus="border-color:#c26b3d" />
+            </div>
+            <sc-if value="{{ formError }}" hint-placeholder-val="{{ false }}"><div style="font-size:12px;color:#b23c1e;background:#fdeee2;border:1px solid #f0cdb6;border-radius:8px;padding:9px 12px">{{ formError }}</div></sc-if>
+            <button onClick="{{ submitDeploy }}" style="margin-top:4px;background:#c26b3d;color:#ffffff;border:none;border-radius:9px;padding:13px;font-family:inherit;font-weight:600;font-size:13.5px;cursor:pointer" style-hover="background:#b25f31">Deploy contract</button>
+          </div>
+        </sc-if>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- TOAST -->
+  <sc-if value="{{ toast }}" hint-placeholder-val="{{ false }}">
+    <div style="position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#fbeee5;border:1px solid #c26b3d;color:#221c14;border-radius:11px;padding:13px 20px;font-size:13px;font-weight:600;box-shadow:0 16px 44px rgba(70,52,34,.14);z-index:60;animation:bsToast .22s ease both;display:flex;align-items:center;gap:10px">
+      <span style="color:#c26b3d">✓</span>{{ toast }}
+    </div>
+  </sc-if>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;bgMotion&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Appearance&quot;}}">
+class Component extends DCLogic {
+  state = {
+    height: 1283,
+    difficulty: 4,
+    reward: 50,
+    peers: 4,
+    balance: 155.0,
+    address: '0x4b8f…a21',
+    paletteOpen: false,
+    query: '',
+    panel: null,          // 'send' | 'wallet' | 'deploy'
+    deployType: 'hash',   // 'hash' | 'multi'
+    form: { recipient: '', amount: '' },
+    formError: '',
+    newAddress: '',
+    toast: '',
+    tourActive: false,
+    tourStep: 0,
+    tourRemember: true,
+    blocks: [
+      { height: 1283, hash: '0000a8b2…7e75', tx: 3, nonce: 52847 },
+      { height: 1282, hash: '0000f19c…4a02', tx: 5, nonce: 41902 },
+      { height: 1281, hash: '00003d8a…b1c9', tx: 2, nonce: 18334 },
+      { height: 1280, hash: '0000b7e4…22af', tx: 1, nonce: 60112 },
+    ],
+    mempool: [
+      { hash: '964904f5…', from: '0x4b8f', to: '0x9c1a', amount: 30 },
+      { hash: '69df15dc…', from: '0x4b8f', to: '0x71e3', amount: 15 },
+      { hash: 'a1f77b20…', from: '0x9c1a', to: '0x4b8f', amount: 5 },
+    ],
+    contracts: [
+      { amount: 25, type: '2-OF-3', id: '9f2a…c4e1', kind: 'multi' },
+      { amount: 100, type: 'HASHLOCK', id: '7c1e…88bd', kind: 'hash' },
+    ],
+    feed: [
+      { dot: '#c26b3d', title: 'Block #1283 mined', meta: '0000a8b2…', time: '2s' },
+      { dot: '#1f8f4e', title: 'Tx submitted', meta: '30.00 BSC → 0x9c1a', time: '18s' },
+      { dot: '#1f8f4e', title: 'Wallet created', meta: '0x71e3…', time: '1m' },
+      { dot: '#d08a2a', title: 'Peer joined', meta: '192.168.1.22', time: '2m' },
+    ],
+  };
+
+  componentDidMount() {
+    this._key = (e) => {
+      if ((e.metaKey || e.ctrlKey) && (e.key === 'k' || e.key === 'K')) {
+        e.preventDefault();
+        this.setState(s => ({ paletteOpen: !s.paletteOpen, query: '' }));
+        setTimeout(() => this._input && this._input.focus(), 30);
+      } else if (e.key === 'Escape') {
+        this.setState({ paletteOpen: false, panel: null });
+      }
+    };
+    document.addEventListener('keydown', this._key);
+    if (this.props.bgMotion !== false) requestAnimationFrame(() => this.startBg());
+    this._tourSync = () => { if (this.state.tourActive) this.forceUpdate(); };
+    window.addEventListener('resize', this._tourSync);
+    window.addEventListener('scroll', this._tourSync, true);
+    let optout = false;
+    try { optout = localStorage.getItem('bs_tour_optout_light') === '1'; } catch (e) {}
+    if (!optout) this._tourTimer = setTimeout(() => this.setState({ tourActive: true, tourStep: 0 }), 700);
+  }
+  componentDidUpdate() {
+    const on = this.props.bgMotion !== false;
+    if (on && !this._raf && this._bg) this.startBg();
+    else if (!on && this._raf) this.stopBg();
+  }
+  componentWillUnmount() {
+    document.removeEventListener('keydown', this._key);
+    window.removeEventListener('resize', this._tourSync);
+    window.removeEventListener('scroll', this._tourSync, true);
+    clearTimeout(this._tourTimer);
+    this.stopBg();
+  }
+
+  startTour = () => this.setState({ tourActive: true, tourStep: 0 });
+  tourNext = () => {
+    if (this.state.tourStep >= this._tourLen - 1) this.endTour();
+    else this.setState(s => ({ tourStep: s.tourStep + 1 }));
+  };
+  skipTour = () => this.endTour();
+  endTour = () => {
+    if (this.state.tourRemember) { try { localStorage.setItem('bs_tour_optout_light', '1'); } catch (e) {} }
+    else { try { localStorage.removeItem('bs_tour_optout_light'); } catch (e) {} }
+    this.setState({ tourActive: false });
+  };
+  toggleRemember = () => this.setState(s => ({ tourRemember: !s.tourRemember }));
+
+  bgRef = (el) => { this._bg = el; };
+
+  startBg = () => {
+    const cv = this._bg;
+    if (!cv || this._raf) return;
+    if (!cv.clientWidth || !cv.clientHeight) { requestAnimationFrame(() => this.startBg()); return; }
+    const ctx = cv.getContext('2d');
+    let W = 0, H = 0, dpr = 1;
+    const resize = () => {
+      dpr = Math.min(window.devicePixelRatio || 1, 2);
+      W = cv.clientWidth; H = cv.clientHeight;
+      cv.width = W * dpr; cv.height = H * dpr;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      if (this._reduce && !this._raf) requestAnimationFrame(() => this._draw && this._draw());
+    };
+    resize();
+    this._bgResize = resize;
+    window.addEventListener('resize', resize);
+    const N = Math.max(24, Math.min(58, Math.round(W * H / 48000)));
+    const P = Array.from({ length: N }, () => ({
+      x: Math.random() * W, y: Math.random() * H,
+      vx: (Math.random() - 0.5) * 0.17, vy: (Math.random() - 0.5) * 0.17,
+      s: 6 + Math.random() * 11, a: Math.random() < 0.22,
+    }));
+    const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const draw = () => {
+      ctx.clearRect(0, 0, W, H);
+      for (let i = 0; i < P.length; i++) {
+        for (let j = i + 1; j < P.length; j++) {
+          const dx = P[i].x - P[j].x, dy = P[i].y - P[j].y;
+          const d = Math.hypot(dx, dy);
+          if (d < 195) {
+            ctx.strokeStyle = 'rgba(194,107,61,' + (0.10 * (1 - d / 195)).toFixed(3) + ')';
+            ctx.lineWidth = 1;
+            ctx.beginPath(); ctx.moveTo(P[i].x, P[i].y); ctx.lineTo(P[j].x, P[j].y); ctx.stroke();
+          }
+        }
+      }
+      for (const p of P) {
+        if (!reduce) {
+          p.x += p.vx; p.y += p.vy;
+          if (p.x < -24) p.x = W + 24; if (p.x > W + 24) p.x = -24;
+          if (p.y < -24) p.y = H + 24; if (p.y > H + 24) p.y = -24;
+        }
+        ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(0.16);
+        ctx.fillStyle = p.a ? 'rgba(194,107,61,0.13)' : 'rgba(150,132,108,0.08)';
+        ctx.strokeStyle = p.a ? 'rgba(194,107,61,0.32)' : 'rgba(150,132,108,0.20)';
+        ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.rect(-p.s / 2, -p.s / 2, p.s, p.s); ctx.fill(); ctx.stroke();
+        ctx.restore();
+      }
+      if (!reduce) this._raf = requestAnimationFrame(draw);
+    };
+    this._reduce = reduce;
+    this._draw = draw;
+    draw();
+  };
+
+  stopBg = () => {
+    if (this._raf) { cancelAnimationFrame(this._raf); this._raf = null; }
+    if (this._bgResize) { window.removeEventListener('resize', this._bgResize); this._bgResize = null; }
+    if (this._bg) { const c = this._bg.getContext('2d'); c && c.clearRect(0, 0, this._bg.width, this._bg.height); }
+  };
+
+  rand(n) { return Math.random().toString(16).slice(2, 2 + n); }
+  short() { return '0x' + this.rand(4); }
+  flash(msg) {
+    this.setState({ toast: msg });
+    clearTimeout(this._t);
+    this._t = setTimeout(() => this.setState({ toast: '' }), 2600);
+  }
+  addFeed(entry) { this.setState(s => ({ feed: [entry, ...s.feed].slice(0, 8) })); }
+
+  openPalette = () => { this.setState({ paletteOpen: true, query: '' }); setTimeout(() => this._input && this._input.focus(), 30); };
+  closeAll = () => this.setState({ paletteOpen: false, panel: null, formError: '' });
+  stop = (e) => e.stopPropagation();
+  onQuery = (e) => this.setState({ query: e.target.value });
+
+  openPanel(panel) {
+    const st = { paletteOpen: false, panel, formError: '', form: { recipient: '', amount: '' } };
+    if (panel === 'wallet') st.newAddress = '0x' + this.rand(6) + '…' + this.rand(3);
+    this.setState(st);
+  }
+  openSend = () => this.openPanel('send');
+  openWallet = () => this.openPanel('wallet');
+  openDeploy = () => { this.openPanel('deploy'); this.setState({ deployType: 'hash' }); };
+
+  onRecipient = (e) => this.setState(s => ({ form: { ...s.form, recipient: e.target.value }, formError: '' }));
+  onAmount = (e) => this.setState(s => ({ form: { ...s.form, amount: e.target.value }, formError: '' }));
+  setTypeHash = () => this.setState({ deployType: 'hash' });
+  setTypeMulti = () => this.setState({ deployType: 'multi' });
+
+  mine = () => {
+    this.setState(s => {
+      if (s.mempool.length === 0) { this.flash('Mempool empty — nothing to mine'); return {}; }
+      const h = s.height + 1;
+      const nb = { height: h, hash: '0000' + this.rand(4) + '…' + this.rand(4), tx: s.mempool.length, nonce: Math.floor(Math.random() * 90000) + 10000 };
+      setTimeout(() => this.flash('Block #' + h + ' mined · +' + s.reward + ' BSC'), 0);
+      return {
+        height: h,
+        blocks: [nb, ...s.blocks].slice(0, 8),
+        mempool: [],
+        pendingCleared: true,
+        balance: +(s.balance + s.reward).toFixed(2),
+        feed: [{ dot: '#c26b3d', title: 'Block #' + h + ' mined', meta: nb.hash, time: 'now' }, ...s.feed].slice(0, 8),
+      };
+    });
+  };
+
+  submitSend = () => {
+    const { recipient, amount } = this.state.form;
+    const amt = parseFloat(amount);
+    if (!recipient || recipient.length < 4) return this.setState({ formError: 'Podaj adres odbiorcy.' });
+    if (!amt || amt <= 0) return this.setState({ formError: 'Podaj poprawną kwotę.' });
+    if (amt > this.state.balance) return this.setState({ formError: 'Niewystarczające saldo.' });
+    const tx = { hash: this.rand(8) + '…', from: '0x4b8f', to: recipient.slice(0, 6), amount: amt };
+    this.setState(s => ({
+      mempool: [...s.mempool, tx],
+      balance: +(s.balance - amt).toFixed(2),
+      panel: null,
+    }));
+    this.addFeed({ dot: '#1f8f4e', title: 'Tx submitted', meta: amt.toFixed(2) + ' BSC → ' + recipient.slice(0, 6), time: 'now' });
+    this.flash('Transaction added to mempool');
+  };
+
+  submitWallet = () => {
+    const addr = this.state.newAddress;
+    this.setState({ panel: null });
+    this.addFeed({ dot: '#1f8f4e', title: 'Wallet created', meta: addr, time: 'now' });
+    this.flash('Wallet created');
+  };
+
+  submitDeploy = () => {
+    const amt = parseFloat(this.state.form.amount);
+    if (!amt || amt <= 0) return this.setState({ formError: 'Podaj kwotę do zablokowania.' });
+    const isMulti = this.state.deployType === 'multi';
+    const c = { amount: amt, type: isMulti ? '2-OF-3' : 'HASHLOCK', id: this.rand(4) + '…' + this.rand(4), kind: isMulti ? 'multi' : 'hash' };
+    this.setState(s => ({ contracts: [c, ...s.contracts], panel: null }));
+    this.addFeed({ dot: '#d08a2a', title: 'Contract deployed', meta: c.type + ' · ' + amt + ' BSC', time: 'now' });
+    this.flash('Contract deployed');
+  };
+
+  renderVals() {
+    const s = this.state;
+    const q = s.query.trim().toLowerCase();
+    const allCmds = [
+      { id: 'mine', icon: '⛏', label: 'Mine pending block', hint: 'Sekwencjonuje mempool w nowy blok', run: () => { this.setState({ paletteOpen: false }); this.mine(); } },
+      { id: 'send', icon: '↗', label: 'Send transaction', hint: 'Przelej BSC na adres', run: this.openSend },
+      { id: 'wallet', icon: '＋', label: 'Create wallet', hint: 'Wygeneruj nową parę kluczy', run: this.openWallet },
+      { id: 'deploy', icon: '▤', label: 'Deploy contract', hint: 'Hashlock lub multisig', run: this.openDeploy },
+      { id: 'multi', icon: '⧉', label: 'Multisig wallet', hint: 'Kontrakt 2-of-3', run: this.openDeploy },
+    ];
+    const commands = q ? allCmds.filter(c => (c.label + ' ' + c.hint).toLowerCase().includes(q)) : allCmds;
+
+    const blocksView = s.blocks.slice(0, 4).map((b, i) => ({ ...b, isTip: i === 0, notTip: i !== 0, showConn: i > 0 }));
+    const contracts = s.contracts.map(c => ({
+      ...c,
+      tagBg: c.kind === 'multi' ? '#fbeee5' : '#e3f3ea',
+      tagTx: c.kind === 'multi' ? '#c26b3d' : '#1f8f4e',
+    }));
+
+    const titles = { send: 'Send transaction', wallet: 'Create wallet', deploy: 'Deploy contract' };
+
+    // ---- onboarding tour ----
+    const TOUR = [
+      { sel: 'palette', title: 'Paleta komend', body: 'Uruchom dowolną akcję z jednego miejsca — naciśnij ⌘K albo kliknij ten pasek, wpisz i wybierz.' },
+      { sel: 'chain', title: 'Łańcuch bloków', body: 'Podgląd łańcucha na żywo. Przycisk „Mine block” sekwencjonuje oczekujące transakcje w nowy blok.' },
+      { sel: 'feed', title: 'Feed aktywności', body: 'Zdarzenia na bieżąco: wykopane bloki, wysłane transakcje i dołączające peery.' },
+      { sel: 'actions', title: 'Szybkie akcje', body: 'Wyślij transakcję, utwórz portfel albo wdróż kontrakt — każda otwiera panel boczny.' },
+      { sel: 'side', title: 'Saldo i kontrakty', body: 'Twoje saldo BSC oraz otwarte kontrakty (multisig 2-of-3 / hashlock).' },
+    ];
+    this._tourLen = TOUR.length;
+    let tourSpotStyle = 'position:fixed;opacity:0', tourBubbleStyle = 'position:fixed;opacity:0', tourTailStyle = 'display:none';
+    let tourTitle = '', tourBody = '', tourIndex = 1, tourLast = false;
+    if (s.tourActive) {
+      const step = TOUR[s.tourStep] || TOUR[0];
+      tourTitle = step.title; tourBody = step.body;
+      tourIndex = s.tourStep + 1; tourLast = s.tourStep >= TOUR.length - 1;
+      const el = typeof document !== 'undefined' && document.querySelector('[data-tour="' + step.sel + '"]');
+      if (el) {
+        const r = el.getBoundingClientRect(), pad = 8;
+        const sx = r.left - pad, sy = r.top - pad, sw = r.width + pad * 2, sh = r.height + pad * 2;
+        tourSpotStyle = 'position:fixed;left:' + sx + 'px;top:' + sy + 'px;width:' + sw + 'px;height:' + sh + 'px;border-radius:14px;box-shadow:0 0 0 9999px rgba(40,32,22,.5);border:1.5px solid #c26b3d;pointer-events:none;z-index:91;transition:left .28s ease,top .28s ease,width .28s ease,height .28s ease';
+        const bw = 322, vh = window.innerHeight, vw = window.innerWidth, bubbleH = 176;
+        const below = sy + sh + 16 + bubbleH < vh;
+        const bt = below ? sy + sh + 14 : Math.max(16, sy - 14 - bubbleH);
+        const bl = Math.min(Math.max(sx + sw / 2 - bw / 2, 16), vw - bw - 16);
+        tourBubbleStyle = 'position:fixed;left:' + bl + 'px;top:' + bt + 'px;width:' + bw + 'px;z-index:92';
+        const tailLeft = Math.min(Math.max(sx + sw / 2 - bl - 7, 20), bw - 34);
+        tourTailStyle = 'position:absolute;' + (below ? 'top:-7px' : 'bottom:-7px') + ';left:' + tailLeft + 'px;width:13px;height:13px;background:#ffffff;border-left:1.5px solid #c26b3d;border-top:1.5px solid #c26b3d;transform:rotate(' + (below ? 45 : 225) + 'deg)';
+      }
+    }
+
+    return {
+      height: s.height,
+      difficulty: s.difficulty,
+      pending: s.mempool.length,
+      peers: s.peers,
+      balanceStr: s.balance.toFixed(1),
+      address: s.address,
+      blocksView,
+      feed: s.feed,
+      contracts,
+      // palette
+      paletteOpen: s.paletteOpen,
+      query: s.query,
+      commands,
+      openPalette: this.openPalette,
+      onQuery: this.onQuery,
+      paletteRef: (el) => { this._input = el; },
+      closeAll: this.closeAll,
+      stop: this.stop,
+      // actions
+      mine: this.mine,
+      openSend: this.openSend,
+      openWallet: this.openWallet,
+      openDeploy: this.openDeploy,
+      // panel
+      panelOpen: !!s.panel,
+      panelTitle: titles[s.panel] || '',
+      isSend: s.panel === 'send',
+      isWallet: s.panel === 'wallet',
+      isDeploy: s.panel === 'deploy',
+      fRecipient: s.form.recipient,
+      fAmount: s.form.amount,
+      onRecipient: this.onRecipient,
+      onAmount: this.onAmount,
+      formError: s.formError,
+      newAddress: s.newAddress,
+      submitSend: this.submitSend,
+      submitWallet: this.submitWallet,
+      submitDeploy: this.submitDeploy,
+      setTypeHash: this.setTypeHash,
+      setTypeMulti: this.setTypeMulti,
+      typeHashBorder: s.deployType === 'hash' ? '#c26b3d' : '#ece3d7',
+      typeHashBg: s.deployType === 'hash' ? '#fbeee5' : 'transparent',
+      typeMultiBorder: s.deployType === 'multi' ? '#c26b3d' : '#ece3d7',
+      typeMultiBg: s.deployType === 'multi' ? '#fbeee5' : 'transparent',
+      // toast
+      toast: s.toast,
+      // bg
+      bgRef: this.bgRef,
+      // tour
+      tourActive: s.tourActive,
+      tourSpotStyle, tourBubbleStyle, tourTailStyle,
+      tourTitle, tourBody, tourIndex, tourTotal: TOUR.length,
+      nextLabel: tourLast ? 'Gotowe' : 'Dalej',
+      startTour: this.startTour,
+      tourNext: this.tourNext,
+      skipTour: this.skipTour,
+      toggleRemember: this.toggleRemember,
+      rememberCheck: s.tourRemember ? '✓' : '',
+      rememberBorder: s.tourRemember ? '#c26b3d' : '#ddd0bf',
+      rememberBg: s.tourRemember ? '#c26b3d' : 'transparent',
+    };
+  }
+}
+</script>
+</body>
+</html>
