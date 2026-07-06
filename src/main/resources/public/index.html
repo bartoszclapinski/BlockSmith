@@ -4,108 +4,106 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>BlockSmith Dashboard</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/style.css">
+    <script>
+        // Set the theme before first paint to avoid a flash of the wrong palette.
+        (function () {
+            var t;
+            try { t = localStorage.getItem("bs_theme"); } catch (e) {}
+            if (!t) t = (window.matchMedia && window.matchMedia("(prefers-color-scheme: light)").matches) ? "light" : "dark";
+            if (t === "light") document.documentElement.setAttribute("data-theme", "light");
+        })();
+    </script>
 </head>
 <body>
-    <header>
-        <h1>BlockSmith</h1>
-        <p class="tagline">A blockchain node dashboard</p>
+<div id="app">
+    <canvas id="bg" aria-hidden="true"></canvas>
+
+    <!-- TOP BAR -->
+    <header class="topbar">
+        <div class="brand">
+            <span class="brand-mark" aria-hidden="true">&#9874;</span>BlockSmith
+        </div>
+
+        <button id="palette-trigger" class="palette-trigger" data-tour="palette" type="button">
+            <span class="palette-icon" aria-hidden="true">&#8984;</span>
+            <span class="palette-placeholder">Run a command &mdash; mine, send, deploy&hellip;</span>
+            <span class="kbd">&#8984;K</span>
+        </button>
+
+        <div id="sync" class="sync">
+            <span class="dot dot-green"></span><span id="sync-text">connecting&hellip;</span>
+        </div>
+
+        <button id="theme-toggle" class="icon-btn" type="button" title="Toggle light / dark">&#9681;</button>
+        <button id="help-btn" class="icon-btn" type="button" title="Restart the tour">?</button>
     </header>
 
-    <main>
-        <section id="network">
-            <h2>Network</h2>
-            <div id="network-stats" class="stats"></div>
-            <div id="peers"></div>
-        </section>
+    <!-- MAIN -->
+    <main class="main">
+        <div class="main-inner">
 
-        <section id="actions">
-            <h2>Actions</h2>
-            <div class="action-grid">
-                <div class="action">
-                    <h3>Wallet</h3>
-                    <button id="create-wallet">Create wallet</button>
-                    <div class="action-row">
-                        <input id="balance-address" type="text" placeholder="address" autocomplete="off">
-                        <button id="check-balance">Check balance</button>
+            <!-- CHAIN HERO -->
+            <section class="hero" data-tour="chain">
+                <div class="hero-head">
+                    <span class="hero-title">The chain</span>
+                    <span id="hero-meta" class="hero-meta mono"></span>
+                    <button id="mine-btn" class="btn-accent" type="button">
+                        <span aria-hidden="true">&#9935;</span> Mine block
+                    </button>
+                </div>
+                <div id="chain-row" class="chain-row"></div>
+            </section>
+
+            <!-- BOTTOM GRID -->
+            <div class="grid">
+                <section class="panel feed" data-tour="feed">
+                    <div class="panel-label">Activity feed</div>
+                    <div id="feed-list" class="scroll-col"></div>
+                </section>
+
+                <section class="panel actions" data-tour="actions">
+                    <div class="panel-label">Actions</div>
+                    <button class="action-btn" data-action="send" type="button"><span aria-hidden="true">&#8599;</span> Send transaction</button>
+                    <button class="action-btn" data-action="wallet" type="button"><span aria-hidden="true">&#65291;</span> Create wallet</button>
+                    <button class="action-btn" data-action="deploy" type="button"><span aria-hidden="true">&#9636;</span> Deploy contract</button>
+                    <button class="action-btn" data-action="multisig" type="button"><span aria-hidden="true">&#10697;</span> Multisig wallet</button>
+                </section>
+
+                <section class="side" data-tour="side">
+                    <div class="panel balance-card">
+                        <div class="card-label">Balance</div>
+                        <div class="balance-value"><span id="balance-amount">&mdash;</span> <span class="balance-unit">BSC</span></div>
+                        <div id="balance-address" class="mono balance-address">no active wallet</div>
                     </div>
-                    <p id="wallet-result" class="action-result"></p>
-                </div>
-
-                <div class="action">
-                    <h3>Send transaction</h3>
-                    <input id="tx-sender" type="text" placeholder="sender address" autocomplete="off">
-                    <input id="tx-recipient" type="text" placeholder="recipient address" autocomplete="off">
-                    <input id="tx-amount" type="number" placeholder="amount" min="0" step="any" autocomplete="off">
-                    <button id="send-tx">Submit transaction</button>
-                    <p id="tx-result" class="action-result"></p>
-                </div>
-
-                <div class="action">
-                    <h3>Mine</h3>
-                    <input id="mine-address" type="text" placeholder="miner address" autocomplete="off">
-                    <button id="mine-block">Mine pending block</button>
-                    <p id="mine-result" class="action-result"></p>
-                </div>
+                    <div class="panel contracts-card">
+                        <div class="card-label">Open contracts</div>
+                        <div id="contract-list" class="scroll-col"></div>
+                    </div>
+                </section>
             </div>
-        </section>
 
-        <section id="contracts">
-            <h2>Contracts</h2>
-            <div class="action-grid">
-                <div class="action">
-                    <h3>Deploy</h3>
-                    <input id="deploy-funder" type="text" placeholder="funder address" autocomplete="off">
-                    <input id="deploy-amount" type="number" placeholder="amount to lock" min="0" step="any" autocomplete="off">
-                    <input id="deploy-script" type="text" placeholder="locking script (e.g. SHA256 PUSH &lt;hash&gt; EQUAL)" autocomplete="off">
-                    <button id="deploy-contract">Deploy contract</button>
-                    <p id="deploy-result" class="action-result"></p>
-                </div>
-
-                <div class="action">
-                    <h3>Claim</h3>
-                    <input id="claim-id" type="text" placeholder="contract id" autocomplete="off">
-                    <input id="claim-claimer" type="text" placeholder="claimer address" autocomplete="off">
-                    <input id="claim-unlock" type="text" placeholder="unlocking data (e.g. PUSH &lt;preimage&gt;)" autocomplete="off">
-                    <button id="claim-contract">Claim contract</button>
-                    <p id="claim-result" class="action-result"></p>
-                </div>
-            </div>
-            <div id="contract-list"></div>
-        </section>
-
-        <section id="multisig">
-            <h2>Multisig</h2>
-            <p class="muted">M-of-N wallets. The node generates the member keys and signs on your behalf (educational convenience; a real wallet signs client-side).</p>
-            <div class="action-grid">
-                <div class="action">
-                    <h3>Create wallet</h3>
-                    <input id="ms-members" type="number" placeholder="members (N)" min="1" step="1" autocomplete="off">
-                    <input id="ms-threshold" type="number" placeholder="threshold (M)" min="1" step="1" autocomplete="off">
-                    <button id="ms-create">Create multisig</button>
-                    <p id="ms-create-result" class="action-result"></p>
-                </div>
-
-                <div class="action">
-                    <h3>Claim</h3>
-                    <input id="ms-claim-id" type="text" placeholder="contract id" autocomplete="off">
-                    <input id="ms-claim-claimer" type="text" placeholder="claimer address" autocomplete="off">
-                    <button id="ms-claim">Claim multisig</button>
-                    <p id="ms-claim-result" class="action-result"></p>
-                </div>
-            </div>
-        </section>
-
-        <section id="blocks">
-            <h2>Blocks</h2>
-            <div id="block-list"></div>
-        </section>
+        </div>
     </main>
 
-    <footer>
-        <p id="refresh-status" class="refresh">Connecting&hellip;</p>
+    <!-- FOOTER -->
+    <footer class="footer">
+        <div class="footer-inner mono">
+            <span>BlockSmith Node</span>
+            <span class="footer-sep">&middot;</span>
+            <span id="footer-p2p">P2P &mdash;</span>
+            <span id="footer-api">API &mdash;</span>
+            <span id="footer-health" class="footer-health"><span class="dot dot-green"></span>chain healthy</span>
+        </div>
     </footer>
 
-    <script src="/app.js"></script>
+    <!-- Overlay roots: palette, drawer, toast, tour are built by app.js -->
+    <div id="overlay-root"></div>
+</div>
+
+<script src="/app.js"></script>
 </body>
 </html>
