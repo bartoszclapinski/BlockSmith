@@ -691,6 +691,147 @@ function setActiveAddress(address) {
 
 function closeOverlay() { overlay.replaceChildren(); }
 
+// ===== onboarding tour =====
+
+const TOUR = [
+    { sel: "palette", title: "Command palette", body: "Run any action from one place — press ⌘K (Ctrl+K) or click this bar, then type and pick." },
+    { sel: "chain", title: "The chain", body: "A live view of the block chain. “Mine block” sequences the pending transactions into a new block." },
+    { sel: "feed", title: "Activity feed", body: "Events as they happen: blocks mined, transactions submitted, contracts deployed, and peers joining." },
+    { sel: "actions", title: "Quick actions", body: "Send a transaction, create a wallet, or deploy a contract — each opens a side panel." },
+    { sel: "side", title: "Balance & contracts", body: "Your active-wallet balance and the open contracts (2-of-3 multisig / hashlock). Click a contract to claim it." },
+];
+
+const tour = { active: false, step: 0, remember: true, root: null, refs: null };
+
+function tourOptedOut() {
+    try { return localStorage.getItem("bs_tour_optout") === "1"; } catch (e) { return false; }
+}
+
+function startTour() {
+    if (tour.active) return;
+    closeOverlay();            // a palette/drawer would sit under the dim; clear it
+    tour.active = true;
+    tour.step = 0;
+    buildTourDom();
+    window.addEventListener("resize", positionTour);
+    window.addEventListener("scroll", positionTour, true);
+    positionTour();
+}
+
+function endTour() {
+    if (!tour.active) return;
+    tour.active = false;
+    try {
+        if (tour.remember) localStorage.setItem("bs_tour_optout", "1");
+        else localStorage.removeItem("bs_tour_optout");
+    } catch (e) {}
+    window.removeEventListener("resize", positionTour);
+    window.removeEventListener("scroll", positionTour, true);
+    if (tour.root) { tour.root.remove(); tour.root = null; tour.refs = null; }
+}
+
+function tourNext() {
+    if (tour.step >= TOUR.length - 1) endTour();
+    else { tour.step++; positionTour(); }
+}
+
+function toggleRemember() {
+    tour.remember = !tour.remember;
+    updateTourRemember();
+}
+
+function updateTourRemember() {
+    if (!tour.refs) return;
+    tour.refs.remember.classList.toggle("on", tour.remember);
+    tour.refs.check.textContent = tour.remember ? "✓" : "";
+}
+
+function buildTourDom() {
+    const root = el("div");
+    const block = el("div", "tour-block");
+    const spot = el("div", "tour-spot");
+    const bubble = el("div", "tour-bubble");
+    const tail = el("div", "tour-tail");
+    const body = el("div", "tour-body");
+
+    const top = el("div", "tour-top");
+    const count = el("span", "tour-count");
+    const heading = el("span", "tour-heading");
+    top.appendChild(count);
+    top.appendChild(heading);
+
+    const text = el("div", "tour-text");
+
+    const foot = el("div", "tour-foot");
+    const remember = el("div", "tour-remember");
+    const check = el("span", "tour-check");
+    remember.appendChild(check);
+    remember.appendChild(el("span", null, "Remember my choice"));
+    remember.addEventListener("click", toggleRemember);
+    const skip = el("button", "tour-skip", "Skip");
+    skip.type = "button";
+    skip.addEventListener("click", endTour);
+    const next = el("button", "tour-next", "Next");
+    next.type = "button";
+    next.addEventListener("click", tourNext);
+    foot.appendChild(remember);
+    foot.appendChild(skip);
+    foot.appendChild(next);
+
+    body.appendChild(top);
+    body.appendChild(text);
+    body.appendChild(foot);
+    bubble.appendChild(tail);
+    bubble.appendChild(body);
+    root.appendChild(block);
+    root.appendChild(spot);
+    root.appendChild(bubble);
+    document.body.appendChild(root);
+
+    tour.root = root;
+    tour.refs = { spot: spot, bubble: bubble, tail: tail, count: count, heading: heading, text: text, next: next, remember: remember, check: check };
+    updateTourRemember();
+}
+
+/** Places the spotlight and bubble over the current step's target. */
+function positionTour() {
+    if (!tour.active || !tour.refs) return;
+    const stepDef = TOUR[tour.step];
+    const r = tour.refs;
+    r.count.textContent = (tour.step + 1) + " / " + TOUR.length;
+    r.heading.textContent = stepDef.title;
+    r.text.textContent = stepDef.body;
+    r.next.textContent = tour.step >= TOUR.length - 1 ? "Done" : "Next";
+
+    const target = document.querySelector('[data-tour="' + stepDef.sel + '"]');
+    if (!target) return;
+    const rect = target.getBoundingClientRect(), pad = 8;
+    const sx = rect.left - pad, sy = rect.top - pad, sw = rect.width + pad * 2, sh = rect.height + pad * 2;
+    r.spot.style.left = sx + "px";
+    r.spot.style.top = sy + "px";
+    r.spot.style.width = sw + "px";
+    r.spot.style.height = sh + "px";
+
+    const bw = 322, vh = window.innerHeight, vw = window.innerWidth, bubbleH = 176;
+    const below = sy + sh + 16 + bubbleH < vh;
+    const bt = below ? sy + sh + 14 : Math.max(16, sy - 14 - bubbleH);
+    const bl = Math.min(Math.max(sx + sw / 2 - bw / 2, 16), vw - bw - 16);
+    r.bubble.style.left = bl + "px";
+    r.bubble.style.top = bt + "px";
+
+    const tailLeft = Math.min(Math.max(sx + sw / 2 - bl - 7, 20), bw - 34);
+    r.tail.style.left = tailLeft + "px";
+    if (below) {
+        r.tail.style.top = "-7px";
+        r.tail.style.bottom = "";
+        r.tail.style.transform = "rotate(45deg)";
+    } else {
+        r.tail.style.bottom = "-7px";
+        r.tail.style.top = "";
+        r.tail.style.transform = "rotate(225deg)";
+    }
+}
+
 // ===== poll loop =====
 
 async function refresh() {
@@ -754,9 +895,7 @@ function initTheme() {
 function wire() {
     document.getElementById("palette-trigger").addEventListener("click", openPalette);
     document.getElementById("theme-toggle").addEventListener("click", toggleTheme);
-    document.getElementById("help-btn").addEventListener("click", function () {
-        toast("Guided tour arrives in the next update");
-    });
+    document.getElementById("help-btn").addEventListener("click", startTour);
     document.getElementById("mine-btn").addEventListener("click", doMine);
     // Click the balance address to track any existing address (multi-address node).
     document.getElementById("balance-address").addEventListener("click", function () {
@@ -770,6 +909,7 @@ function wire() {
     });
 
     document.addEventListener("keydown", function (e) {
+        if (tour.active) return;   // the tour owns keyboard input while it's up
         if ((e.metaKey || e.ctrlKey) && (e.key === "k" || e.key === "K")) {
             e.preventDefault();
             if (isPaletteOpen()) closeOverlay();
@@ -794,3 +934,6 @@ bg.start();
 wire();
 refresh();
 setInterval(refresh, REFRESH_MS);
+
+// First-run onboarding tour, unless the visitor opted out previously.
+if (!tourOptedOut()) setTimeout(function () { if (!tour.active) startTour(); }, 700);
