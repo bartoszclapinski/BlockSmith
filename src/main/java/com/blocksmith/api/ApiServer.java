@@ -550,6 +550,7 @@ public class ApiServer {
         m.put("p2pPort", node.getPort());
         m.put("apiPort", port);
         m.put("chainLength", blockchain.getChainSize());
+        m.put("difficulty", BlockchainConfig.MINING_DIFFICULTY);
         m.put("pendingTransactions", blockchain.getPendingTransactions().size());
         m.put("connectedPeers", node.getPeerManager().getConnectedPeers().size());
         return m;
