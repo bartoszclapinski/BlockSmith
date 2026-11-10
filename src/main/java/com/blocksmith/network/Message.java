@@ -1,7 +1,7 @@
 package com.blocksmith.network;
 
+import com.blocksmith.util.JsonUtil;
 import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
 
 /**
  * THEORY: Network Message Base Class
@@ -23,7 +23,9 @@ import com.google.gson.GsonBuilder;
 public abstract class Message {
 
     // Note: No PrettyPrinting - messages must be single-line for readLine() to work
-    private static final Gson GSON = new GsonBuilder().create();
+    // Shared chain-data Gson: handles PublicKey, so signed transactions can
+    // travel between peers (#259).
+    private static final Gson GSON = JsonUtil.GSON;
             
     protected MessageType type;
     protected long timestamp;

@@ -10,6 +10,9 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+import com.blocksmith.core.Blockchain;
+import com.blocksmith.core.Transaction;
+import com.blocksmith.core.Wallet;
 import com.blocksmith.network.Node;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
@@ -123,5 +126,25 @@ class ApiReadEndpointsTest {
                 "A lone node has no connected peers");
         assertEquals(node.getNodeId(), status.get("nodeId").getAsString(),
                 "Status should report the node id");
+    }
+
+    @Test
+    @DisplayName("Blocks holding a signed transaction serialize (no 500) (#259)")
+    void blocksEndpoint_withSignedTransaction_returns200() throws Exception {
+        Blockchain chain = node.getBlockchain();
+        Wallet wallet = new Wallet();
+        chain.minePendingTransactions(wallet.getAddress());
+        Transaction tx = new Transaction(wallet.getAddress(), "bob", 5);
+        wallet.signTransaction(tx);
+        assertTrue(chain.addTransaction(tx));
+        chain.minePendingTransactions("miner");
+
+        HttpResponse<String> all = get("/api/blocks");
+        HttpResponse<String> latest = get("/api/blocks/latest");
+
+        assertEquals(200, all.statusCode(), all.body());
+        assertEquals(200, latest.statusCode(), latest.body());
+        JsonObject block = JsonParser.parseString(latest.body()).getAsJsonObject();
+        assertTrue(block.get("transactions").getAsJsonArray().size() >= 2);
     }
 }

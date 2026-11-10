@@ -22,6 +22,7 @@ import com.blocksmith.util.SignatureUtil;
 import com.blocksmith.network.NetworkConfig;
 import com.blocksmith.network.Node;
 import com.blocksmith.network.PeerInfo;
+import com.blocksmith.util.JsonUtil;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
@@ -51,7 +52,9 @@ public class ApiServer {
     private final Node node;
     private final Blockchain blockchain;
     private final int port;
-    private final Gson gson = new Gson();
+    // Shared chain-data Gson: blocks may hold signed transactions, whose
+    // PublicKey plain Gson cannot serialize (#259).
+    private final Gson gson = JsonUtil.GSON;
 
     /**
      * Server-held member keys for multisig wallets created via the API, keyed
