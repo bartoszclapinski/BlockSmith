@@ -9,9 +9,9 @@
 | Field | Value |
 |-------|-------|
 | **Phase** | 3 - API & Interface - ✅ COMPLETE |
-| **Current Sprint** | 15 (Multi-signature Wallets) - Complete |
+| **Current Sprint** | 16 (Database Persistence) - Planned |
 | **Current Milestone** | 15c Complete + Dashboard redesign (PR #157, #158) |
-| **Status** | Sprint 15 complete (15a-15c); Phase 3 complete; dashboard redesigned; next: Phase 4 (Sprint 16 - Persistence) |
+| **Status** | Phase 3 complete; dashboard redesigned; project page live; Sprint 16 planned (16a-16d, issues #161-#246) |
 
 ---
 
@@ -53,7 +53,7 @@ Phase 3: API & Interface     [███████████████] 100
 └── Sprint 15: Multi-sig Wallets ✅ COMPLETE (15a ✅, 15b ✅, 15c ✅)
 
 Phase 4: Production Features  [░░░░░░░░░░░░░░░] 0% ← NEXT
-└── Sprint 16: Persistence   ⬜ ← NEXT
+└── Sprint 16: Persistence   📋 PLANNED (16a ⬜, 16b ⬜, 16c ⬜, 16d ⬜)
 ```
 
 ---
