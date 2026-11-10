@@ -62,8 +62,10 @@ class ApiExplorerTest {
     void indexHtml_containsExpectedMountPoints() throws Exception {
         String html = get("/").body();
 
-        assertTrue(html.contains("id=\"network-stats\""), "Needs the network-stats mount point");
-        assertTrue(html.contains("id=\"block-list\""), "Needs the block-list mount point");
+        assertTrue(html.contains("id=\"hero-meta\""), "Needs the hero-meta (network stats) mount point");
+        assertTrue(html.contains("id=\"chain-row\""), "Needs the chain-row (blocks) mount point");
+        assertTrue(html.contains("id=\"feed-list\""), "Needs the feed-list (activity) mount point");
+        assertTrue(html.contains("id=\"contract-list\""), "Needs the contract-list mount point");
         assertTrue(html.contains("/app.js"), "Should load the dashboard script");
     }
 
