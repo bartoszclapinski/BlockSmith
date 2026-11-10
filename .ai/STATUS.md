@@ -10,8 +10,8 @@
 |-------|-------|
 | **Phase** | 3 - API & Interface - ✅ COMPLETE |
 | **Current Sprint** | 15 (Multi-signature Wallets) - Complete |
-| **Current Milestone** | 15c Complete (Multisig endpoints + dashboard panel) |
-| **Status** | Sprint 15 complete (15a-15c); Phase 3 complete, next: Phase 4 (Sprint 16 - Persistence) |
+| **Current Milestone** | 15c Complete + Dashboard redesign (PR #157, #158) |
+| **Status** | Sprint 15 complete (15a-15c); Phase 3 complete; dashboard redesigned; next: Phase 4 (Sprint 16 - Persistence) |
 
 ---
 
@@ -159,9 +159,11 @@ Last test run: `mvn test` - All passing
 
 | File | Status | Notes |
 |------|--------|-------|
-| index.html | ✅ Complete | Dashboard shell: network, actions, blocks, contracts (Sprint 14c) + multisig (Sprint 15c) sections |
-| app.js | ✅ Complete | Vanilla JS explorer + actions, 4s polling, textContent-only rendering (Sprint 13b/13c) + contract + multisig actions (Sprint 14c/15c) |
-| style.css | ✅ Complete | Dark theme, stat tiles, block cards, action forms (Sprint 13) |
+| index.html | ✅ Complete | Single-screen "command deck": top bar, chain-of-blocks hero, activity feed / actions / balance + contracts grid, footer; `data-tour` anchors (redesign, PR #157/#158) |
+| app.js | ✅ Complete | Vanilla JS, no build step: 4s polling, client-side activity feed (diff of polls), command palette (Ctrl/⌘+K), side drawers (send, create wallet, deploy hashlock/multisig, claim), toasts, theme toggle, 5-step onboarding tour (redesign, PR #157/#158) |
+| style.css | ✅ Complete | CSS-variable themes "Clay dark" + "Clay" (light), `prefers-color-scheme` default, animated background canvas (respects `prefers-reduced-motion`) (redesign, PR #157) |
+
+Design handoff (prototype + README) lives in `.ai/design/UIUX redesign project/`.
 
 ### Entry Points
 
@@ -244,6 +246,8 @@ Last test run: `mvn test` - All passing
 - [x] M-of-N multisig as a contract (MultiSigWallet + CHECKMULTISIG lock) (Sprint 15b)
 - [x] Claim sighash SHA256(contractId+claimer+amount) binds signatures, replay-safe (Sprint 15b)
 - [x] Multisig REST endpoints + dashboard panel; server-held keys, never serialized (Sprint 15c)
+- [x] Dashboard redesign: command-deck layout, light/dark themes, command palette, side drawers, activity feed (PR #157)
+- [x] Onboarding tour (5-step spotlight, opt-out remembered, `?` restarts) + drawer backdrop fix (PR #158)
 
 ---
 
@@ -252,7 +256,7 @@ Last test run: `mvn test` - All passing
 | Item | Value |
 |------|-------|
 | **Current Branch** | `master` |
-| **Last Commit** | Sprint 15 complete (multisig API + dashboard merged, PR #155) |
+| **Last Commit** | Dashboard redesign (PR #157 layout/themes, PR #158 onboarding tour) |
 | **Tag** | `v1.0.0` (Phase 1) |
 | **Main Branch** | `master` |
 
@@ -283,6 +287,16 @@ _None currently._
 2. **Phase 3 COMPLETE** - API & Interface (Sprints 12-15 all done, 100%).
    The wallet -> contract -> VM -> multisig arc is finished.
 
+2b. **Dashboard redesign (between Sprint 15 and 16)** - two PRs, not a sprint
+   - PR #157: command-deck layout, Clay dark/light themes, command palette,
+     drawers wired to the real API, client-side activity feed; API exposes
+     `difficulty` in `GET /api/network/status`
+   - PR #158: 5-step onboarding tour + fix for the drawer rendering under its
+     own backdrop; `ApiExplorerTest` updated to the new mount points
+     (`hero-meta`, `chain-row`, `feed-list`, `contract-list`)
+   - Old issues #132, #137, #140, #143 (test issues from Sprints 13-14) were
+     done but never auto-closed; closed manually 2026-11-10
+
 3. **Next: Phase 4 (Production Features)** - starting Sprint 16 (Persistence)
    - Not yet planned; likely SQLite/H2 persistence for the chain + mempool,
      indexed queries, and backup/restore. Then difficulty adjustment (17),
@@ -304,4 +318,4 @@ _None currently._
 
 ---
 
-*Last updated: 2026-07-05 | Sprint 15 Complete (Milestone 15c) - Phase 3 ✅ COMPLETE*
+*Last updated: 2026-11-10 | Sprint 15 Complete + Dashboard redesign (PR #157, #158) - Phase 3 ✅ COMPLETE*
