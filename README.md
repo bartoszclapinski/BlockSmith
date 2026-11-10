@@ -2,6 +2,8 @@
 
 **A complete blockchain and cryptocurrency implementation built from scratch in Java**
 
+🌐 **Project page & in-browser mining demo:** https://bartoszclapinski.github.io/BlockSmith/
+
 BlockSmith is a comprehensive blockchain project that goes beyond tutorials - implementing a fully functional distributed cryptocurrency system with P2P networking, REST API, web dashboard, and basic smart contracts. Built to deeply understand how Bitcoin and Ethereum work under the hood.
 
 [![Java](https://img.shields.io/badge/Java-20+-orange.svg)](https://openjdk.org/)
