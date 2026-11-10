@@ -156,12 +156,35 @@ public class Block {
     }
 
     /**
+     * THEORY: Is the Merkle root honest?
+     *
+     * The block hash covers the STORED merkleRoot, not the transactions
+     * themselves. A received block could keep its original Merkle root and
+     * hash while its transactions were edited, and calculateHash() would
+     * still match. Rebuilding the root from the transactions (and each
+     * transaction's id from its content) closes that gap:
+     *
+     *   txs --ids--> merkle tree --root--> must equal stored merkleRoot
+     *                                       --> covered by the block hash
+     *
+     * @return true if every transaction's id matches its content and the
+     *         Merkle root matches those ids
+     */
+    public boolean hasValidMerkleRoot() {
+        for (Transaction tx : transactions) {
+            if (!tx.hasValidId()) return false;
+        }
+        return merkleRoot != null && merkleRoot.equals(calculateMerkleRoot());
+    }
+
+    /**
      * Calculates the hash of this block based on its contents.
-     * 
+     *
      * THEORY: The hash is a unique identifier for the block.
      * It includes the Merkle root (which summarizes all transactions),
-     * so any change to any transaction will change the block hash.
-     * 
+     * so a change to a transaction changes the block hash - provided the
+     * Merkle root is recomputed from the transactions (see hasValidMerkleRoot).
+     *
      * NOTE: The nonce is included in the hash calculation. This is what allows
      * miners to change the hash output by incrementing the nonce.
      * 

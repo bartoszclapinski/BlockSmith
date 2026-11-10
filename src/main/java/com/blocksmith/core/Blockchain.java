@@ -317,6 +317,9 @@ public class Blockchain {
      * nothing about how it links to our chain.
      */
     private boolean isWellFormed(Block block) {
+        // The transactions must match the Merkle root the hash commits to;
+        // otherwise an edited block could keep a valid-looking hash (#260).
+        if (!block.hasValidMerkleRoot()) return false;
         if (!block.getHash().equals(block.calculateHash())) return false;
         String target = "0".repeat(BlockchainConfig.MINING_DIFFICULTY);
         return block.getHash().startsWith(target);
@@ -753,7 +756,9 @@ public class Blockchain {
             Block currentBlock = chain.get(i);
             Block previousBlock = chain.get(i - 1);
 
-            // Verify current block's hash is correctly calculated
+            // Verify the transactions match the Merkle root (#260), then that
+            // the block's hash is correctly calculated
+            if (!currentBlock.hasValidMerkleRoot()) return false;
             if (!currentBlock.getHash().equals(currentBlock.calculateHash())) return false;
 
             // Verify link to previous block
