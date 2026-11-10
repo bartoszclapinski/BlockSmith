@@ -1,5 +1,9 @@
 package com.blocksmith.network;
 
+import com.blocksmith.core.Block;
+import com.blocksmith.core.Blockchain;
+import com.blocksmith.core.Transaction;
+import com.blocksmith.core.Wallet;
 import com.blocksmith.network.messages.*;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -92,5 +96,43 @@ class MessageTest {
         assertEquals(MessageType.HELLO, new HelloMessage("n", "1.0", 8080, 0).getType());
         assertEquals(MessageType.PING, new PingMessage("n").getType());
         assertEquals(MessageType.PONG, new PongMessage("n").getType());
+    }
+
+    // ===== Signed transactions over the wire (#259) =====
+
+    @Test
+    @DisplayName("NEW_TRANSACTION with a signed transaction round-trips and still verifies")
+    void newTransactionMessage_signedTransaction_roundTrips() {
+        Wallet wallet = new Wallet();
+        Transaction tx = new Transaction(wallet.getAddress(), "bob", 5);
+        wallet.signTransaction(tx);
+
+        String json = new NewTransactionMessage("node-1", tx).toJson();
+        NewTransactionMessage restored = Message.fromJson(json, NewTransactionMessage.class);
+
+        assertEquals(tx.getTransactionId(), restored.getTransaction().getTransactionId());
+        assertTrue(restored.getTransaction().verifySignature(),
+                "Public key and signature must survive serialization");
+    }
+
+    @Test
+    @DisplayName("BLOCKS with a signed transaction round-trips")
+    void blocksMessage_signedTransaction_roundTrips() {
+        Wallet wallet = new Wallet();
+        Blockchain chain = new Blockchain();
+        chain.minePendingTransactions(wallet.getAddress());
+        Transaction tx = new Transaction(wallet.getAddress(), "bob", 5);
+        wallet.signTransaction(tx);
+        assertTrue(chain.addTransaction(tx));
+        Block block = chain.minePendingTransactions("miner");
+
+        String json = new BlocksMessage("node-1", java.util.List.of(block)).toJson();
+        Block restored = Message.fromJson(json, BlocksMessage.class).getBlocks().get(0);
+
+        assertEquals(block.getHash(), restored.getHash());
+        assertTrue(restored.hasValidMerkleRoot());
+        assertTrue(restored.getTransactions().stream()
+                .filter(t -> t.getTransactionId().equals(tx.getTransactionId()))
+                .findFirst().orElseThrow().verifySignature());
     }
 }

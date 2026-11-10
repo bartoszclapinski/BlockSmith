@@ -3,6 +3,8 @@ package com.blocksmith.core;
 import com.blocksmith.contract.Contract;
 import com.blocksmith.contract.ContractStatus;
 import com.blocksmith.contract.ScriptVM;
+import com.blocksmith.storage.ChainStore;
+import com.blocksmith.storage.NoOpChainStore;
 import com.blocksmith.util.BlockchainConfig;
 import com.blocksmith.util.HashUtil;
 
@@ -43,6 +45,13 @@ public class Blockchain {
 
     private final List<Block> chain;
     private final List<Transaction> pendingTransactions;
+
+    /**
+     * Where accepted blocks and pending transactions are written (Sprint 16).
+     * {@link NoOpChainStore} by default, so a plain {@code new Blockchain()}
+     * stays purely in memory.
+     */
+    private final ChainStore store;
 
     /**
      * THEORY: CONTRACT REGISTRY (Sprint 14)
@@ -99,13 +108,132 @@ public class Blockchain {
      * This proves the block couldn't have been created before that date.
      */
     public Blockchain() {
+        this(NoOpChainStore.INSTANCE);
+    }
+
+    /**
+     * Creates a blockchain that writes every accepted block and pending
+     * transaction to {@code store}. The chain starts at genesis; call
+     * {@link #restoreFromStore()} to load what the store already holds.
+     *
+     * @param store durable storage for the chain and mempool
+     */
+    public Blockchain(ChainStore store) {
         this.chain = new ArrayList<>();
         this.pendingTransactions = new ArrayList<>();
+        this.store = store;
 
-        // Create and mine the Genesis block
+        // Create and mine the Genesis block (deterministic: fixed timestamp)
         Block genesis = Block.createGenesisBlock();
         genesis.mineBlock(BlockchainConfig.MINING_DIFFICULTY);
         chain.add(genesis);
+        store.saveBlock(genesis);
+    }
+
+    /**
+     * Outcome of {@link #restoreFromStore()}.
+     *
+     * @param blocksRestored stored blocks (after genesis) accepted onto the chain
+     * @param blocksRejected stored blocks not restored (first invalid one and all after it)
+     * @param pendingRestored stored pending transactions accepted back into the mempool
+     */
+    public record RestoreReport(int blocksRestored, int blocksRejected, int pendingRestored) {}
+
+    /**
+     * Rebuilds this chain and mempool from the store.
+     *
+     * THEORY: Restore by replay, never by trust
+     *
+     * The database is just data. Each stored block goes through the same
+     * addBlock(Block) checks as a block from an untrusted peer: correct
+     * height, links to our tip, hash matches its content, meets the
+     * Proof-of-Work target. Balances and the contract registry are rebuilt
+     * as a side effect, exactly as on any other node.
+     *
+     *   stored:   #0  #1  #2  #3*  #4      (* = edited by hand on disk)
+     *   replay:   ok  ok  ok  FAIL stop -> chain = #0..#2
+     *
+     * We stop at the first failure rather than skipping it: every later
+     * block links to the bad one, so none of them can be valid either.
+     * Pending transactions re-enter through addTransaction, so the balance
+     * rules still apply; ones that no longer fit are dropped from the store.
+     *
+     * Must be called on a fresh chain (genesis only), before the node starts.
+     *
+     * @return how many blocks and pending transactions were restored
+     * @throws IllegalStateException if the chain already has blocks past genesis
+     */
+    public RestoreReport restoreFromStore() {
+        if (chain.size() > 1) {
+            throw new IllegalStateException("restoreFromStore() needs a fresh chain");
+        }
+
+        List<Block> stored = store.loadBlocks();
+        int restored = 0;
+        int candidates = 0;
+        boolean stopped = false;
+        for (Block block : stored) {
+            if (block.getIndex() == 0) {
+                // A different genesis means a different network: restore nothing.
+                if (!block.getHash().equals(chain.get(0).getHash())) {
+                    System.out.println("Restore: stored genesis does not match ours, ignoring store");
+                    return new RestoreReport(0, stored.size() - 1, 0);
+                }
+                continue;
+            }
+            candidates++;
+            if (stopped) continue;
+            // Only accept the next height; anything else (a gap in the rows)
+            // would be parked as an orphan by addBlock, which we do not want.
+            if (block.getIndex() != getLatestBlock().getIndex() + 1 || !addBlock(block)) {
+                System.out.println("Restore: stored block #" + block.getIndex()
+                        + " failed validation, keeping chain up to #" + getLatestBlock().getIndex());
+                stopped = true;
+                continue;
+            }
+            restored++;
+        }
+
+        int pendingRestored = 0;
+        for (Transaction tx : store.loadPending()) {
+            // Already in a block (the node stopped between saving the block
+            // and clearing pending): re-adding it would let it be mined twice.
+            if (!isConfirmed(tx.getTransactionId()) && addTransaction(tx)) {
+                pendingRestored++;
+            } else {
+                store.removePending(tx.getTransactionId());
+            }
+        }
+        return new RestoreReport(restored, candidates - restored, pendingRestored);
+    }
+
+    /**
+     * The single place a block joins the chain.
+     *
+     * Every path (local mining, legacy data blocks, blocks from peers,
+     * attached orphans) goes through here, so none of them can forget a step:
+     * confirm its transactions, update the contract registry, persist it.
+     *
+     * The block is written to the store FIRST. If the node dies right after,
+     * the block is safe and its transactions may still be listed as pending;
+     * restoreFromStore() skips those. The opposite order could lose a
+     * transaction (removed from pending, block never written).
+     */
+    private void appendBlock(Block block) {
+        store.saveBlock(block);
+        chain.add(block);
+        removeConfirmed(block);
+        registerContracts(block);
+    }
+
+    /** True if a transaction with this id is already inside a block. */
+    private boolean isConfirmed(String transactionId) {
+        for (Block block : chain) {
+            for (Transaction tx : block.getTransactions()) {
+                if (tx.getTransactionId().equals(transactionId)) return true;
+            }
+        }
+        return false;
     }
         
     /**
@@ -130,7 +258,7 @@ public class Blockchain {
         Block newBlock = new Block(newIndex, data, latestBlock.getHash());
         newBlock.mineBlock(BlockchainConfig.MINING_DIFFICULTY);
 
-        chain.add(newBlock);
+        appendBlock(newBlock);
 
         return newBlock;
     }
@@ -169,9 +297,7 @@ public class Blockchain {
         // that were waiting on this new block.
         if (block.getIndex() == tip.getIndex() + 1
                 && block.getPreviousHash().equals(tip.getHash())) {
-            chain.add(block);
-            removeConfirmed(block);
-            registerContracts(block);
+            appendBlock(block);
             attachOrphans();
             return true;
         }
@@ -191,6 +317,9 @@ public class Blockchain {
      * nothing about how it links to our chain.
      */
     private boolean isWellFormed(Block block) {
+        // The transactions must match the Merkle root the hash commits to;
+        // otherwise an edited block could keep a valid-looking hash (#260).
+        if (!block.hasValidMerkleRoot()) return false;
         if (!block.getHash().equals(block.calculateHash())) return false;
         String target = "0".repeat(BlockchainConfig.MINING_DIFFICULTY);
         return block.getHash().startsWith(target);
@@ -209,9 +338,7 @@ public class Blockchain {
 
             orphans.remove(tip.getHash());
             if (child.getIndex() == tip.getIndex() + 1 && isWellFormed(child)) {
-                chain.add(child);
-                removeConfirmed(child);
-                registerContracts(child);
+                appendBlock(child);
             } else {
                 break; // stale/ill-fitting orphan: drop and stop
             }
@@ -224,8 +351,9 @@ public class Blockchain {
      * A transaction gossiped to us earlier may still be sitting in our mempool
      * when the block that confirms it arrives from a peer. Without this it
      * would linger and be re-gossiped, or even mined again into a later block.
-     * The local mine path clears the whole pool itself, so this covers the
-     * externally-appended (network) case.
+     * Runs for every appended block (see appendBlock): for a locally mined
+     * block it clears exactly the transactions that went into it, and the
+     * store forgets them too.
      */
     private void removeConfirmed(Block block) {
         if (block.getTransactions().isEmpty()) return;
@@ -234,7 +362,11 @@ public class Blockchain {
         for (Transaction tx : block.getTransactions()) {
             confirmedIds.add(tx.getTransactionId());
         }
-        pendingTransactions.removeIf(tx -> confirmedIds.contains(tx.getTransactionId()));
+        pendingTransactions.removeIf(tx -> {
+            if (!confirmedIds.contains(tx.getTransactionId())) return false;
+            store.removePending(tx.getTransactionId());
+            return true;
+        });
     }
 
     /**
@@ -313,8 +445,9 @@ public class Blockchain {
                 return false;
         }
 
-        // Add to pending pool
+        // Add to pending pool (and remember it across restarts)
         pendingTransactions.add(transaction);
+        store.savePending(transaction);
         System.out.println("Transaction added to pending pool: " + transaction);
         return true;
     }
@@ -381,12 +514,9 @@ public class Blockchain {
         System.out.println("\n⛏️  Mining block #" + newIndex + " with " + blockTransactions.size() + " transactions...");
         newBlock.mineBlock(BlockchainConfig.MINING_DIFFICULTY);
 
-        // Add block to chain
-        chain.add(newBlock);
-        registerContracts(newBlock);
-
-        // Clear pending transactions (they're now in a block)
-        pendingTransactions.clear();
+        // Add block to chain. appendBlock also removes the block's
+        // transactions from the pending pool (they're now confirmed).
+        appendBlock(newBlock);
 
         System.out.println("✅ Block mined and added to chain!");
         System.out.println("   Miner " + minerAddress + " received " + 
@@ -626,7 +756,9 @@ public class Blockchain {
             Block currentBlock = chain.get(i);
             Block previousBlock = chain.get(i - 1);
 
-            // Verify current block's hash is correctly calculated
+            // Verify the transactions match the Merkle root (#260), then that
+            // the block's hash is correctly calculated
+            if (!currentBlock.hasValidMerkleRoot()) return false;
             if (!currentBlock.getHash().equals(currentBlock.calculateHash())) return false;
 
             // Verify link to previous block

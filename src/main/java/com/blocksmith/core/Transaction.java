@@ -79,7 +79,24 @@ public class Transaction {
     private String calculateHash() {
         String data = sender + recipient + amount + timestamp;
         return HashUtil.applySha256(data);
-    }    
+    }
+
+    /**
+     * THEORY: The id is a claim, so re-check it
+     *
+     * The id is computed once, in the constructor, and then travels with the
+     * transaction (over the network, into the database). A received copy
+     * could carry an old id next to edited fields, for example a bigger
+     * amount. Recomputing the id from the content exposes that edit.
+     *
+     * Note: contract scripts are not part of the id (they are set after
+     * construction), so this check does not cover them.
+     *
+     * @return true if the stored id matches the transaction's content
+     */
+    public boolean hasValidId() {
+        return transactionId != null && transactionId.equals(calculateHash());
+    }
 
     /**
      * THEORY: Verifies the digital signature of this transaction.

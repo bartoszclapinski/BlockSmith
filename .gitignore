@@ -36,9 +36,8 @@ bin/
 .DS_Store
 Thumbs.db
 
-# Local data
-data/blockchain.json
-data/*.json
+# Local data (node databases live under data/node-<port>/, Sprint 16)
+data/
 
 # Package Files
 *.jar
