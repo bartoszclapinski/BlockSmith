@@ -1,6 +1,10 @@
 # 🏗️ BlockSmith - Architecture Guide
 
 > Detailed description of all classes, their relationships, and implementation details.
+>
+> The diagram and the `core` / `util` sections below cover Phase 1 in depth. Phases 2-3
+> (`network`, `api`, `contract`, web dashboard) are summarised in their own sections further
+> down; `STATUS.md` has the per-class implementation table.
 
 ---
 
@@ -34,7 +38,7 @@
 │  │                           UTILITIES                                    │ │
 │  │  ┌──────────────┐  ┌──────────────────┐  ┌────────────────────────┐   │ │
 │  │  │   HashUtil   │  │ BlockchainConfig │  │    BlockExplorer       │   │ │
-│  │  │  (SHA-256)   │  │   (Constants)    │  │  (Viewer) ← TODO       │   │ │
+│  │  │  (SHA-256)   │  │   (Constants)    │  │  (Viewer) ← stub only  │   │ │
 │  │  └──────────────┘  └──────────────────┘  └────────────────────────┘   │ │
 │  └───────────────────────────────────────────────────────────────────────┘ │
 │                                                                             │
@@ -286,7 +290,10 @@ byte[] hash = digest.digest(input.getBytes(StandardCharsets.UTF_8));
 
 ---
 
-### BlockExplorer.java ⬜ (Sprint 7 - TODO)
+### BlockExplorer.java ⬜ (stub only)
+
+> Still an empty placeholder. Its role (browsing blocks, balances, the mempool) is covered
+> in practice by the REST API + web dashboard (Sprints 12-13). Implement or remove later.
 
 **Planned Purpose**: Interactive blockchain viewer.
 
@@ -320,6 +327,86 @@ byte[] hash = digest.digest(input.getBytes(StandardCharsets.UTF_8));
 ```bash
 mvn exec:java -Dexec.mainClass=com.blocksmith.BlockSmithDemo
 ```
+
+### BlockSmithNode.java ✅ (Sprint 13a)
+
+**Purpose**: Runnable node: P2P `Node` + `ApiServer` + dashboard in one process. Default
+`mvn exec:java` target and jar main class.
+
+```bash
+mvn exec:java                              # P2P on NetworkConfig.DEFAULT_PORT, API + dashboard on :7070
+mvn exec:java -Dexec.args="18555 18580"    # custom [p2pPort] [apiPort]
+```
+
+---
+
+## 📦 Package: `com.blocksmith.network` (Phase 2, Sprints 8-11)
+
+TCP peer-to-peer layer. Messages are JSON over sockets.
+
+| Class | Role |
+|-------|------|
+| `Node` | Server socket + message loop + handler registry; tracks peers, heartbeat eviction, peer discovery, seed bootstrap, block/tx broadcast with sender exclusion, chain + mempool sync |
+| `Peer` | Outbound client connection with an async listener thread |
+| `PeerManager` / `PeerInfo` / `PeerState` | Peer registry (`MAX_PEERS`), per-peer metadata, connection lifecycle |
+| `Message` / `MessageType` / `MessageParser` | Base message, type enum, JSON-to-message routing |
+| `MessageHandler` / `MessageContext` / `MessageListener` | Handler interface, connection wrapper, async listener |
+| `NetworkConfig` | Ports, heartbeat timings, seed nodes |
+| `messages/*` | `Hello`, `Ping`/`Pong`, `GetPeers`/`Peers`, `NewBlock`, `GetBlocks`/`Blocks`, `NewTransaction`, `GetMempool`/`Mempool` |
+
+**Key flows**: handshake (`HELLO` with chain length) → behind peer requests `GET_BLOCKS` →
+new blocks/txs gossip via `NEW_BLOCK` / `NEW_TRANSACTION` (validated, deduped, re-gossiped
+to everyone except the sender); blocks with an unknown parent wait in a bounded orphan buffer.
+
+---
+
+## 📦 Package: `com.blocksmith.api` (Sprint 12-15)
+
+`ApiServer` — Javalin REST API on its own port; serves the dashboard from
+`src/main/resources/public` at `/`. Errors use one JSON envelope (`{"error": ...}`, 400/404/500).
+Writes (tx, mined block) are broadcast to peers.
+
+| Method | Path | Purpose |
+|--------|------|---------|
+| GET | `/api/blocks`, `/api/blocks/latest`, `/api/blocks/{index}` | Read the chain |
+| GET | `/api/network/status`, `/api/network/peers` | Node stats (incl. `difficulty`), peer list |
+| POST / GET | `/api/transactions`, `/api/transactions/{id}` | Submit (unsigned, educational) / look up a tx |
+| POST | `/api/mine` | Mine pending txs (or an empty block) for `minerAddress` |
+| GET / POST | `/api/wallet/{address}`, `/api/wallet/create` | Balance + pending outgoing / new wallet |
+| GET / POST | `/api/contracts`, `/api/contracts/{id}`, `/api/contracts/{id}/claim` | Deploy, inspect, claim contracts |
+| POST | `/api/multisig/create`, `/api/multisig/claim` | M-of-N multisig with server-held member keys |
+
+---
+
+## 📦 Package: `com.blocksmith.contract` (Sprints 14-15)
+
+| Class | Role |
+|-------|------|
+| `ScriptOp` | Opcodes: `PUSH`, `DUP`, `DROP`, `SHA256`, `EQUAL(VERIFY)`, `VERIFY`, `ADD`, `SUB`, `GREATER`, `LESS`, `CHECKLOCKTIME`, `CHECKSIG`, `CHECKMULTISIG` |
+| `ScriptVM` | Stack machine; runs unlocking + locking script with an optional sighash; never throws (malformed = `false`) |
+| `Contract` / `ContractStatus` | Locked funds (`OPEN` / `CLAIMED`); `claimSighash = SHA256(contractId+claimer+amount)` |
+| `MultiSigWallet` | Builds the `CHECKMULTISIG` lock and the `MS:` address from public keys |
+
+**Model**: a contract is just transactions — deploy sends TO `CONTRACT:<id>` with a locking
+script, claim sends FROM it with unlocking data. `Blockchain` derives the contract registry
+from blocks (so all nodes converge) and checks claims with the VM. A multisig is a contract
+whose lock is `CHECKMULTISIG`.
+
+---
+
+## 🖥️ Web Dashboard (`src/main/resources/public`)
+
+Vanilla HTML/JS/CSS, no build step. Redesigned in PR #157/#158 from the handoff in
+`.ai/design/UIUX redesign project/`.
+
+- **Layout**: single-screen "command deck": top bar, chain-of-blocks hero (`#chain-row`,
+  `#hero-meta`), bottom grid with activity feed (`#feed-list`), actions, balance +
+  contracts (`#contract-list`), footer.
+- **Data**: polls the REST API every 4s; the activity feed is built client-side by diffing polls.
+- **UI**: "Clay" dark/light themes (CSS variables), command palette (Ctrl/⌘+K), side drawers
+  (send, create wallet, deploy hashlock/multisig, claim), toasts, 5-step onboarding tour
+  (`data-tour` anchors; opt-out in `localStorage`).
+- **Safety**: renders with `textContent` only (no HTML injection from chain data).
 
 ---
 
@@ -450,4 +537,4 @@ void methodName_scenario_expectedResult() { ... }
 
 ---
 
-*Last updated: 2026-01-27*
+*Last updated: 2026-11-10 (added network / api / contract / dashboard sections)*

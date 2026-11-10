@@ -40,7 +40,7 @@
 | **Serialization** | Gson 2.10.1 |
 | **Current Phase** | Phase 3: API & Interface — ✅ Complete |
 | **Current Sprint** | Sprint 15 (Multi-signature Wallets) — Complete |
-| **Current Milestone** | 15c Complete; next: Phase 4 (Sprint 16 — Persistence) |
+| **Current Milestone** | 15c Complete + dashboard redesign (PR #157, #158); next: Phase 4 (Sprint 16 — Persistence) |
 | **Total Tests** | 233 (all passing) |
 | **Main Branch** | `master` |
 
@@ -85,7 +85,7 @@ BlockSmith/
 │   ├── util/                         # Utility classes
 │   │   ├── HashUtil.java             # ✅ Complete
 │   │   ├── BlockchainConfig.java     # ✅ Complete
-│   │   └── BlockExplorer.java        # ⬜ TODO (Phase 3)
+│   │   └── BlockExplorer.java        # ⬜ Stub only (explorer role covered by the web dashboard)
 │   └── network/                      # Network layer (Sprint 8-11)
 │       ├── MessageType.java          # ✅ Complete
 │       ├── Message.java              # ✅ Complete
@@ -122,7 +122,7 @@ BlockSmith/
 │   │   └── MultiSigWallet.java       # ✅ M-of-N wallet + CHECKMULTISIG lock (Sprint 15b)
 │   └── BlockSmithNode.java           # ✅ Complete (runnable node: P2P + API + dashboard, Sprint 13a)
 │
-├── src/main/resources/public/        # Web dashboard (Sprint 13-15): index.html, app.js, style.css
+├── src/main/resources/public/        # Web dashboard (Sprint 13-15, redesigned PR #157/#158): index.html, app.js, style.css
 ├── src/test/java/com/blocksmith/     # 233 unit tests
 ├── pom.xml                           # Maven configuration (Gson, JUnit, Javalin)
 └── README.md                         # Public documentation
@@ -160,6 +160,8 @@ BlockSmith/
 **Sprint 14: Smart Contracts** — `com.blocksmith.contract`: `ScriptVM` stack machine (opcodes for hashlock/timelock; never throws — malformed scripts evaluate to false). Contracts are modelled as transactions (deploy TO `CONTRACT:<id>` with a locking script, claim FROM it with unlocking data), so the balance model needs no changes; the contract registry is derived from blocks so all nodes converge. REST: `POST /api/contracts`, `GET /api/contracts[/{id}]`, `POST /api/contracts/{id}/claim`; dashboard Contracts panel.
 
 **Sprint 15: Multi-signature Wallets** — built ON the Sprint 14 VM. `SignatureUtil` (ECDSA sign/verify, never throws) + `CHECKSIG`/`CHECKMULTISIG` opcodes with a sighash context (`ScriptVM.execute` overload; existing call sites pass an empty sighash). An M-of-N multisig is just a contract whose lock is a `CHECKMULTISIG` (`MultiSigWallet` builds it); the claim sighash `SHA256(contractId+claimer+amount)` (`Contract.claimSighash`) binds signatures to one claim, so they can't be replayed. The one wiring change is `Blockchain.isValidClaim` feeding the sighash to the VM. REST: `POST /api/multisig/create`, `POST /api/multisig/claim` (server-held member keys, an educational signing convenience — private keys never serialized); dashboard Multisig panel.
+
+**Dashboard redesign (PR #157, #158)** — not a sprint; done after Sprint 15 from the design handoff in `.ai/design/UIUX redesign project/`. Single-screen "command deck" (top bar, chain-of-blocks hero, activity feed / actions / balance + contracts grid), "Clay" light/dark themes via CSS variables, command palette (Ctrl/⌘+K), side drawers for send / create wallet / deploy (hashlock, multisig 2-of-3) / claim, toasts, an activity feed derived client-side by diffing the 4s polls, and a 5-step onboarding tour (opt-out stored in `localStorage` as `bs_tour_optout`; `?` restarts it). Still vanilla JS, no build step. `GET /api/network/status` now also returns `difficulty`.
 
 ---
 
@@ -273,7 +275,7 @@ mvn exec:java -Dexec.mainClass=com.blocksmith.BlockSmithDemo
 - **Doc branches**: `docs/{description}` (e.g., `docs/sprint11-complete`)
 - **Commits**: One per issue, format: `feat(scope): description #NN` — never add `Co-Authored-By`
 - **PRs**: created with `gh`, include `Closes #NN` lines, ff-only merge to sync local master
-- **Latest**: Sprint 15 complete (Multi-signature Wallets, PR #155); Phase 3 ✅ complete
+- **Latest**: Dashboard redesign (PR #157, #158) after Sprint 15 (Multi-signature Wallets, PR #155); Phase 3 ✅ complete
 
 ---
 
@@ -290,4 +292,4 @@ mvn exec:java -Dexec.mainClass=com.blocksmith.BlockSmithDemo
 
 ---
 
-*Last updated: 2026-07-05 | Sprint 15 Complete (Milestone 15c) — Phase 3 ✅ Complete*
+*Last updated: 2026-11-10 | Sprint 15 Complete + Dashboard redesign (PR #157, #158) — Phase 3 ✅ Complete*
