@@ -9,7 +9,7 @@
 | Field | Value |
 |-------|-------|
 | **Phase** | 3 - API & Interface - ✅ COMPLETE |
-| **Current Sprint** | 17 (Difficulty Adjustment) - Complete |
+| **Current Sprint** | 18 (Block Rules, Size & Fees) - Planned |
 | **Current Milestone** | 17d Complete (Live difficulty in API + dashboard) |
 | **Status** | Sprint 17 complete (17a-17d): numeric target, retarget every 10 blocks, timestamp rules, live difficulty. Next: Sprint 18 (Block Limits) |
 
@@ -55,7 +55,7 @@ Phase 3: API & Interface     [███████████████] 100
 Phase 4: Production Features  [████████░░░░░░░] 50% ← IN PROGRESS
 ├── Sprint 16: Persistence   ✅ COMPLETE (16a ✅, 16b ✅, 16c ✅, 16d ✅)
 ├── Sprint 17: Difficulty    ✅ COMPLETE (17a ✅, 17b ✅, 17c ✅, 17d ✅)
-├── Sprint 18: Block Limits  ⬜ ← NEXT
+├── Sprint 18: Block Rules   📋 PLANNED (18a ⬜, 18b ⬜, 18c ⬜, 18d ⬜)
 └── Sprint 19: Fee Market    ⬜
 ```
 
@@ -302,6 +302,9 @@ Design handoff (prototype + README) lives in `.ai/design/UIUX redesign project/`
 
 ## ⚠️ Known Issues
 
+- **#281 (critical)** Blocks from peers are accepted without checking their
+  transactions: inflated coinbase, overspending and unverified contract claims
+  all pass. Fix planned as Sprint 18a.
 - Multisig member keys are held in memory by the API (by design, not persisted):
   a multisig created via the dashboard cannot be claimed after a node restart.
 
