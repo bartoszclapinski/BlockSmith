@@ -19,7 +19,10 @@ public class MiningTest {
     @Test
     @DisplayName("Mining with difficulty 1 produces hash starting with '0'")
     void mineBlockDifficulty1() {
-        Block block = new Block(1, "Test data", "0000previous-hash-123");
+        // Fixed timestamp: with the current time, nonce 0 already satisfies
+        // difficulty 1 about 1 time in 16, which made "nonce > 0" flaky.
+        // For this timestamp nonce 0 hashes to "c45b..." (invalid); mining finds 16.
+        Block block = new Block(1, "Test data", "0000previous-hash-123", 1704067200000L);
 
         block.mineBlock(1);
 
