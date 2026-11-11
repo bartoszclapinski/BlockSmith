@@ -13,6 +13,7 @@ import java.math.BigInteger;
 import java.time.Clock;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -94,6 +95,9 @@ public class Blockchain {
 
     /** Evaluates contract scripts; never throws (consensus safety). */
     private final ScriptVM scriptVM = new ScriptVM();
+
+    /** Ids of every transaction already inside a block (Sprint 18a). */
+    private final Set<String> confirmedTxIds = new HashSet<>();
 
     /**
      * Largest number of orphan blocks held at once. Caps memory if a peer
@@ -456,18 +460,138 @@ public class Blockchain {
         store.saveBlock(block);
         chain.add(block);
         targets.add(target);
+        for (Transaction tx : block.getTransactions()) confirmedTxIds.add(tx.getTransactionId());
         removeConfirmed(block);
         registerContracts(block);
     }
 
     /** True if a transaction with this id is already inside a block. */
     private boolean isConfirmed(String transactionId) {
-        for (Block block : chain) {
-            for (Transaction tx : block.getTransactions()) {
-                if (tx.getTransactionId().equals(transactionId)) return true;
+        return confirmedTxIds.contains(transactionId);
+    }
+
+    // ===== BLOCK CONTENT RULES (Sprint 18a) =====
+
+    /**
+     * Running state while the transactions of one block are checked in order:
+     * balance changes so far, ids seen, contracts already claimed.
+     */
+    private final class BlockCheck {
+        final int height;
+        final Map<String, Double> delta = new HashMap<>();
+        final Set<String> ids = new HashSet<>();
+        final Set<String> claimedContracts = new HashSet<>();
+
+        BlockCheck(int height) {
+            this.height = height;
+        }
+
+        /** Balance on the chain plus the effect of this block's earlier transactions. */
+        double balance(String address) {
+            return getBalance(address) + delta.getOrDefault(address, 0.0);
+        }
+
+        void apply(Transaction tx) {
+            delta.merge(tx.getSender(), -tx.getAmount(), Double::sum);
+            delta.merge(tx.getRecipient(), tx.getAmount(), Double::sum);
+            ids.add(tx.getTransactionId());
+            if (tx.getSender().startsWith(BlockchainConfig.CONTRACT_ADDRESS_PREFIX)) {
+                claimedContracts.add(contractIdOf(tx.getSender()));
             }
         }
-        return false;
+    }
+
+    private static String contractIdOf(String contractAddress) {
+        return contractAddress.substring(BlockchainConfig.CONTRACT_ADDRESS_PREFIX.length());
+    }
+
+    /**
+     * Why this block's CONTENTS are not allowed, or null if they are.
+     *
+     * THEORY: Well built is not the same as allowed
+     *
+     * Proof-of-Work proves that work was spent on a block, not that the
+     * block is honest. A miner with plenty of hash power could pay itself
+     * a million coins or move someone else's money, and the hash, the PoW,
+     * the Merkle root and the timestamps would all still check out. So
+     * every node also replays what the block DOES, transaction by
+     * transaction, against the chain as it stands:
+     *
+     *   1. if the block has transactions, the first is the coinbase, and it
+     *      is the only one; it pays at most the block reward
+     *   2. every other transaction is well formed, a signed one verifies,
+     *      its id is new (not earlier in this block, not already on chain)
+     *   3. its sender can afford it, counting what earlier transactions in
+     *      the same block already moved
+     *   4. contract deploys carry a locking script; contract claims satisfy
+     *      the contract's script, and a contract is claimed at most once
+     *
+     * This is what makes Bitcoin nodes reject a miner who overpays itself,
+     * however much hash power stands behind the block.
+     *
+     * The coinbase is exempt from "id already on chain": two rewards for the
+     * same miner in the same millisecond have the same id (Bitcoin hit the
+     * same quirk, BIP30/BIP34). In an account model that is harmless.
+     */
+    private String blockRuleViolation(Block block) {
+        List<Transaction> txs = block.getTransactions();
+        if (txs.isEmpty()) return null;               // data-only block (legacy addBlock(String))
+
+        Transaction coinbase = txs.get(0);
+        if (!BlockchainConfig.COINBASE_ADDRESS.equals(coinbase.getSender())) {
+            return "the first transaction is not the coinbase";
+        }
+        if (coinbase.getRecipient() == null || coinbase.getRecipient().isBlank()) {
+            return "the coinbase has no recipient";
+        }
+        if (coinbase.getAmount() <= 0 || coinbase.getAmount() > BlockchainConfig.MINING_REWARD) {
+            return "the coinbase pays " + coinbase.getAmount() + ", more than the reward "
+                    + BlockchainConfig.MINING_REWARD;
+        }
+        if (coinbase.getLockingScript() != null || coinbase.getUnlockingScript() != null) {
+            return "the coinbase carries a contract script";
+        }
+
+        BlockCheck check = new BlockCheck(block.getIndex());
+        check.apply(coinbase);
+        for (int i = 1; i < txs.size(); i++) {
+            Transaction tx = txs.get(i);
+            String why = transactionRuleViolation(tx, check);
+            if (why != null) return "transaction " + shortId(tx) + ": " + why;
+            check.apply(tx);
+        }
+        return null;
+    }
+
+    /** Why a non-coinbase transaction may not go into the block being checked, or null. */
+    private String transactionRuleViolation(Transaction tx, BlockCheck check) {
+        if (BlockchainConfig.COINBASE_ADDRESS.equals(tx.getSender())) return "a second coinbase";
+        if (!tx.isValid()) return "malformed (amount, sender or recipient)";
+        if ((tx.getSignature() != null || tx.getSenderPublicKey() != null) && !tx.verifySignature()) {
+            return "the signature does not verify";
+        }
+        String id = tx.getTransactionId();
+        if (check.ids.contains(id) || confirmedTxIds.contains(id)) return "already included";
+
+        if (tx.getRecipient().startsWith(BlockchainConfig.CONTRACT_ADDRESS_PREFIX)
+                && (tx.getLockingScript() == null || tx.getLockingScript().isBlank())) {
+            return "a contract deploy without a locking script";
+        }
+        if (tx.getSender().startsWith(BlockchainConfig.CONTRACT_ADDRESS_PREFIX)) {
+            if (check.claimedContracts.contains(contractIdOf(tx.getSender()))) {
+                return "the contract is already claimed in this block";
+            }
+            if (!isValidClaim(tx, check.height)) return "the contract claim is not valid";
+        }
+        if (check.balance(tx.getSender()) < tx.getAmount()) {
+            return "the sender cannot afford " + tx.getAmount();
+        }
+        return null;
+    }
+
+    private static String shortId(Transaction tx) {
+        String id = tx.getTransactionId();
+        return id == null ? "?" : id.substring(0, Math.min(8, id.length()));
     }
         
     /**
@@ -530,6 +654,11 @@ public class Blockchain {
                 && block.getPreviousHash().equals(tip.getHash())) {
             if (!isWellFormed(block, getNextTarget())) return false;
             if (!isAfterMedianTimePast(block, block.getIndex()) || !isNotTooFarInFuture(block)) return false;
+            String why = blockRuleViolation(block);
+            if (why != null) {
+                System.out.println("Block #" + block.getIndex() + " rejected: " + why);
+                return false;
+            }
             appendBlock(block);
             attachOrphans();
             return true;
@@ -574,7 +703,8 @@ public class Blockchain {
 
             orphans.remove(tip.getHash());
             if (child.getIndex() == tip.getIndex() + 1 && isWellFormed(child, getNextTarget())
-                    && isAfterMedianTimePast(child, child.getIndex()) && isNotTooFarInFuture(child)) {
+                    && isAfterMedianTimePast(child, child.getIndex()) && isNotTooFarInFuture(child)
+                    && blockRuleViolation(child) == null) {
                 appendBlock(child);
             } else {
                 break; // stale/ill-fitting orphan: drop and stop
@@ -661,9 +791,20 @@ public class Blockchain {
             return false;
         }
 
+        // A signed transaction must verify (Sprint 18a: blocks enforce the
+        // same rule, so a bad one would make our own mined block invalid).
+        if ((transaction.getSignature() != null || transaction.getSenderPublicKey() != null)
+                && !transaction.verifySignature()) {
+            System.out.println("Transaction rejected: Signature does not verify");
+            return false;
+        }
+
         // Reject duplicates already waiting in the pool. This also stops a
         // gossiped transaction from being relayed twice (returns false).
         String txId = transaction.getTransactionId();
+        if (confirmedTxIds.contains(txId)) {
+            return false;                              // already in a block: replaying it is not allowed
+        }
         for (Transaction pending : pendingTransactions) {
             if (pending.getTransactionId().equals(txId)) {
                 return false;
@@ -737,20 +878,40 @@ public class Blockchain {
             BlockchainConfig.MINING_REWARD
         );
 
-        // Create transaction list with reward + pending transactions
-        List<Transaction> blockTransactions = new ArrayList<>();
-        blockTransactions.add(rewardTx);
-        blockTransactions.addAll(pendingTransactions);
-
-        // Create and mine the new block
         Block latestBlock = getLatestBlock();
         int newIndex = latestBlock.getIndex() + 1;
+
+        // Reward first, then every pending transaction that is still allowed.
+        // A pending tx can go stale: e.g. a block from a peer already spent the
+        // same funds. Mining it would make our own block invalid (Sprint 18a),
+        // so it is dropped from the mempool instead.
+        List<Transaction> blockTransactions = new ArrayList<>();
+        blockTransactions.add(rewardTx);
+        BlockCheck check = new BlockCheck(newIndex);
+        check.apply(rewardTx);
+        for (Transaction tx : new ArrayList<>(pendingTransactions)) {
+            String why = transactionRuleViolation(tx, check);
+            if (why == null) {
+                blockTransactions.add(tx);
+                check.apply(tx);
+            } else {
+                pendingTransactions.remove(tx);
+                store.removePending(tx.getTransactionId());
+                System.out.println("Dropped stale pending transaction " + shortId(tx) + ": " + why);
+            }
+        }
+
+        // Create and mine the new block
 
         Block newBlock = new Block(newIndex, blockTransactions, latestBlock.getHash(),
                 nextBlockTimestamp(newIndex));
 
         System.out.println("\n⛏️  Mining block #" + newIndex + " with " + blockTransactions.size() + " transactions...");
         newBlock.mineBlock(getNextTarget());
+
+        // Our own block must pass the same rules as anyone else's.
+        String why = blockRuleViolation(newBlock);
+        if (why != null) throw new IllegalStateException("Mined an invalid block: " + why);
 
         // Add block to chain. appendBlock also removes the block's
         // transactions from the pending pool (they're now confirmed).
@@ -868,6 +1029,11 @@ public class Blockchain {
      * claims gossiped by peers alike - every node re-verifies every claim.
      */
     private boolean isValidClaim(Transaction claim) {
+        return isValidClaim(claim, chain.size());
+    }
+
+    /** Validates a claim as if mined at {@code height} (the VM's CHECKLOCKTIME height). */
+    private boolean isValidClaim(Transaction claim, int height) {
         String contractId = claim.getSender()
                 .substring(BlockchainConfig.CONTRACT_ADDRESS_PREFIX.length());
 
@@ -892,7 +1058,7 @@ public class Blockchain {
         // it; hashlock/timelock scripts ignore the sighash.
         String sighash = contract.claimSighash(claim.getRecipient());
         if (!scriptVM.execute(claim.getUnlockingScript(), contract.getLockingScript(),
-                chain.size(), sighash)) {
+                height, sighash)) {
             System.out.println("Claim rejected: Script evaluated to false");
             return false;
         }
@@ -1110,32 +1276,20 @@ public class Blockchain {
         Block genesis = chain.get(0);
         if (genesis.getIndex() != 0) return false;
         if (!genesis.getPreviousHash().equals(BlockchainConfig.GENESIS_PREV_HASH)) return false;
-
-        // Check Genesis block hash validity
         if (!genesis.getHash().equals(genesis.calculateHash())) return false;
         if (!Target.meets(genesis.getHash(), GENESIS_TARGET)) return false;
-        BigInteger target = params.initialTarget();
 
-        // Check rest of chain (from block 1 onwards)
+        // THEORY (Sprint 18a): validating a chain = replaying it. A fresh,
+        // empty chain with the same rules receives every block in order, as a
+        // brand-new node syncing from a peer would. Every rule (links, hash,
+        // Merkle root, expected target, timestamps, block contents) is checked
+        // by the very same code that guards blocks arriving from the network,
+        // so the two can never disagree.
+        Blockchain replay = new Blockchain(NoOpChainStore.INSTANCE, params, clock);
+        if (!replay.getLatestBlock().getHash().equals(genesis.getHash())) return false;
         for (int i = 1; i < chain.size(); i++) {
-            Block currentBlock = chain.get(i);
-            Block previousBlock = chain.get(i - 1);
-
-            // Verify the transactions match the Merkle root (#260), then that
-            // the block's hash is correctly calculated
-            if (!currentBlock.hasValidMerkleRoot()) return false;
-            if (!currentBlock.getHash().equals(currentBlock.calculateHash())) return false;
-
-            // Verify link to previous block
-            if (!currentBlock.getPreviousHash().equals(previousBlock.getHash())) return false;
-
-            // Verify block was mined at the target the chain expects there (17b)
-            target = targetAt(i, chain, target);
-            // Verify the timestamp moved past the median of the blocks before it (17c)
-            if (!isAfterMedianTimePast(currentBlock, i)) return false;
-            if (!Target.meets(currentBlock.getHash(), target)) return false;
+            if (!replay.addBlock(chain.get(i))) return false;
         }
-
         return true;
     }
 
