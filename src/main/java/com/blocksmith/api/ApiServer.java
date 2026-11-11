@@ -19,6 +19,7 @@ import com.blocksmith.core.Transaction;
 import com.blocksmith.core.Wallet;
 import com.blocksmith.util.BlockchainConfig;
 import com.blocksmith.util.SignatureUtil;
+import com.blocksmith.util.Target;
 import com.blocksmith.network.NetworkConfig;
 import com.blocksmith.network.Node;
 import com.blocksmith.network.PeerInfo;
@@ -128,6 +129,7 @@ public class ApiServer {
         app.get("/api/blocks/{index}", this::getBlockByIndex);
         app.get("/api/blocks/hash/{hash}", this::getBlockByHash);
         app.get("/api/network/status", ctx -> json(ctx, status()));
+        app.get("/api/network/difficulty", ctx -> json(ctx, difficulty()));
 
         // Transaction + mining endpoints (Milestone 12b).
         app.post("/api/transactions", this::postTransaction);
@@ -598,9 +600,49 @@ public class ApiServer {
         m.put("p2pPort", node.getPort());
         m.put("apiPort", port);
         m.put("chainLength", blockchain.getChainSize());
-        m.put("difficulty", BlockchainConfig.MINING_DIFFICULTY);
+        // Live difficulty (Sprint 17d): the target the next block must meet,
+        // shown as its leading-zero equivalent (4.0 = four zeros, 4.25 = 2x harder).
+        java.math.BigInteger next = blockchain.getNextTarget();
+        m.put("difficulty", Target.toDifficulty(next));
+        m.put("target", Target.toHex(next));
+        m.put("targetBlockTimeMs", blockchain.getChainParams().targetBlockTimeMs());
+        m.put("retargetInterval", blockchain.getChainParams().retargetInterval());
+        m.put("blocksUntilRetarget", blockchain.getBlocksUntilRetarget());
+        Long avg = blockchain.getAverageBlockTimeMs();
+        if (avg != null) m.put("averageBlockTimeMs", avg);
         m.put("pendingTransactions", blockchain.getPendingTransactions().size());
         m.put("connectedPeers", node.getPeerManager().getConnectedPeers().size());
+        return m;
+    }
+
+    /**
+     * Difficulty history for GET /api/network/difficulty (Sprint 17d): the
+     * network's rules, the current target, and one entry per retarget epoch
+     * with the window that produced it (raw timespans, before the 4x clamp).
+     */
+    private Map<String, Object> difficulty() {
+        Map<String, Object> m = new LinkedHashMap<>();
+        var params = blockchain.getChainParams();
+        m.put("targetBlockTimeMs", params.targetBlockTimeMs());
+        m.put("retargetInterval", params.retargetInterval());
+        m.put("maxAdjustmentFactor", params.maxAdjustmentFactor());
+        m.put("currentDifficulty", Target.toDifficulty(blockchain.getNextTarget()));
+        m.put("blocksUntilRetarget", blockchain.getBlocksUntilRetarget());
+        List<Map<String, Object>> epochs = new ArrayList<>();
+        for (Blockchain.DifficultyEpoch e : blockchain.getDifficultyHistory()) {
+            Map<String, Object> row = new LinkedHashMap<>();
+            row.put("startHeight", e.startHeight());
+            row.put("difficulty", Target.toDifficulty(e.target()));
+            row.put("target", Target.toHex(e.target()));
+            if (e.windowFirst() != null) {
+                row.put("windowFirst", e.windowFirst());
+                row.put("windowLast", e.windowLast());
+                row.put("actualTimespanMs", e.actualTimespanMs());
+                row.put("expectedTimespanMs", e.expectedTimespanMs());
+            }
+            epochs.add(row);
+        }
+        m.put("epochs", epochs);
         return m;
     }
 

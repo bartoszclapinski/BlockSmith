@@ -18,7 +18,7 @@
 - **One commit per issue** with message format: `feat(scope): description` or `test(scope): description`, including the `#NN` issue reference
 - **NEVER add `Co-Authored-By` lines** to commit messages
 - **Doc updates** go on a separate `docs/` branch after milestone merge
-- **PR per milestone**: push branch, create PR with `Closes #NN` lines, merge to master (master is a protected branch — all changes go through PRs)
+- **PR per milestone**: push branch, create PR with `Closes #NN` lines, merge to master with a regular merge commit, not squash (master is a protected branch — all changes go through PRs)
 - **Run `mvn test`** after every code change to verify nothing broke
 
 ### Environment
@@ -291,7 +291,7 @@ mvn exec:java -Dexec.mainClass=com.blocksmith.BlockSmithDemo
 - **Feature branches**: `sprint{N}{letter}/{feature-name}` (e.g., `sprint11a/tx-broadcast`)
 - **Doc branches**: `docs/{description}` (e.g., `docs/sprint11-complete`)
 - **Commits**: One per issue, format: `feat(scope): description #NN` — never add `Co-Authored-By`
-- **PRs**: created with `gh`, include `Closes #NN` lines, ff-only merge to sync local master
+- **PRs**: created with `gh`, include `Closes #NN` lines; merged with a **regular merge commit** (`gh pr merge N --merge`, not squash) so the one-commit-per-issue history stays on master (decided 2026-11-11; #130-#278 were squash-merged); then ff-only pull to sync local master
 - **Latest**: Sprint 16 complete (Database Persistence, PR #258, #261, #262, #263); Phase 4 in progress
 
 ---
