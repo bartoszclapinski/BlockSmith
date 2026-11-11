@@ -33,7 +33,9 @@ import java.security.Signature;
  */
 public class Transaction {
     
-    private final String transactionId;
+    // Not final: setting a contract script changes the content, so the id is
+    // recomputed (#264). Still never changes once the transaction is shared.
+    private String transactionId;
     private final String sender;
     private final String recipient;
     private final double amount;
@@ -73,12 +75,30 @@ public class Transaction {
      * THEORY: The hash includes all transaction data, ensuring:
      * - Any change to any field produces a different hash
      * - Same transaction data always produces the same hash
-     * 
+     *
+     * CONTRACT SCRIPTS (#264): a deploy's locking script decides who can
+     * spend the locked funds, and a claim's unlocking script is the proof.
+     * Both are part of what the transaction says, so both are part of its id
+     * (and through the id, of the Merkle root and the block hash). Otherwise
+     * a script could be swapped inside a block without changing its hash.
+     *
+     * Scripts are appended only when present, each with a label and its
+     * length ("|lock:11:SHA256 PUSH"), so two different scripts can never
+     * produce the same text, however their contents are split.
+     * An ordinary transfer therefore keeps exactly the id it always had.
+     *
      * @return SHA-256 hash of transaction data
      */
     private String calculateHash() {
-        String data = sender + recipient + amount + timestamp;
-        return HashUtil.applySha256(data);
+        StringBuilder data = new StringBuilder()
+                .append(sender).append(recipient).append(amount).append(timestamp);
+        if (lockingScript != null) {
+            data.append("|lock:").append(lockingScript.length()).append(':').append(lockingScript);
+        }
+        if (unlockingScript != null) {
+            data.append("|unlock:").append(unlockingScript.length()).append(':').append(unlockingScript);
+        }
+        return HashUtil.applySha256(data.toString());
     }
 
     /**
@@ -87,10 +107,8 @@ public class Transaction {
      * The id is computed once, in the constructor, and then travels with the
      * transaction (over the network, into the database). A received copy
      * could carry an old id next to edited fields, for example a bigger
-     * amount. Recomputing the id from the content exposes that edit.
-     *
-     * Note: contract scripts are not part of the id (they are set after
-     * construction), so this check does not cover them.
+     * amount. Recomputing the id from the content exposes that edit,
+     * including an edited contract script (#264).
      *
      * @return true if the stored id matches the transaction's content
      */
@@ -224,10 +242,13 @@ public class Transaction {
     }
 
     /**
-     * Sets the locking script for a contract deploy transaction.
+     * Sets the locking script for a contract deploy transaction and
+     * recomputes the id (the script is part of it, #264). Call it before the
+     * transaction is added to the mempool or sent anywhere.
      */
     public void setLockingScript(String lockingScript) {
         this.lockingScript = lockingScript;
+        this.transactionId = calculateHash();
     }
 
     /**
@@ -238,10 +259,13 @@ public class Transaction {
     }
 
     /**
-     * Sets the unlocking script for a contract claim transaction.
+     * Sets the unlocking script for a contract claim transaction and
+     * recomputes the id (the script is part of it, #264). Call it before the
+     * transaction is added to the mempool or sent anywhere.
      */
     public void setUnlockingScript(String unlockingScript) {
         this.unlockingScript = unlockingScript;
+        this.transactionId = calculateHash();
     }
 
     @Override
