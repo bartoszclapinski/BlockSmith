@@ -20,13 +20,29 @@ import com.blocksmith.util.Target;
  * @param retargetInterval     recompute the target every this many blocks
  * @param maxAdjustmentFactor  the target moves at most this factor per retarget
  * @param powLimit             the easiest target ever allowed (largest value)
+ * @param maxFutureDriftMs     how far ahead of our clock a block's timestamp
+ *                             may be (Sprint 17c)
+ *
+ * THEORY: Choosing the future-time limit
+ *
+ * The retarget formula reads timestamps, so a miner who may stamp a block
+ * D milliseconds in the future can make a window look up to D longer than
+ * it was, and the next target easier. D must be small next to a window:
+ * Bitcoin allows 2 hours against a 2-week window (0.6%). Our default window
+ * is about 100 s, so 2 hours (or even the 2 minutes first planned) would let a
+ * miner more than halve the difficulty. 15 s keeps the effect small while
+ * still tolerating ordinary clock differences between machines.
  */
 public record ChainParams(
         BigInteger initialTarget,
         long targetBlockTimeMs,
         int retargetInterval,
         int maxAdjustmentFactor,
-        BigInteger powLimit) {
+        BigInteger powLimit,
+        long maxFutureDriftMs) {
+
+    /** Default future-time limit: 1.5 target block times. */
+    public static final long DEFAULT_MAX_FUTURE_DRIFT_MS = 15_000;
 
     /**
      * The network a real node runs: today's 4-zero target, one block every
@@ -39,7 +55,15 @@ public record ChainParams(
             10_000,
             10,
             4,
-            Target.fromLeadingZeros(3));
+            Target.fromLeadingZeros(3),
+            DEFAULT_MAX_FUTURE_DRIFT_MS);
+
+    /** Params with the default future-time limit (before Sprint 17c). */
+    public ChainParams(BigInteger initialTarget, long targetBlockTimeMs, int retargetInterval,
+                       int maxAdjustmentFactor, BigInteger powLimit) {
+        this(initialTarget, targetBlockTimeMs, retargetInterval, maxAdjustmentFactor, powLimit,
+                DEFAULT_MAX_FUTURE_DRIFT_MS);
+    }
 
     public ChainParams {
         if (initialTarget == null || powLimit == null) throw new IllegalArgumentException("Targets are required");
@@ -50,5 +74,6 @@ public record ChainParams(
         if (targetBlockTimeMs <= 0) throw new IllegalArgumentException("targetBlockTimeMs must be positive");
         if (retargetInterval < 3) throw new IllegalArgumentException("retargetInterval must be at least 3");
         if (maxAdjustmentFactor < 2) throw new IllegalArgumentException("maxAdjustmentFactor must be at least 2");
+        if (maxFutureDriftMs < 0) throw new IllegalArgumentException("maxFutureDriftMs must not be negative");
     }
 }

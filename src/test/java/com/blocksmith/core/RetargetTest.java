@@ -21,7 +21,7 @@ import static org.junit.jupiter.api.Assertions.*;
 @DisplayName("Retarget Tests")
 class RetargetTest {
 
-    private static final long T0 = 1_800_000_000_000L;   // any fixed time after genesis
+    private static final long T0 = 1_750_000_000_000L;   // mid-2025: after genesis, in the past
     private static final BigInteger EASY = Target.fromLeadingZeros(1);
 
     /** 4-block window, 1 s target, 4x clamp; powLimit chosen per test. */
