@@ -8,8 +8,8 @@ BlockSmith is a comprehensive blockchain project that goes beyond tutorials - im
 
 [![Java](https://img.shields.io/badge/Java-20+-orange.svg)](https://openjdk.org/)
 [![Maven](https://img.shields.io/badge/Maven-3.9+-blue.svg)](https://maven.apache.org/)
-[![Tests](https://img.shields.io/badge/Tests-233%20passing-brightgreen.svg)](#)
-[![Phase](https://img.shields.io/badge/Phase%203-Complete-brightgreen.svg)](#)
+[![Tests](https://img.shields.io/badge/Tests-277%20passing-brightgreen.svg)](#)
+[![Phase](https://img.shields.io/badge/Phase%204-In%20progress-yellow.svg)](#)
 [![Version](https://img.shields.io/badge/Version-1.0.0-blue.svg)](#)
 
 ---
@@ -69,10 +69,15 @@ BlockSmith is a comprehensive blockchain project that goes beyond tutorials - im
   - ✅ M-of-N multisig contracts, replay-safe claim sighash (Sprint 15b)
   - ✅ Multisig REST endpoints + dashboard panel (Sprint 15c)
 
-### Phase 4: Production Features 🔜 Planned
-- Database persistence (SQLite)
-- Dynamic difficulty adjustment
-- Block size limits and fee market
+### Phase 4: Production Features 🚧 In progress (25%)
+- ✅ Database persistence (Sprint 16)
+  - ✅ Embedded H2 store; blocks kept in the same JSON format peers exchange (Sprint 16a)
+  - ✅ Every block + pending tx saved; restart restores by replaying through validation (Sprint 16b)
+  - ✅ Block validation recomputes tx ids and the Merkle root (Sprint 16b)
+  - ✅ Indexed lookups: block by hash, address history with confirmations (Sprint 16c)
+  - ✅ Online backup + `--restore <zip>` at startup (Sprint 16d)
+- ⬜ Dynamic difficulty adjustment (Sprint 17)
+- ⬜ Block size limits (Sprint 18) and fee market (Sprint 19)
 
 ---
 
@@ -209,7 +214,7 @@ Average attempts: ~16^difficulty (~65,536 for difficulty 4)
 mvn clean compile
 ```
 
-### Run all tests (233 tests)
+### Run all tests (277 tests)
 ```bash
 mvn test
 ```
@@ -280,11 +285,14 @@ BlockSmith/
 │   │   ├── Contract.java       # Contract model (locking script + funds + claim sighash)
 │   │   ├── ContractStatus.java # OPEN / CLAIMED
 │   │   └── MultiSigWallet.java # M-of-N wallet + CHECKMULTISIG lock (Sprint 15b)
+│   ├── storage/                # Persistence (Sprint 16)
+│   │   ├── ChainStore.java     # Store interface: blocks, mempool, lookups, backup
+│   │   └── H2ChainStore.java   # Embedded H2 implementation
 │   ├── BlockSmithNode.java     # Runnable node (P2P + API + dashboard)
 │   └── BlockSmithDemo.java     # Teaching demo application
 ├── src/main/resources/public/  # Web dashboard (index.html, app.js, style.css)
-├── src/test/java/              # 233 unit tests
-├── data/                       # Blockchain persistence (JSON)
+├── src/test/java/              # 277 unit tests
+├── data/                       # Node databases (H2), one folder per node: data/node-<port>/
 ├── pom.xml                     # Maven configuration
 └── README.md
 ```
@@ -301,7 +309,7 @@ BlockSmith/
 | MiningTest | 9 | Proof-of-Work mechanics |
 | TransactionTest | 22 | Transaction validation, signatures |
 | WalletTest | 13 | Key generation, addresses, signing |
-| MessageTest | 6 | Network message serialization |
+| MessageTest | 8 | Network message serialization (incl. signed transactions) |
 | NodeTest | 8 | Node start/stop, connections |
 | PeerTest | 7 | Peer connections, handshake |
 | CommunicationTest | 6 | Bidirectional message exchange |
@@ -317,7 +325,7 @@ BlockSmith/
 | TransactionBroadcastTest | 4 | NEW_TRANSACTION serialization and handler |
 | MempoolPruneTest | 2 | Confirmed-tx pruning on block append |
 | MempoolSyncTest | 4 | GET_MEMPOOL/MEMPOOL sync handlers |
-| ApiReadEndpointsTest | 5 | REST block/status read endpoints |
+| ApiReadEndpointsTest | 6 | REST block/status read endpoints |
 | ApiTransactionEndpointsTest | 5 | REST transaction submit/lookup + mining |
 | ApiWalletNetworkEndpointsTest | 4 | REST wallet/network endpoints + JSON errors |
 | ApiStaticHostingTest | 3 | Dashboard shell + static assets alongside the API |
@@ -328,7 +336,14 @@ BlockSmith/
 | ApiContractsTest | 3 | Contract lifecycle over HTTP + error envelopes |
 | MultiSigContractTest | 5 | M-of-N deploy/claim, threshold, wrong-key, replay safety, convergence |
 | ApiMultiSigTest | 2 | Multisig lifecycle over HTTP + error envelopes |
-| **Total** | **233** | All passing ✅ |
+| H2ChainStoreTest | 8 | H2 store round-trip, ordering, idempotency, reopen |
+| PersistRestoreTest | 6 | Restart restores chain + mempool; tampered blocks rejected |
+| BlockIntegrityTest | 3 | Edited transactions fail the Merkle check |
+| IndexedQueryTest | 9 | Block by hash, tx by id, address history, index vs scan |
+| ApiIndexedQueryTest | 4 | History and block-by-hash over HTTP |
+| BackupRestoreTest | 8 | Backup round-trip and bad-backup handling |
+| ApiBackupTest | 3 | Backup endpoint over HTTP |
+| **Total** | **277** | All passing ✅ |
 
 ---
 
@@ -390,10 +405,12 @@ BlockSmith/
 | Sprint 14 | Smart Contracts | ✅ Complete (14a, 14b, 14c) |
 | Sprint 15 | Multi-sig Wallets | ✅ Complete (15a, 15b, 15c) |
 
-### Phase 4: Production 🔜 Next
+### Phase 4: Production 🚧 In progress
 | Sprint | Title | Status |
 |--------|-------|--------|
-| Sprint 16-19 | Database, Difficulty, Fees | ⬜ Planned |
+| Sprint 16 | Database Persistence | ✅ Complete (16a, 16b, 16c, 16d) |
+| Sprint 17 | Difficulty Adjustment | ⬜ Next |
+| Sprint 18-19 | Block Limits, Fee Market | ⬜ Planned |
 
 ---
 

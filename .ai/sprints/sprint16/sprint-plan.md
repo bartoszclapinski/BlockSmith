@@ -7,7 +7,7 @@
 | **Sprint** | 16 |
 | **Title** | Database Persistence |
 | **Phase** | Phase 4: Production Features |
-| **Status** | 📋 Planned |
+| **Status** | ✅ Complete (16a, 16b, 16c, 16d) |
 | **Depends On** | Phase 3 Complete (Sprint 15) |
 
 > **Approach (recommended):** an embedded **H2** database behind a small
@@ -36,10 +36,10 @@ backed up and restored.
 
 | Milestone | Title | Branch | Status |
 |-----------|-------|--------|--------|
-| **16a** | Storage layer (H2 `ChainStore`) | `sprint16a/chain-store` | ⬜ Planned (#161, #175) |
-| **16b** | Persist on append + restore on startup | `sprint16b/persist-restore` | ⬜ Planned (#187, #203) |
-| **16c** | Indexed queries + API | `sprint16c/indexed-queries` | ⬜ Planned (#214, #226) |
-| **16d** | Backup & restore | `sprint16d/backup-restore` | ⬜ Planned (#237, #246) |
+| **16a** | Storage layer (H2 `ChainStore`) | `sprint16a/chain-store` | ✅ Complete (PR #258) |
+| **16b** | Persist on append + restore on startup | `sprint16b/persist-restore` | ✅ Complete (PR #261) |
+| **16c** | Indexed queries + API | `sprint16c/indexed-queries` | ✅ Complete (PR #262) |
+| **16d** | Backup & restore | `sprint16d/backup-restore` | ✅ Complete (PR #263) |
 
 ---
 
