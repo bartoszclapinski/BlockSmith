@@ -274,24 +274,92 @@ public class Blockchain {
      * computes the same target. Nothing is stored, nothing can be forged.
      */
     private BigInteger targetAt(int height, List<Block> blocks, BigInteger previousTarget) {
+        Window w = retargetWindow(height, blocks);
+        if (w == null) return previousTarget;
+
+        long factor = params.maxAdjustmentFactor();
+        long actual = Math.max(w.expectedMs() / factor, Math.min(w.expectedMs() * factor, w.actualMs()));
+
+        BigInteger next = previousTarget.multiply(BigInteger.valueOf(actual))
+                .divide(BigInteger.valueOf(w.expectedMs()));
+        if (next.compareTo(params.powLimit()) > 0) next = params.powLimit();
+        if (next.signum() <= 0) next = BigInteger.ONE;
+        return next;
+    }
+
+    /** The blocks a retarget at {@code height} measures, and how long they took. */
+    private record Window(int first, int last, long actualMs, long expectedMs) {}
+
+    /** The retarget window for {@code height}, or null if no retarget happens there. */
+    private Window retargetWindow(int height, List<Block> blocks) {
         int interval = params.retargetInterval();
-        if (height < interval || height % interval != 0) return previousTarget;
+        if (height < interval || height % interval != 0) return null;
 
         int first = Math.max(height - interval - 1, 1);
         int last = height - 1;
         int gaps = last - first;
-        if (gaps <= 0) return previousTarget;
+        if (gaps <= 0) return null;
 
         long expected = gaps * params.targetBlockTimeMs();
         long actual = blocks.get(last).getTimestamp() - blocks.get(first).getTimestamp();
-        long factor = params.maxAdjustmentFactor();
-        actual = Math.max(expected / factor, Math.min(expected * factor, actual));
+        return new Window(first, last, actual, expected);
+    }
 
-        BigInteger next = previousTarget.multiply(BigInteger.valueOf(actual))
-                .divide(BigInteger.valueOf(expected));
-        if (next.compareTo(params.powLimit()) > 0) next = params.powLimit();
-        if (next.signum() <= 0) next = BigInteger.ONE;
-        return next;
+    // ===== DIFFICULTY REPORTING (Sprint 17d) =====
+
+    /**
+     * One difficulty "epoch": the blocks from {@code startHeight} until the
+     * next retarget all share {@code target}. For every epoch after the
+     * first, the window that produced it is included (raw, before the 4x clamp).
+     *
+     * @param startHeight        first height using this target
+     * @param target             the target for the epoch
+     * @param windowFirst        first block measured (null for the initial epoch)
+     * @param windowLast         last block measured (null for the initial epoch)
+     * @param actualTimespanMs   how long the window really took (null for the initial epoch)
+     * @param expectedTimespanMs how long it should have taken (null for the initial epoch)
+     */
+    public record DifficultyEpoch(int startHeight, BigInteger target, Integer windowFirst,
+                                  Integer windowLast, Long actualTimespanMs, Long expectedTimespanMs) {}
+
+    /**
+     * Every difficulty epoch so far, oldest first, including the one the
+     * next block (tip + 1) belongs to.
+     */
+    public List<DifficultyEpoch> getDifficultyHistory() {
+        List<DifficultyEpoch> history = new ArrayList<>();
+        history.add(new DifficultyEpoch(0, targets.get(0), null, null, null, null));
+        int interval = params.retargetInterval();
+        for (int h = interval; h <= chain.size(); h += interval) {
+            Window w = retargetWindow(h, chain);
+            BigInteger target = h < chain.size() ? targets.get(h) : getNextTarget();
+            history.add(w == null
+                    ? new DifficultyEpoch(h, target, null, null, null, null)
+                    : new DifficultyEpoch(h, target, w.first(), w.last(), w.actualMs(), w.expectedMs()));
+        }
+        return history;
+    }
+
+    /**
+     * How many more blocks will be mined at the current next-block target
+     * before it changes. Counts the next block itself.
+     */
+    public int getBlocksUntilRetarget() {
+        int next = chain.size();                       // height of the next block
+        int interval = params.retargetInterval();
+        int boundary = (next / interval + 1) * interval;
+        return boundary - next;
+    }
+
+    /**
+     * Average time between the recent blocks (up to one retarget window,
+     * genesis excluded), or null if there are fewer than two such blocks.
+     */
+    public Long getAverageBlockTimeMs() {
+        int last = chain.size() - 1;
+        int first = Math.max(1, last - params.retargetInterval());
+        if (last - first < 1) return null;
+        return (chain.get(last).getTimestamp() - chain.get(first).getTimestamp()) / (last - first);
     }
 
     /**

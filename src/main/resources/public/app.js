@@ -251,7 +251,8 @@ function renderSync(status, ok) {
     const text = document.getElementById("sync-text");
     if (ok) {
         sync.classList.remove("stale");
-        text.textContent = "synced · node-" + status.nodeId + " · " + status.connectedPeers + " peers";
+        // nodeId already starts with "node-"
+        text.textContent = "synced · " + status.nodeId + " · " + status.connectedPeers + " peers";
     } else {
         sync.classList.add("stale");
         text.textContent = "node unreachable";
@@ -267,8 +268,13 @@ function renderSync(status, ok) {
 
 function renderHero(status, blocks) {
     const tipIndex = blocks.length ? blocks[blocks.length - 1].index : 0;
+    // Live difficulty (Sprint 17d): leading-zero equivalent of the next target.
+    const difficulty = typeof status.difficulty === "number" ? status.difficulty.toFixed(2) : status.difficulty;
+    const retarget = status.blocksUntilRetarget != null
+        ? " · retarget in " + status.blocksUntilRetarget + (status.blocksUntilRetarget === 1 ? " block" : " blocks")
+        : "";
     document.getElementById("hero-meta").textContent =
-        "height " + tipIndex + " · difficulty " + status.difficulty + " · " + status.pendingTransactions + " pending";
+        "height " + tipIndex + " · difficulty " + difficulty + retarget + " · " + status.pendingTransactions + " pending";
 
     const row = document.getElementById("chain-row");
     row.replaceChildren();
