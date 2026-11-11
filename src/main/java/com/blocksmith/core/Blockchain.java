@@ -57,11 +57,21 @@ public class Blockchain {
     private final ChainStore store;
 
     /**
-     * The Proof-of-Work target every block must meet (Sprint 17a). Equal to
-     * the old "MINING_DIFFICULTY leading zeros" rule; Sprint 17b replaces this
-     * constant with a target derived from the chain's own timestamps.
+     * The genesis block is fixed (same timestamp, nonce and hash on every
+     * node), mined once at 4 leading zeros whatever the network's params.
      */
-    private static final BigInteger TARGET = Target.fromLeadingZeros(BlockchainConfig.MINING_DIFFICULTY);
+    private static final BigInteger GENESIS_TARGET =
+            Target.fromLeadingZeros(BlockchainConfig.MINING_DIFFICULTY);
+
+    /** The network's consensus rules (block time, retarget window...). */
+    private final ChainParams params;
+
+    /**
+     * The Proof-of-Work target in effect for each height (Sprint 17b),
+     * parallel to {@link #chain}. Never stored: always recomputed from the
+     * blocks' timestamps, so a restore or a peer derives the same values.
+     */
+    private final List<BigInteger> targets = new ArrayList<>();
 
     /**
      * THEORY: CONTRACT REGISTRY (Sprint 14)
@@ -129,15 +139,96 @@ public class Blockchain {
      * @param store durable storage for the chain and mempool
      */
     public Blockchain(ChainStore store) {
+        this(store, ChainParams.DEFAULT);
+    }
+
+    /**
+     * Creates a blockchain with explicit consensus parameters (Sprint 17b).
+     * Every node of one network must use the same params.
+     *
+     * @param store durable storage for the chain and mempool
+     * @param params consensus rules (target block time, retarget window...)
+     */
+    public Blockchain(ChainStore store, ChainParams params) {
         this.chain = new ArrayList<>();
         this.pendingTransactions = new ArrayList<>();
         this.store = store;
+        this.params = params;
 
         // Create and mine the Genesis block (deterministic: fixed timestamp)
         Block genesis = Block.createGenesisBlock();
-        genesis.mineBlock(TARGET);
+        genesis.mineBlock(GENESIS_TARGET);
         chain.add(genesis);
+        targets.add(params.initialTarget());
         store.saveBlock(genesis);
+    }
+
+    // ===== DIFFICULTY (Sprint 17b) =====
+
+    /** The consensus params this chain runs with. */
+    public ChainParams getChainParams() {
+        return params;
+    }
+
+    /** The target the next block (tip + 1) must meet. */
+    public BigInteger getNextTarget() {
+        int height = chain.size();
+        return targetAt(height, chain, targets.get(height - 1));
+    }
+
+    /** The target that was in effect for the block at {@code height}. */
+    public BigInteger getTargetAt(int height) {
+        return targets.get(height);
+    }
+
+    /**
+     * The target for the block at {@code height}, given the blocks before it
+     * and the target in effect at {@code height - 1}.
+     *
+     * THEORY: Retargeting (how Bitcoin keeps blocks ~10 minutes apart)
+     *
+     * Every {@code retargetInterval} blocks the network looks back and asks:
+     * "did that window take as long as it should have?"
+     *
+     *   expected = intervals * targetBlockTime
+     *   actual   = timestamp(last block) - timestamp(first block)
+     *   new target = old target * actual / expected
+     *
+     *   2x too fast -> target halves (2x harder)
+     *   2x too slow -> target doubles (2x easier)
+     *
+     * Guard rails:
+     * - actual is clamped to [expected/4, expected*4], so one window moves
+     *   difficulty at most 4x (a burst of odd timestamps can't swing it wildly)
+     * - the target never gets easier than powLimit
+     * - the window never starts at genesis: its timestamp is fixed (2024),
+     *   so it would always look "years too slow"
+     * - the window spans the FULL interval, including the gap between the
+     *   previous window's last block and this one's first. Bitcoin measures
+     *   2015 gaps for a 2016-block window, a famous off-by-one; we don't.
+     *
+     * Pure function of earlier blocks: every node, and every restore replay,
+     * computes the same target. Nothing is stored, nothing can be forged.
+     */
+    private BigInteger targetAt(int height, List<Block> blocks, BigInteger previousTarget) {
+        int interval = params.retargetInterval();
+        if (height < interval || height % interval != 0) return previousTarget;
+
+        int first = Math.max(height - interval - 1, 1);
+        int last = height - 1;
+        int gaps = last - first;
+        if (gaps <= 0) return previousTarget;
+
+        long expected = gaps * params.targetBlockTimeMs();
+        long actual = blocks.get(last).getTimestamp() - blocks.get(first).getTimestamp();
+        long factor = params.maxAdjustmentFactor();
+        actual = Math.max(expected / factor, Math.min(expected * factor, actual));
+
+        BigInteger next = previousTarget.multiply(BigInteger.valueOf(actual))
+                .divide(BigInteger.valueOf(expected));
+        if (next.compareTo(params.powLimit()) > 0) next = params.powLimit();
+        if (next.signum() <= 0) next = BigInteger.ONE;
+        return next;
     }
 
     /**
@@ -230,8 +321,10 @@ public class Blockchain {
      * transaction (removed from pending, block never written).
      */
     private void appendBlock(Block block) {
+        BigInteger target = getNextTarget();
         store.saveBlock(block);
         chain.add(block);
+        targets.add(target);
         removeConfirmed(block);
         registerContracts(block);
     }
@@ -266,7 +359,7 @@ public class Blockchain {
         int newIndex = latestBlock.getIndex() + 1;
 
         Block newBlock = new Block(newIndex, data, latestBlock.getHash());
-        newBlock.mineBlock(TARGET);
+        newBlock.mineBlock(getNextTarget());
 
         appendBlock(newBlock);
 
@@ -297,24 +390,25 @@ public class Blockchain {
     public boolean addBlock(Block block) {
         if (block == null) return false;
 
-        // A block must be internally sound (hash integrity + PoW) before we
-        // either append or buffer it. A malformed block is dropped outright.
-        if (!isWellFormed(block)) return false;
-
         Block tip = getLatestBlock();
 
-        // Extends our current tip cleanly: append, then pull in any orphans
-        // that were waiting on this new block.
+        // Extends our current tip cleanly: it must meet the target the chain
+        // expects at this height (Sprint 17b), then append and pull in any
+        // orphans that were waiting on it.
         if (block.getIndex() == tip.getIndex() + 1
                 && block.getPreviousHash().equals(tip.getHash())) {
+            if (!isWellFormed(block, getNextTarget())) return false;
             appendBlock(block);
             attachOrphans();
             return true;
         }
 
         // Arrived ahead of its parent (index beyond tip+1): park as an orphan
-        // until the missing parent shows up.
-        if (block.getIndex() > tip.getIndex() + 1) {
+        // until the missing parent shows up. Without its history we cannot
+        // know its exact target yet, so for now it only has to meet the
+        // easiest one allowed (cheap spam filter); attachOrphans checks the
+        // real target. A malformed block is dropped outright.
+        if (block.getIndex() > tip.getIndex() + 1 && isWellFormed(block, params.powLimit())) {
             orphans.put(block.getPreviousHash(), block);
         }
 
@@ -322,16 +416,16 @@ public class Blockchain {
     }
 
     /**
-     * Checks a block is internally consistent: its stored hash matches a
-     * fresh recomputation and satisfies the Proof-of-Work target. Says
-     * nothing about how it links to our chain.
+     * Checks a block is internally consistent: its transactions match its
+     * Merkle root, its stored hash matches a fresh recomputation, and that
+     * hash meets {@code target}. Says nothing about how it links to our chain.
      */
-    private boolean isWellFormed(Block block) {
+    private boolean isWellFormed(Block block, BigInteger target) {
         // The transactions must match the Merkle root the hash commits to;
         // otherwise an edited block could keep a valid-looking hash (#260).
         if (!block.hasValidMerkleRoot()) return false;
         if (!block.getHash().equals(block.calculateHash())) return false;
-        return Target.meets(block.getHash(), TARGET);
+        return Target.meets(block.getHash(), target);
     }
 
     /**
@@ -346,7 +440,7 @@ public class Blockchain {
             if (child == null) break;
 
             orphans.remove(tip.getHash());
-            if (child.getIndex() == tip.getIndex() + 1 && isWellFormed(child)) {
+            if (child.getIndex() == tip.getIndex() + 1 && isWellFormed(child, getNextTarget())) {
                 appendBlock(child);
             } else {
                 break; // stale/ill-fitting orphan: drop and stop
@@ -521,7 +615,7 @@ public class Blockchain {
         Block newBlock = new Block (newIndex, blockTransactions, latestBlock.getHash());
 
         System.out.println("\n⛏️  Mining block #" + newIndex + " with " + blockTransactions.size() + " transactions...");
-        newBlock.mineBlock(TARGET);
+        newBlock.mineBlock(getNextTarget());
 
         // Add block to chain. appendBlock also removes the block's
         // transactions from the pending pool (they're now confirmed).
@@ -884,7 +978,8 @@ public class Blockchain {
 
         // Check Genesis block hash validity
         if (!genesis.getHash().equals(genesis.calculateHash())) return false;
-        if (!Target.meets(genesis.getHash(), TARGET)) return false;
+        if (!Target.meets(genesis.getHash(), GENESIS_TARGET)) return false;
+        BigInteger target = params.initialTarget();
 
         // Check rest of chain (from block 1 onwards)
         for (int i = 1; i < chain.size(); i++) {
@@ -899,8 +994,9 @@ public class Blockchain {
             // Verify link to previous block
             if (!currentBlock.getPreviousHash().equals(previousBlock.getHash())) return false;
 
-            // Verify block was mined (hash meets difficulty)
-            if (!Target.meets(currentBlock.getHash(), TARGET)) return false;
+            // Verify block was mined at the target the chain expects there (17b)
+            target = targetAt(i, chain, target);
+            if (!Target.meets(currentBlock.getHash(), target)) return false;
         }
 
         return true;

@@ -46,8 +46,16 @@ public class Block {
      * @param previousHash Hash of the previous block
      */
     public Block(int index, List<Transaction> transactions, String previousHash) {
+        this(index, transactions, previousHash, System.currentTimeMillis());
+    }
+
+    /**
+     * Creates a block with an explicit timestamp (Sprint 17b). Used to
+     * simulate fast or slow networks in tests; real mining uses the clock.
+     */
+    public Block(int index, List<Transaction> transactions, String previousHash, long timestamp) {
         this.index = index;
-        this.timestamp = System.currentTimeMillis();
+        this.timestamp = timestamp;
         this.transactions = new ArrayList<>(transactions);  // Defensive copy
         this.data = "";  // Not used when we have transactions
         this.previousHash = previousHash;
