@@ -9,7 +9,7 @@
 | Field | Value |
 |-------|-------|
 | **Phase** | 3 - API & Interface - ✅ COMPLETE |
-| **Current Sprint** | 16 (Database Persistence) - Complete |
+| **Current Sprint** | 17 (Difficulty Adjustment) - Planned |
 | **Current Milestone** | 16d Complete (Backup & restore) |
 | **Status** | Sprint 16 complete (16a-16d): nodes persist to H2, restore by replay, indexed queries, backup/restore. Next: Sprint 17 (Difficulty Adjustment) |
 
@@ -54,7 +54,7 @@ Phase 3: API & Interface     [███████████████] 100
 
 Phase 4: Production Features  [████░░░░░░░░░░░] 25% ← IN PROGRESS
 ├── Sprint 16: Persistence   ✅ COMPLETE (16a ✅, 16b ✅, 16c ✅, 16d ✅)
-├── Sprint 17: Difficulty    ⬜ ← NEXT
+├── Sprint 17: Difficulty    📋 PLANNED (17a ⬜, 17b ⬜, 17c ⬜, 17d ⬜)
 ├── Sprint 18: Block Limits  ⬜
 └── Sprint 19: Fee Market    ⬜
 ```
