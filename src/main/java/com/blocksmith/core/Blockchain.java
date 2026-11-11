@@ -10,6 +10,7 @@ import com.blocksmith.util.HashUtil;
 import com.blocksmith.util.Target;
 
 import java.math.BigInteger;
+import java.time.Clock;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
@@ -65,6 +66,12 @@ public class Blockchain {
 
     /** The network's consensus rules (block time, retarget window...). */
     private final ChainParams params;
+
+    /** This node's clock: for the future-time rule and for mining (Sprint 17c). */
+    private final Clock clock;
+
+    /** How many previous blocks the median-time-past looks at (as in Bitcoin). */
+    static final int MEDIAN_TIME_SPAN = 11;
 
     /**
      * The Proof-of-Work target in effect for each height (Sprint 17b),
@@ -150,10 +157,19 @@ public class Blockchain {
      * @param params consensus rules (target block time, retarget window...)
      */
     public Blockchain(ChainStore store, ChainParams params) {
+        this(store, params, Clock.systemUTC());
+    }
+
+    /**
+     * Creates a blockchain with an explicit clock (Sprint 17c), so tests can
+     * pin "now" when checking timestamp rules.
+     */
+    public Blockchain(ChainStore store, ChainParams params, Clock clock) {
         this.chain = new ArrayList<>();
         this.pendingTransactions = new ArrayList<>();
         this.store = store;
         this.params = params;
+        this.clock = clock;
 
         // Create and mine the Genesis block (deterministic: fixed timestamp)
         Block genesis = Block.createGenesisBlock();
@@ -179,6 +195,53 @@ public class Blockchain {
     /** The target that was in effect for the block at {@code height}. */
     public BigInteger getTargetAt(int height) {
         return targets.get(height);
+    }
+
+    // ===== TIMESTAMPS (Sprint 17c) =====
+
+    /**
+     * Median timestamp of the (up to) 11 blocks before {@code height}.
+     *
+     * THEORY: Why the median, not the previous block
+     *
+     * Clocks differ, so block timestamps are allowed to wobble: block N+1
+     * may even carry a slightly earlier time than block N. What must not
+     * happen is time drifting backwards for real. The median of the last 11
+     * blocks is a time the network has already moved past, and one dishonest
+     * timestamp cannot drag it around (it would need 6 of the 11).
+     *
+     *   rule 1: timestamp > median of the previous 11 blocks
+     *   rule 2: timestamp <= this node's clock + maxFutureDrift
+     *
+     * Together they bound what a miner can fake: no stamping far into the
+     * future (makes a window look slow), and no backdating beyond the
+     * median. The retarget formula is only as honest as these timestamps.
+     */
+    public long medianTimePast(int height) {
+        int from = Math.max(0, height - MEDIAN_TIME_SPAN);
+        List<Long> times = new ArrayList<>();
+        for (int i = from; i < height; i++) times.add(chain.get(i).getTimestamp());
+        Collections.sort(times);
+        return times.get(times.size() / 2);
+    }
+
+    /** Rule 1: strictly after the median time of the blocks before it. */
+    private boolean isAfterMedianTimePast(Block block, int height) {
+        return block.getTimestamp() > medianTimePast(height);
+    }
+
+    /** Rule 2: not further ahead of our clock than the network allows. */
+    private boolean isNotTooFarInFuture(Block block) {
+        return block.getTimestamp() <= clock.millis() + params.maxFutureDriftMs();
+    }
+
+    /**
+     * Timestamp for a block we mine at {@code height}: now, but never at or
+     * before the median-time-past (peers' clocks may run a little ahead of
+     * ours, which can push the median past our "now").
+     */
+    private long nextBlockTimestamp(int height) {
+        return Math.max(clock.millis(), medianTimePast(height) + 1);
     }
 
     /**
@@ -358,7 +421,7 @@ public class Blockchain {
         Block latestBlock = getLatestBlock();
         int newIndex = latestBlock.getIndex() + 1;
 
-        Block newBlock = new Block(newIndex, data, latestBlock.getHash());
+        Block newBlock = new Block(newIndex, data, latestBlock.getHash(), nextBlockTimestamp(newIndex));
         newBlock.mineBlock(getNextTarget());
 
         appendBlock(newBlock);
@@ -398,6 +461,7 @@ public class Blockchain {
         if (block.getIndex() == tip.getIndex() + 1
                 && block.getPreviousHash().equals(tip.getHash())) {
             if (!isWellFormed(block, getNextTarget())) return false;
+            if (!isAfterMedianTimePast(block, block.getIndex()) || !isNotTooFarInFuture(block)) return false;
             appendBlock(block);
             attachOrphans();
             return true;
@@ -408,7 +472,8 @@ public class Blockchain {
         // know its exact target yet, so for now it only has to meet the
         // easiest one allowed (cheap spam filter); attachOrphans checks the
         // real target. A malformed block is dropped outright.
-        if (block.getIndex() > tip.getIndex() + 1 && isWellFormed(block, params.powLimit())) {
+        if (block.getIndex() > tip.getIndex() + 1 && isWellFormed(block, params.powLimit())
+                && isNotTooFarInFuture(block)) {
             orphans.put(block.getPreviousHash(), block);
         }
 
@@ -440,7 +505,8 @@ public class Blockchain {
             if (child == null) break;
 
             orphans.remove(tip.getHash());
-            if (child.getIndex() == tip.getIndex() + 1 && isWellFormed(child, getNextTarget())) {
+            if (child.getIndex() == tip.getIndex() + 1 && isWellFormed(child, getNextTarget())
+                    && isAfterMedianTimePast(child, child.getIndex()) && isNotTooFarInFuture(child)) {
                 appendBlock(child);
             } else {
                 break; // stale/ill-fitting orphan: drop and stop
@@ -612,7 +678,8 @@ public class Blockchain {
         Block latestBlock = getLatestBlock();
         int newIndex = latestBlock.getIndex() + 1;
 
-        Block newBlock = new Block (newIndex, blockTransactions, latestBlock.getHash());
+        Block newBlock = new Block(newIndex, blockTransactions, latestBlock.getHash(),
+                nextBlockTimestamp(newIndex));
 
         System.out.println("\n⛏️  Mining block #" + newIndex + " with " + blockTransactions.size() + " transactions...");
         newBlock.mineBlock(getNextTarget());
@@ -996,6 +1063,8 @@ public class Blockchain {
 
             // Verify block was mined at the target the chain expects there (17b)
             target = targetAt(i, chain, target);
+            // Verify the timestamp moved past the median of the blocks before it (17c)
+            if (!isAfterMedianTimePast(currentBlock, i)) return false;
             if (!Target.meets(currentBlock.getHash(), target)) return false;
         }
 
