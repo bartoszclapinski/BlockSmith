@@ -24,6 +24,7 @@ import com.blocksmith.network.Node;
 import com.blocksmith.network.PeerInfo;
 import com.blocksmith.util.JsonUtil;
 import com.google.gson.Gson;
+import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.google.gson.JsonSyntaxException;
@@ -114,6 +115,7 @@ public class ApiServer {
         app.get("/api/blocks", ctx -> json(ctx, blockchain.getChain()));
         app.get("/api/blocks/latest", ctx -> json(ctx, blockchain.getLatestBlock()));
         app.get("/api/blocks/{index}", this::getBlockByIndex);
+        app.get("/api/blocks/hash/{hash}", this::getBlockByHash);
         app.get("/api/network/status", ctx -> json(ctx, status()));
 
         // Transaction + mining endpoints (Milestone 12b).
@@ -123,6 +125,7 @@ public class ApiServer {
 
         // Wallet + network endpoints (Milestone 12c).
         app.get("/api/wallet/{address}", this::getWallet);
+        app.get("/api/wallet/{address}/transactions", this::getWalletTransactions);
         app.post("/api/wallet/create", this::postWalletCreate);
         app.get("/api/network/peers", this::getPeers);
 
@@ -188,16 +191,21 @@ public class ApiServer {
         json(ctx, tx);
     }
 
-    /** Looks up a transaction by id in the mempool or in a mined block. */
+    /**
+     * Looks up a transaction by id in the mempool or in a mined block (via the
+     * store's index when there is one). The transaction's own fields stay at
+     * the top level; {@code status}, {@code blockIndex} and
+     * {@code confirmations} are added next to them.
+     */
     private void getTransactionById(Context ctx) {
         String id = ctx.pathParam("id");
-        Transaction found = findTransaction(id);
+        Blockchain.TransactionLookup found = blockchain.findTransaction(id);
         if (found == null) {
             ctx.status(404);
             json(ctx, error("No transaction with id " + id));
             return;
         }
-        json(ctx, found);
+        json(ctx, lookupJson(found));
     }
 
     /** Mines the pending transactions to a miner address and broadcasts the block. */
@@ -221,18 +229,6 @@ public class ApiServer {
         node.broadcastBlock(mined);
         ctx.status(201);
         json(ctx, mined);
-    }
-
-    private Transaction findTransaction(String id) {
-        for (Transaction tx : blockchain.getPendingTransactions()) {
-            if (id.equals(tx.getTransactionId())) return tx;
-        }
-        for (Block block : blockchain.getChain()) {
-            for (Transaction tx : block.getTransactions()) {
-                if (id.equals(tx.getTransactionId())) return tx;
-            }
-        }
-        return null;
     }
 
     // ===== 12c: WALLET + NETWORK =====
@@ -542,6 +538,41 @@ public class ApiServer {
             return;
         }
         json(ctx, blockchain.getBlock(index));
+    }
+
+    /** Finds a block by hash (16c); 404 if no block on our chain has it. */
+    private void getBlockByHash(Context ctx) {
+        String hash = ctx.pathParam("hash");
+        Block block = blockchain.getBlockByHash(hash);
+        if (block == null) {
+            ctx.status(404);
+            json(ctx, error("No block with hash " + hash));
+            return;
+        }
+        json(ctx, block);
+    }
+
+    /**
+     * Transaction history of an address (16c): pending first, then confirmed
+     * from the newest block back, each with status and confirmations. An
+     * address with no transactions gets an empty list (not a 404), like a
+     * fresh wallet's zero balance.
+     */
+    private void getWalletTransactions(Context ctx) {
+        JsonArray out = new JsonArray();
+        for (Blockchain.TransactionLookup l : blockchain.getTransactionHistory(ctx.pathParam("address"))) {
+            out.add(lookupJson(l));
+        }
+        json(ctx, out);
+    }
+
+    /** A transaction's JSON plus where it sits on the chain. */
+    private JsonObject lookupJson(Blockchain.TransactionLookup lookup) {
+        JsonObject o = gson.toJsonTree(lookup.transaction()).getAsJsonObject();
+        o.addProperty("status", lookup.isConfirmed() ? "confirmed" : "pending");
+        if (lookup.isConfirmed()) o.addProperty("blockIndex", lookup.blockIndex());
+        o.addProperty("confirmations", lookup.confirmations());
+        return o;
     }
 
     // ===== HELPERS =====
