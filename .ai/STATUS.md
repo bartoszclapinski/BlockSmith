@@ -9,9 +9,9 @@
 | Field | Value |
 |-------|-------|
 | **Phase** | 3 - API & Interface - ✅ COMPLETE |
-| **Current Sprint** | 17 (Difficulty Adjustment) - Planned |
-| **Current Milestone** | 16d Complete (Backup & restore) |
-| **Status** | Sprint 16 complete (16a-16d): nodes persist to H2, restore by replay, indexed queries, backup/restore. Next: Sprint 17 (Difficulty Adjustment) |
+| **Current Sprint** | 17 (Difficulty Adjustment) - Complete |
+| **Current Milestone** | 17d Complete (Live difficulty in API + dashboard) |
+| **Status** | Sprint 17 complete (17a-17d): numeric target, retarget every 10 blocks, timestamp rules, live difficulty. Next: Sprint 18 (Block Limits) |
 
 ---
 
@@ -52,10 +52,10 @@ Phase 3: API & Interface     [███████████████] 100
 ├── Sprint 14: Smart Contracts ✅ COMPLETE (14a ✅, 14b ✅, 14c ✅)
 └── Sprint 15: Multi-sig Wallets ✅ COMPLETE (15a ✅, 15b ✅, 15c ✅)
 
-Phase 4: Production Features  [████░░░░░░░░░░░] 25% ← IN PROGRESS
+Phase 4: Production Features  [████████░░░░░░░] 50% ← IN PROGRESS
 ├── Sprint 16: Persistence   ✅ COMPLETE (16a ✅, 16b ✅, 16c ✅, 16d ✅)
-├── Sprint 17: Difficulty    📋 PLANNED (17a ⬜, 17b ⬜, 17c ⬜, 17d ⬜)
-├── Sprint 18: Block Limits  ⬜
+├── Sprint 17: Difficulty    ✅ COMPLETE (17a ✅, 17b ✅, 17c ✅, 17d ✅)
+├── Sprint 18: Block Limits  ⬜ ← NEXT
 └── Sprint 19: Fee Market    ⬜
 ```
 
@@ -105,7 +105,12 @@ Phase 4: Production Features  [████░░░░░░░░░░░] 25
 | ApiIndexedQueryTest | 4 | ✅ |
 | BackupRestoreTest | 8 | ✅ |
 | ApiBackupTest | 3 | ✅ |
-| **Total** | **281** | ✅ |
+| TargetTest | 7 | ✅ |
+| RetargetTest | 10 | ✅ |
+| TimestampRulesTest | 6 | ✅ |
+| DifficultyReportTest | 3 | ✅ |
+| ApiDifficultyTest | 3 | ✅ |
+| **Total** | **310** | ✅ |
 
 Last test run: `mvn test` - All passing
 
@@ -117,10 +122,11 @@ Last test run: `mvn test` - All passing
 
 | Class | Status | Lines | Notes |
 |-------|--------|-------|-------|
-| Block.java | ✅ Complete | ~290 | Transactions + Merkle root + `hasValidMerkleRoot()` recomputes it from the txs (Sprint 16b, #260) |
-| Blockchain.java | ✅ Complete | ~640 | Pending pool + mining + external append + orphan buffer (Sprint 10) + tx dedupe + mempool prune (Sprint 11) + contract registry (deploy/claim, derived from chain) (Sprint 14b) + optional `ChainStore`, single `appendBlock()`, `restoreFromStore()` replay (Sprint 16b) + `getBlockByHash` / `findTransaction` / `getTransactionHistory` (Sprint 16c) + `backupTo` (Sprint 16d) |
+| Block.java | ✅ Complete | ~290 | Transactions + Merkle root + `hasValidMerkleRoot()` recomputes it from the txs (Sprint 16b, #260) + `mineBlock(BigInteger target)`, explicit-timestamp constructor (Sprint 17) |
+| Blockchain.java | ✅ Complete | ~640 | Pending pool + mining + external append + orphan buffer (Sprint 10) + tx dedupe + mempool prune (Sprint 11) + contract registry (deploy/claim, derived from chain) (Sprint 14b) + optional `ChainStore`, single `appendBlock()`, `restoreFromStore()` replay (Sprint 16b) + `getBlockByHash` / `findTransaction` / `getTransactionHistory` (Sprint 16c) + `backupTo` (Sprint 16d) + `ChainParams`, targets per height, `getNextTarget` / retarget, median-time-past + future limit with injectable `Clock`, difficulty report (Sprint 17) |
 | Transaction.java | ✅ Complete | ~250 | Validation + signing + verification + optional contract locking/unlocking scripts (Sprint 14b) + `hasValidId()` (Sprint 16b, #260); contract scripts are part of the id (#264) |
 | Wallet.java | ✅ Complete | ~169 | ECDSA keys + signing |
+| ChainParams.java | ✅ Complete | ~70 | Consensus params record: initial target, block time, retarget interval, 4x clamp, powLimit, max future drift (Sprint 17b/17c) |
 
 ### Utility Classes (`com.blocksmith.util`)
 
@@ -129,6 +135,7 @@ Last test run: `mvn test` - All passing
 | HashUtil.java | ✅ Complete | ~50 | SHA-256 |
 | SignatureUtil.java | ✅ Complete | ~140 | ECDSA sign/verify (secp256r1) + hex encode/decode; verify never throws (Sprint 15a) |
 | BlockchainConfig.java | ✅ Complete | ~56 | Constants |
+| Target.java | ✅ Complete | ~120 | 256-bit PoW target: from leading zeros, meets (never throws), difficulty display, hex (Sprint 17a) |
 | JsonUtil.java | ✅ Complete | ~60 | Shared Gson with a `PublicKey` adapter (hex X.509); used by storage, P2P messages and the API (Sprint 16a/16b, #259) |
 | BlockExplorer.java | ⬜ Stub | ~14 | Explorer role covered by the API + dashboard |
 
@@ -163,7 +170,7 @@ Last test run: `mvn test` - All passing
 
 | Class | Status | Lines | Notes |
 |-------|--------|-------|-------|
-| ApiServer.java | ✅ Complete | ~530 | Javalin REST API: blocks, transactions, mining, wallet, network, JSON errors (Sprint 12) + static dashboard hosting (Sprint 13a) + contract deploy/claim/inspect endpoints (Sprint 14c) + multisig create/claim endpoints, server-held member keys (Sprint 15c) + `JsonUtil` Gson (#259) + block by hash, address history, tx location (Sprint 16c) + `POST /api/admin/backup`, loopback only (Sprint 16d) |
+| ApiServer.java | ✅ Complete | ~530 | Javalin REST API: blocks, transactions, mining, wallet, network, JSON errors (Sprint 12) + static dashboard hosting (Sprint 13a) + contract deploy/claim/inspect endpoints (Sprint 14c) + multisig create/claim endpoints, server-held member keys (Sprint 15c) + `JsonUtil` Gson (#259) + block by hash, address history, tx location (Sprint 16c) + `POST /api/admin/backup`, loopback only (Sprint 16d) + live difficulty in status, `GET /api/network/difficulty` (Sprint 17d) |
 
 ### Contract Classes (`com.blocksmith.contract`)
 
@@ -275,6 +282,10 @@ Design handoff (prototype + README) lives in `.ai/design/UIUX redesign project/`
 - [x] Indexed lookups: block by hash, tx by id, address history with confirmations (Sprint 16c)
 - [x] Online backup (`POST /api/admin/backup`) + `--restore <zip>` at startup (Sprint 16d)
 - [x] Contract scripts are part of the transaction id, so swapping one inside a block is detected (#264)
+- [x] Numeric 256-bit PoW target, exactly equivalent to the old leading-zero rule (Sprint 17a)
+- [x] Difficulty retargets every 10 blocks toward 10 s/block, clamped to 4x, derived from timestamps (Sprint 17b)
+- [x] Timestamp rules: after the median of the last 11 blocks, at most 15 s in the future (Sprint 17c)
+- [x] Live difficulty + retarget countdown in the API and dashboard (Sprint 17d)
 
 ---
 
@@ -283,7 +294,7 @@ Design handoff (prototype + README) lives in `.ai/design/UIUX redesign project/`
 | Item | Value |
 |------|-------|
 | **Current Branch** | `master` |
-| **Last Commit** | Sprint 16 complete (PR #258, #261, #262, #263) |
+| **Last Commit** | Sprint 17 complete (PR #276, #277, #278, #279) |
 | **Tag** | `v1.0.0` (Phase 1) |
 | **Main Branch** | `master` |
 
@@ -318,14 +329,25 @@ Design handoff (prototype + README) lives in `.ai/design/UIUX redesign project/`
    - 16d (PR #263): online backup (`BACKUP TO`), `POST /api/admin/backup`
      (loopback only), `--restore <zip>` with staging + probe + old DB kept
 
-2. **Phases 1-3 COMPLETE**; Phase 4 at 25% (1 of 4 sprints)
+2. **Sprint 17 COMPLETE** - Difficulty Adjustment (2026-11-11)
+   - 17a (PR #276): `Target` (256-bit numeric target, equivalent to N zeros)
+   - 17b (PR #277): `ChainParams`, retarget every 10 blocks (4x clamp, powLimit,
+     window skips genesis, no off-by-one); targets derived, never stored;
+     every append path validates against the expected target
+   - 17c (PR #278): median-time-past + future limit (**15 s**, not the planned
+     2 min: the window is only ~100 s); injectable `Clock`
+   - 17d (PR #279): live difficulty in status, `/api/network/difficulty`,
+     dashboard countdown; `node-node-` header fixed
+   - Process: PRs now use a regular merge commit; squash/rebase disabled in
+     repo settings
 
-3. **Next: Sprint 17 (Difficulty Adjustment)** - not yet planned: target block
-   time, retarget every N blocks, difficulty stored per block so replay and
-   peers agree. Note: `isWellFormed` / `isChainValid` currently use the global
-   `MINING_DIFFICULTY`, so this touches validation
+3. **Phases 1-3 COMPLETE**; Phase 4 at 50% (2 of 4 sprints)
 
-4. **Deferred / future work**
+4. **Next: Sprint 18 (Block Size & Limits)** - not yet planned: max block size,
+   max transactions per block, fee priority when choosing pending txs. Note:
+   `minePendingTransactions` currently puts the whole mempool in one block
+
+5. **Deferred / future work**
    - Gossip auto-connect to DISCOVERED peers (needs MAX_PEERS guarding)
    - Self-identification filtering in peer lists
    - Mempool request is sent on outbound connect only; inbound side does not
@@ -337,11 +359,10 @@ Design handoff (prototype + README) lives in `.ai/design/UIUX redesign project/`
      only signatures. Member keys live in memory only (lost on restart)
    - `nodeId` is random per start (not persisted with the chain)
    - `Blockchain` itself is not synchronized (network + API threads); the store is
-   - Dashboard header shows `node-node-<id>` (prefix added twice)
    - WebSocket push for the dashboard (currently 4s polling)
    - Contract deploy uses `System.currentTimeMillis()` in the id seed; fine for
      uniqueness but not reproducible across a re-mine
 
 ---
 
-*Last updated: 2026-11-11 | Sprint 16 Complete (Database Persistence) - Phase 4 in progress (25%)*
+*Last updated: 2026-11-11 | Sprint 17 Complete (Difficulty Adjustment) - Phase 4 in progress (50%)*

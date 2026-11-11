@@ -345,6 +345,22 @@ and closes the store on shutdown.
 
 ---
 
+## ⛏️ Difficulty (Sprint 17)
+
+| Piece | Role |
+|-------|------|
+| `util.Target` | 256-bit PoW target: `fromLeadingZeros(n)` = `16^(64-n) - 1`, `meets(hash, target)` (never throws), `toDifficulty` (leading-zero equivalent), hex |
+| `core.ChainParams` | Consensus record: initial target, `targetBlockTimeMs` (10 s), `retargetInterval` (10), `maxAdjustmentFactor` (4), `powLimit` (3 zeros), `maxFutureDriftMs` (15 s) |
+| `Blockchain.getNextTarget()` | At each window boundary: `old * actual / expected`, actual clamped to 4x, capped at powLimit; the window never starts at genesis and measures every gap |
+| Timestamp rules | timestamp > median of the previous 11 blocks, and <= node `Clock` + 15 s; mining stamps `max(now, median + 1)` |
+
+**Rules**: targets are derived from block timestamps (already covered by the hash), kept per height
+next to the chain and never stored, so peers and a restore replay compute the same values. Every
+append path (peer block, orphan attach, restore) checks the block against the expected target at its
+height; orphans are only parked if they meet `powLimit` and are not too far in the future.
+
+---
+
 ## 📦 Package: `com.blocksmith.network` (Phase 2, Sprints 8-11)
 
 TCP peer-to-peer layer. Messages are JSON over sockets.
@@ -392,7 +408,7 @@ Writes (tx, mined block) are broadcast to peers.
 | Method | Path | Purpose |
 |--------|------|---------|
 | GET | `/api/blocks`, `/api/blocks/latest`, `/api/blocks/{index}`, `/api/blocks/hash/{hash}` | Read the chain (by hash: Sprint 16c) |
-| GET | `/api/network/status`, `/api/network/peers` | Node stats (incl. `difficulty`), peer list |
+| GET | `/api/network/status`, `/api/network/peers`, `/api/network/difficulty` | Node stats (live `difficulty`, `target`, `blocksUntilRetarget`...), peer list, difficulty epochs (Sprint 17d) |
 | POST / GET | `/api/transactions`, `/api/transactions/{id}` | Submit (unsigned, educational) / look up a tx (+ `status`, `blockIndex`, `confirmations`) |
 | POST | `/api/mine` | Mine pending txs (or an empty block) for `minerAddress` |
 | GET / POST | `/api/wallet/{address}`, `/api/wallet/{address}/transactions`, `/api/wallet/create` | Balance + pending outgoing / history (Sprint 16c) / new wallet |
@@ -561,4 +577,4 @@ void methodName_scenario_expectedResult() { ... }
 
 ---
 
-*Last updated: 2026-11-11 (added storage package, Sprint 16 endpoints)*
+*Last updated: 2026-11-11 (added difficulty section, Sprint 17 endpoints)*

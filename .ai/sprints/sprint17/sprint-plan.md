@@ -7,7 +7,7 @@
 | **Sprint** | 17 |
 | **Title** | Difficulty Adjustment |
 | **Phase** | Phase 4: Production Features |
-| **Status** | 📋 Planned |
+| **Status** | ✅ Complete (17a, 17b, 17c, 17d) |
 | **Depends On** | Sprint 16 Complete (persistence, restore by replay) |
 
 > **Approach (recommended):** the Bitcoin model. Replace "N leading zeros"
@@ -35,10 +35,10 @@ difficulty, every node agrees on it, and the API and dashboard show it.
 
 | Milestone | Title | Branch | Status |
 |-----------|-------|--------|--------|
-| **17a** | Numeric target (no behaviour change) | `sprint17a/numeric-target` | ⬜ Planned (#267, #268) |
-| **17b** | Retargeting + consensus params | `sprint17b/retarget` | ⬜ Planned (#269, #270) |
-| **17c** | Timestamp rules | `sprint17c/timestamp-rules` | ⬜ Planned (#271, #272) |
-| **17d** | API + dashboard | `sprint17d/difficulty-api` | ⬜ Planned (#273, #274) |
+| **17a** | Numeric target (no behaviour change) | `sprint17a/numeric-target` | ✅ Complete (PR #276) |
+| **17b** | Retargeting + consensus params | `sprint17b/retarget` | ✅ Complete (PR #277) |
+| **17c** | Timestamp rules | `sprint17c/timestamp-rules` | ✅ Complete (PR #278) |
+| **17d** | API + dashboard | `sprint17d/difficulty-api` | ✅ Complete (PR #279) |
 
 ---
 
@@ -102,7 +102,8 @@ are already covered by the block hash. Nothing to forge, nothing to migrate.
 
 - [ ] A block's timestamp must be **greater than the median of the previous 11**
       (median-time-past, as in Bitcoin)
-- [ ] And **not more than 2 minutes in the future** of the validating node's
+- [ ] And **not more than 15 seconds in the future** of the validating node's
+      (changed during 17c from the planned 2 minutes, see Open decisions)
       clock (Bitcoin allows 2 hours; our blocks are seconds apart)
 - [ ] Injectable `java.time.Clock` for tests
 - [ ] Applied on append and restore; the future-time rule uses the node's clock
@@ -168,7 +169,10 @@ the inverse; we show it as the leading-zero equivalent.
 - **Retarget interval / target time**: 10 blocks of 10 s each (recommended for
   a demo: adjustment visible within ~2 minutes) vs Bitcoin's 2016 x 10 min
 - **Clamp 4x** (recommended, Bitcoin) vs unclamped
-- **Future limit 2 min** (recommended for short block times) vs Bitcoin's 2 h
+- **Future limit: 15 s** (decided in 17c; first planned as 2 min). A miner may fake a
+  window up to D longer, and our window is ~100 s, so 2 min would allow a >2x easier
+  target. Bitcoin's 2 h is only 0.6% of its 2-week window. Configurable as
+  `ChainParams.maxFutureDriftMs`
 - **Existing data**: local `data/` is empty; chains mined before this sprint
   will be re-validated under the new rules on restore
 

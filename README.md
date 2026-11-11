@@ -8,7 +8,7 @@ BlockSmith is a comprehensive blockchain project that goes beyond tutorials - im
 
 [![Java](https://img.shields.io/badge/Java-20+-orange.svg)](https://openjdk.org/)
 [![Maven](https://img.shields.io/badge/Maven-3.9+-blue.svg)](https://maven.apache.org/)
-[![Tests](https://img.shields.io/badge/Tests-281%20passing-brightgreen.svg)](#)
+[![Tests](https://img.shields.io/badge/Tests-310%20passing-brightgreen.svg)](#)
 [![Phase](https://img.shields.io/badge/Phase%204-In%20progress-yellow.svg)](#)
 [![Version](https://img.shields.io/badge/Version-1.0.0-blue.svg)](#)
 
@@ -69,14 +69,18 @@ BlockSmith is a comprehensive blockchain project that goes beyond tutorials - im
   - ✅ M-of-N multisig contracts, replay-safe claim sighash (Sprint 15b)
   - ✅ Multisig REST endpoints + dashboard panel (Sprint 15c)
 
-### Phase 4: Production Features 🚧 In progress (25%)
+### Phase 4: Production Features 🚧 In progress (50%)
 - ✅ Database persistence (Sprint 16)
   - ✅ Embedded H2 store; blocks kept in the same JSON format peers exchange (Sprint 16a)
   - ✅ Every block + pending tx saved; restart restores by replaying through validation (Sprint 16b)
   - ✅ Block validation recomputes tx ids and the Merkle root (Sprint 16b)
   - ✅ Indexed lookups: block by hash, address history with confirmations (Sprint 16c)
   - ✅ Online backup + `--restore <zip>` at startup (Sprint 16d)
-- ⬜ Dynamic difficulty adjustment (Sprint 17)
+- ✅ Dynamic difficulty adjustment (Sprint 17)
+  - ✅ Numeric 256-bit target instead of leading zeros (Sprint 17a)
+  - ✅ Retarget every 10 blocks toward 10 s per block, max 4x per step (Sprint 17b)
+  - ✅ Timestamp rules: median-time-past + 15 s future limit (Sprint 17c)
+  - ✅ Live difficulty and retarget countdown in the API and dashboard (Sprint 17d)
 - ⬜ Block size limits (Sprint 18) and fee market (Sprint 19)
 
 ---
@@ -214,7 +218,7 @@ Average attempts: ~16^difficulty (~65,536 for difficulty 4)
 mvn clean compile
 ```
 
-### Run all tests (281 tests)
+### Run all tests (310 tests)
 ```bash
 mvn test
 ```
@@ -291,7 +295,7 @@ BlockSmith/
 │   ├── BlockSmithNode.java     # Runnable node (P2P + API + dashboard)
 │   └── BlockSmithDemo.java     # Teaching demo application
 ├── src/main/resources/public/  # Web dashboard (index.html, app.js, style.css)
-├── src/test/java/              # 281 unit tests
+├── src/test/java/              # 310 unit tests
 ├── data/                       # Node databases (H2), one folder per node: data/node-<port>/
 ├── pom.xml                     # Maven configuration
 └── README.md
@@ -343,7 +347,12 @@ BlockSmith/
 | ApiIndexedQueryTest | 4 | History and block-by-hash over HTTP |
 | BackupRestoreTest | 8 | Backup round-trip and bad-backup handling |
 | ApiBackupTest | 3 | Backup endpoint over HTTP |
-| **Total** | **281** | All passing ✅ |
+| TargetTest | 7 | Numeric PoW target equals the leading-zero rule |
+| RetargetTest | 10 | Difficulty retargeting and validation |
+| TimestampRulesTest | 6 | Median-time-past, future limit, time-warp |
+| DifficultyReportTest | 3 | Difficulty epochs and countdown |
+| ApiDifficultyTest | 3 | Difficulty over HTTP |
+| **Total** | **310** | All passing ✅ |
 
 ---
 
@@ -409,8 +418,9 @@ BlockSmith/
 | Sprint | Title | Status |
 |--------|-------|--------|
 | Sprint 16 | Database Persistence | ✅ Complete (16a, 16b, 16c, 16d) |
-| Sprint 17 | Difficulty Adjustment | ⬜ Next |
-| Sprint 18-19 | Block Limits, Fee Market | ⬜ Planned |
+| Sprint 17 | Difficulty Adjustment | ✅ Complete (17a, 17b, 17c, 17d) |
+| Sprint 18 | Block Size & Limits | ⬜ Next |
+| Sprint 19 | Fee Market | ⬜ Planned |
 
 ---
 
