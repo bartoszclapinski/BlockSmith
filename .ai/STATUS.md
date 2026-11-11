@@ -9,9 +9,9 @@
 | Field | Value |
 |-------|-------|
 | **Phase** | 3 - API & Interface - ✅ COMPLETE |
-| **Current Sprint** | 16 (Database Persistence) - Planned |
-| **Current Milestone** | 15c Complete + Dashboard redesign (PR #157, #158) |
-| **Status** | Phase 3 complete; dashboard redesigned; project page live; Sprint 16 planned (16a-16d, issues #161-#246) |
+| **Current Sprint** | 16 (Database Persistence) - Complete |
+| **Current Milestone** | 16d Complete (Backup & restore) |
+| **Status** | Sprint 16 complete (16a-16d): nodes persist to H2, restore by replay, indexed queries, backup/restore. Next: Sprint 17 (Difficulty Adjustment) |
 
 ---
 
@@ -52,8 +52,11 @@ Phase 3: API & Interface     [███████████████] 100
 ├── Sprint 14: Smart Contracts ✅ COMPLETE (14a ✅, 14b ✅, 14c ✅)
 └── Sprint 15: Multi-sig Wallets ✅ COMPLETE (15a ✅, 15b ✅, 15c ✅)
 
-Phase 4: Production Features  [░░░░░░░░░░░░░░░] 0% ← NEXT
-└── Sprint 16: Persistence   📋 PLANNED (16a ⬜, 16b ⬜, 16c ⬜, 16d ⬜)
+Phase 4: Production Features  [████░░░░░░░░░░░] 25% ← IN PROGRESS
+├── Sprint 16: Persistence   ✅ COMPLETE (16a ✅, 16b ✅, 16c ✅, 16d ✅)
+├── Sprint 17: Difficulty    ⬜ ← NEXT
+├── Sprint 18: Block Limits  ⬜
+└── Sprint 19: Fee Market    ⬜
 ```
 
 ---
@@ -68,7 +71,7 @@ Phase 4: Production Features  [░░░░░░░░░░░░░░░] 0%
 | MiningTest | 9 | ✅ |
 | TransactionTest | 22 | ✅ |
 | WalletTest | 13 | ✅ |
-| MessageTest | 6 | ✅ |
+| MessageTest | 8 | ✅ |
 | NodeTest | 8 | ✅ |
 | PeerTest | 7 | ✅ |
 | CommunicationTest | 6 | ✅ |
@@ -84,7 +87,7 @@ Phase 4: Production Features  [░░░░░░░░░░░░░░░] 0%
 | TransactionBroadcastTest | 4 | ✅ |
 | MempoolPruneTest | 2 | ✅ |
 | MempoolSyncTest | 4 | ✅ |
-| ApiReadEndpointsTest | 5 | ✅ |
+| ApiReadEndpointsTest | 6 | ✅ |
 | ApiTransactionEndpointsTest | 5 | ✅ |
 | ApiWalletNetworkEndpointsTest | 4 | ✅ |
 | ApiStaticHostingTest | 3 | ✅ |
@@ -95,7 +98,14 @@ Phase 4: Production Features  [░░░░░░░░░░░░░░░] 0%
 | ApiContractsTest | 3 | ✅ |
 | MultiSigContractTest | 5 | ✅ |
 | ApiMultiSigTest | 2 | ✅ |
-| **Total** | **233** | ✅ |
+| H2ChainStoreTest | 8 | ✅ |
+| PersistRestoreTest | 6 | ✅ |
+| BlockIntegrityTest | 3 | ✅ |
+| IndexedQueryTest | 9 | ✅ |
+| ApiIndexedQueryTest | 4 | ✅ |
+| BackupRestoreTest | 8 | ✅ |
+| ApiBackupTest | 3 | ✅ |
+| **Total** | **277** | ✅ |
 
 Last test run: `mvn test` - All passing
 
@@ -107,9 +117,9 @@ Last test run: `mvn test` - All passing
 
 | Class | Status | Lines | Notes |
 |-------|--------|-------|-------|
-| Block.java | ✅ Complete | ~268 | Transactions + Merkle root |
-| Blockchain.java | ✅ Complete | ~640 | Pending pool + mining + external append + orphan buffer (Sprint 10) + tx dedupe + mempool prune (Sprint 11) + contract registry (deploy/claim, derived from chain) (Sprint 14b) |
-| Transaction.java | ✅ Complete | ~230 | Validation + signing + verification + optional contract locking/unlocking scripts (Sprint 14b) |
+| Block.java | ✅ Complete | ~290 | Transactions + Merkle root + `hasValidMerkleRoot()` recomputes it from the txs (Sprint 16b, #260) |
+| Blockchain.java | ✅ Complete | ~640 | Pending pool + mining + external append + orphan buffer (Sprint 10) + tx dedupe + mempool prune (Sprint 11) + contract registry (deploy/claim, derived from chain) (Sprint 14b) + optional `ChainStore`, single `appendBlock()`, `restoreFromStore()` replay (Sprint 16b) + `getBlockByHash` / `findTransaction` / `getTransactionHistory` (Sprint 16c) + `backupTo` (Sprint 16d) |
+| Transaction.java | ✅ Complete | ~250 | Validation + signing + verification + optional contract locking/unlocking scripts (Sprint 14b) + `hasValidId()` (Sprint 16b, #260) |
 | Wallet.java | ✅ Complete | ~169 | ECDSA keys + signing |
 
 ### Utility Classes (`com.blocksmith.util`)
@@ -119,7 +129,8 @@ Last test run: `mvn test` - All passing
 | HashUtil.java | ✅ Complete | ~50 | SHA-256 |
 | SignatureUtil.java | ✅ Complete | ~140 | ECDSA sign/verify (secp256r1) + hex encode/decode; verify never throws (Sprint 15a) |
 | BlockchainConfig.java | ✅ Complete | ~56 | Constants |
-| BlockExplorer.java | ⬜ TODO | ~14 | Sprint 7 |
+| JsonUtil.java | ✅ Complete | ~60 | Shared Gson with a `PublicKey` adapter (hex X.509); used by storage, P2P messages and the API (Sprint 16a/16b, #259) |
+| BlockExplorer.java | ⬜ Stub | ~14 | Explorer role covered by the API + dashboard |
 
 ### Network Classes (`com.blocksmith.network`)
 
@@ -139,11 +150,20 @@ Last test run: `mvn test` - All passing
 | PeerManager.java | ✅ Complete | ~145 | Peer registry, MAX_PEERS enforcement (Sprint 9b) |
 | messages/*.java | ✅ Complete | ~280 | 11 concrete message types (+ GetMempool/Mempool, Sprint 11c) |
 
+### Storage Classes (`com.blocksmith.storage`) - Sprint 16
+
+| Class | Status | Lines | Notes |
+|-------|--------|-------|-------|
+| ChainStore.java | ✅ Complete | ~110 | Store interface: blocks, pending txs; indexed lookups (default: not indexed); backup (default: unsupported) |
+| NoOpChainStore.java | ✅ Complete | ~45 | Default store: remembers nothing, keeps `new Blockchain()` in memory |
+| H2ChainStore.java | ✅ Complete | ~470 | Embedded H2 (JDBC): `blocks`, `pending_tx`, `tx_index` (indexed on sender/recipient/block); block + index rows in one DB transaction; `BACKUP TO`; `restoreBackup` (staging, single-entry check, probe open, old DB kept) |
+| StorageException.java | ✅ Complete | ~15 | Unchecked wrapper for storage failures |
+
 ### API Classes (`com.blocksmith.api`)
 
 | Class | Status | Lines | Notes |
 |-------|--------|-------|-------|
-| ApiServer.java | ✅ Complete | ~530 | Javalin REST API: blocks, transactions, mining, wallet, network, JSON errors (Sprint 12) + static dashboard hosting (Sprint 13a) + contract deploy/claim/inspect endpoints (Sprint 14c) + multisig create/claim endpoints, server-held member keys (Sprint 15c) |
+| ApiServer.java | ✅ Complete | ~530 | Javalin REST API: blocks, transactions, mining, wallet, network, JSON errors (Sprint 12) + static dashboard hosting (Sprint 13a) + contract deploy/claim/inspect endpoints (Sprint 14c) + multisig create/claim endpoints, server-held member keys (Sprint 15c) + `JsonUtil` Gson (#259) + block by hash, address history, tx location (Sprint 16c) + `POST /api/admin/backup`, loopback only (Sprint 16d) |
 
 ### Contract Classes (`com.blocksmith.contract`)
 
@@ -169,7 +189,7 @@ Design handoff (prototype + README) lives in `.ai/design/UIUX redesign project/`
 
 | Class | Status | Notes |
 |-------|--------|-------|
-| BlockSmithNode.java | ✅ Complete | Runnable node: P2P Node + ApiServer + dashboard in one process (Sprint 13a). Default `mvn exec:java` target + jar main class (Sprint 14) |
+| BlockSmithNode.java | ✅ Complete | Runnable node: P2P Node + ApiServer + dashboard in one process (Sprint 13a). Default `mvn exec:java` target + jar main class (Sprint 14) + H2 store under `data/node-<p2pPort>/`, restore report, `--restore <zip>`, backups enabled (Sprint 16) |
 | BlockSmithDemo.java | ✅ Complete | Mining + Transactions demo (`mvn exec:java -Dexec.mainClass=com.blocksmith.BlockSmithDemo`) |
 
 ---
@@ -248,6 +268,12 @@ Design handoff (prototype + README) lives in `.ai/design/UIUX redesign project/`
 - [x] Multisig REST endpoints + dashboard panel; server-held keys, never serialized (Sprint 15c)
 - [x] Dashboard redesign: command-deck layout, light/dark themes, command palette, side drawers, activity feed (PR #157)
 - [x] Onboarding tour (5-step spotlight, opt-out remembered, `?` restarts) + drawer backdrop fix (PR #158)
+- [x] H2 `ChainStore` storage layer; blocks stored in the P2P JSON format (Sprint 16a)
+- [x] Signed transactions serialize everywhere (`JsonUtil` PublicKey adapter) (Sprint 16a/16b, #259)
+- [x] Persist every appended block + mempool; restore on startup by replaying through validation (Sprint 16b)
+- [x] Block validation recomputes tx ids and the Merkle root; edited blocks rejected from peers and disk (Sprint 16b, #260)
+- [x] Indexed lookups: block by hash, tx by id, address history with confirmations (Sprint 16c)
+- [x] Online backup (`POST /api/admin/backup`) + `--restore <zip>` at startup (Sprint 16d)
 
 ---
 
@@ -256,7 +282,7 @@ Design handoff (prototype + README) lives in `.ai/design/UIUX redesign project/`
 | Item | Value |
 |------|-------|
 | **Current Branch** | `master` |
-| **Last Commit** | Dashboard redesign (PR #157 layout/themes, PR #158 onboarding tour) |
+| **Last Commit** | Sprint 16 complete (PR #258, #261, #262, #263) |
 | **Tag** | `v1.0.0` (Phase 1) |
 | **Main Branch** | `master` |
 
@@ -264,43 +290,42 @@ Design handoff (prototype + README) lives in `.ai/design/UIUX redesign project/`
 
 ## ⚠️ Known Issues
 
-_None currently._
+- **#264** Contract scripts (`lockingScript` / `unlockingScript`) are not part of the
+  transaction id, so the Merkle check from #260 does not cover them: a script
+  could be edited inside an otherwise valid block. Fix: include scripts in the id.
+- Multisig member keys are held in memory by the API (by design, not persisted):
+  a multisig created via the dashboard cannot be claimed after a node restart.
 
 ---
 
 ## 📝 Notes for Next Session
 
-1. **Sprint 15 COMPLETE** - Multi-signature Wallets
-   - All milestones 15a, 15b, 15c merged to master
-   - 15a: `SignatureUtil` (ECDSA sign/verify, hex, never throws) + `CHECKSIG`/
-     `CHECKMULTISIG` opcodes; `ScriptVM.execute` gained a sighash overload
-     (existing call sites delegate with an empty sighash, so Sprint 14 is
-     untouched)
-   - 15b: `MultiSigWallet` (builds the CHECKMULTISIG lock, MS: address);
-     `Contract.claimSighash(claimer)` = `SHA256(contractId+claimer+amount)`; the
-     one wiring change is `Blockchain.isValidClaim` feeding the sighash to the
-     VM. A multisig is just a Sprint 14 contract with a signature lock
-   - 15c: `POST /api/multisig/create` + `POST /api/multisig/claim` (server-held
-     member keys, an educational signing convenience; private keys never
-     serialized); dashboard Multisig panel. Verified live end to end
+1. **Sprint 16 COMPLETE** - Database Persistence (2026-11-10 to 2026-11-11)
+   - 16a (PR #258): `com.blocksmith.storage` - `ChainStore`, `NoOpChainStore`,
+     `H2ChainStore` (H2 2.5.252, embedded). Blocks stored as the same Gson JSON
+     peers exchange. Found: plain Gson cannot serialize a signed tx's EC
+     `PublicKey` on Java 17+ -> `JsonUtil.GSON` with a hex X.509 adapter
+   - 16b (PR #261): `Blockchain(ChainStore)`, one `appendBlock()` for all four
+     append paths (saves the block first), mempool mirrored, `restoreFromStore()`
+     replays through `addBlock(Block)` and stops at the first invalid block;
+     `BlockSmithNode` uses `data/node-<p2pPort>/`. Bugs fixed: #259 (P2P + API
+     used plain Gson), #260 (block validation never recomputed tx ids / Merkle
+     root, so edited blocks were accepted from peers and disk). Live-tested with
+     a hard kill
+   - 16c (PR #262): `tx_index` table, store lookups, `getBlockByHash` /
+     `findTransaction` / `getTransactionHistory` (index = hint, verified against
+     the chain), `GET /api/blocks/hash/{hash}`, `GET /api/wallet/{address}/transactions`.
+     16b databases get their index from the restore replay. Also fixed a flaky
+     `MiningTest` (fixed timestamp)
+   - 16d (PR #263): online backup (`BACKUP TO`), `POST /api/admin/backup`
+     (loopback only), `--restore <zip>` with staging + probe + old DB kept
 
-2. **Phase 3 COMPLETE** - API & Interface (Sprints 12-15 all done, 100%).
-   The wallet -> contract -> VM -> multisig arc is finished.
+2. **Phases 1-3 COMPLETE**; Phase 4 at 25% (1 of 4 sprints)
 
-2b. **Dashboard redesign (between Sprint 15 and 16)** - two PRs, not a sprint
-   - PR #157: command-deck layout, Clay dark/light themes, command palette,
-     drawers wired to the real API, client-side activity feed; API exposes
-     `difficulty` in `GET /api/network/status`
-   - PR #158: 5-step onboarding tour + fix for the drawer rendering under its
-     own backdrop; `ApiExplorerTest` updated to the new mount points
-     (`hero-meta`, `chain-row`, `feed-list`, `contract-list`)
-   - Old issues #132, #137, #140, #143 (test issues from Sprints 13-14) were
-     done but never auto-closed; closed manually 2026-11-10
-
-3. **Next: Phase 4 (Production Features)** - starting Sprint 16 (Persistence)
-   - Not yet planned; likely SQLite/H2 persistence for the chain + mempool,
-     indexed queries, and backup/restore. Then difficulty adjustment (17),
-     block limits (18), fee market (19)
+3. **Next: Sprint 17 (Difficulty Adjustment)** - not yet planned: target block
+   time, retarget every N blocks, difficulty stored per block so replay and
+   peers agree. Note: `isWellFormed` / `isChainValid` currently use the global
+   `MINING_DIFFICULTY`, so this touches validation
 
 4. **Deferred / future work**
    - Gossip auto-connect to DISCOVERED peers (needs MAX_PEERS guarding)
@@ -312,10 +337,14 @@ _None currently._
    - Multisig signing is a server-side convenience (the node holds the member
      keys and signs claims); a production design signs client-side and submits
      only signatures. Member keys live in memory only (lost on restart)
+   - #264: include contract scripts in the transaction id
+   - `nodeId` is random per start (not persisted with the chain)
+   - `Blockchain` itself is not synchronized (network + API threads); the store is
+   - Dashboard header shows `node-node-<id>` (prefix added twice)
    - WebSocket push for the dashboard (currently 4s polling)
    - Contract deploy uses `System.currentTimeMillis()` in the id seed; fine for
      uniqueness but not reproducible across a re-mine
 
 ---
 
-*Last updated: 2026-11-10 | Sprint 15 Complete + Dashboard redesign (PR #157, #158) - Phase 3 ✅ COMPLETE*
+*Last updated: 2026-11-11 | Sprint 16 Complete (Database Persistence) - Phase 4 in progress (25%)*

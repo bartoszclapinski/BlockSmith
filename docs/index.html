@@ -6,7 +6,7 @@
 <title>BlockSmith</title>
 <meta name="description" content="BlockSmith: a working blockchain built from scratch in Java. Proof-of-Work, ECDSA wallets, a P2P network, a REST API, a web dashboard, a script VM for smart contracts, and multisig.">
 <meta property="og:title" content="BlockSmith: a blockchain built from scratch in Java">
-<meta property="og:description" content="Proof-of-Work, ECDSA wallets, P2P gossip, REST API, web dashboard, smart contracts and multisig. 15 sprints, 233 tests.">
+<meta property="og:description" content="Proof-of-Work, ECDSA wallets, P2P gossip, REST API, web dashboard, smart contracts, multisig and crash-safe persistence. 16 sprints, 277 tests.">
 <meta property="og:image" content="assets/dashboard-dark.png">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23e0894c'/%3E%3Cpath d='M9 22l7-7m-3-4l4-4 6 6-4 4z' stroke='%2320120a' stroke-width='2.6' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -295,6 +295,7 @@
   .sprint i { font-style: normal; font-family: var(--font-mono); color: var(--muted); margin-right: 6px; font-size: 12.5px; }
   .phase.next { border-style: dashed; }
   .phase.next .sprint { color: var(--muted); }
+  .phase.next .sprint.done { color: var(--text-soft); border-style: solid; }
   .bar { height: 6px; border-radius: 6px; background: var(--divider); overflow: hidden; margin-top: 12px; }
   .bar span { display: block; height: 100%; background: var(--accent); }
 
@@ -346,12 +347,13 @@
       <div class="blk tip"><b>#2</b>00009c51…182f<br>tip</div>
     </div>
     <div class="wrap">
-      <span class="eyebrow">Phase 3 of 4 complete · 233 tests passing</span>
+      <span class="eyebrow">Phase 4 in progress · 277 tests passing</span>
       <h1>A blockchain, <em>forged</em> from scratch in Java.</h1>
       <p class="lead">
         BlockSmith is a working cryptocurrency built to understand how Bitcoin and Ethereum work under the hood:
         Proof-of-Work mining, ECDSA wallets, a gossiping P2P network, a REST API with a live dashboard,
-        and a small script VM that runs hashlock, timelock and multisig contracts.
+        a small script VM that runs hashlock, timelock and multisig contracts, and an embedded database
+        that lets a node survive a crash.
       </p>
       <div class="cta">
         <a class="btn primary" href="#mine">Mine a block in your browser</a>
@@ -362,9 +364,9 @@
       </div>
 
       <div class="stats">
-        <div class="stat"><b>15</b><span>sprints shipped</span></div>
-        <div class="stat"><b>233</b><span>JUnit tests, all green</span></div>
-        <div class="stat"><b>~5.2k</b><span>lines of Java (+4.8k in tests)</span></div>
+        <div class="stat"><b>16</b><span>sprints shipped</span></div>
+        <div class="stat"><b>277</b><span>JUnit tests, all green</span></div>
+        <div class="stat"><b>~6.4k</b><span>lines of Java (+6.1k in tests)</span></div>
         <div class="stat"><b>0</b><span>blockchain libraries used</span></div>
       </div>
     </div>
@@ -466,13 +468,13 @@
       <div class="kicker">What's inside</div>
       <h2>Four layers, each built by hand.</h2>
       <p class="sub">
-        The only dependencies are Gson for JSON, Javalin for HTTP, and JUnit for tests.
+        The only dependencies are Gson for JSON, Javalin for HTTP, H2 as an embedded database, and JUnit for tests.
         Hashing and signatures use the JDK's built-in cryptography (<code>MessageDigest</code>, <code>Signature</code>).
       </p>
 
       <div class="layers">
         <article class="card layer">
-          <header><h3>Core chain</h3><span class="when">Sprints 0–6</span></header>
+          <header><h3>Core chain</h3><span class="when">Sprints 0–6, 16</span></header>
           <p>The data structures and rules that make a ledger tamper-evident.</p>
           <ul>
             <li>SHA-256 block hashes with Proof-of-Work mining</li>
@@ -480,6 +482,7 @@
             <li>ECDSA (secp256r1) wallets with <code>0x…</code> addresses</li>
             <li>Signed transactions, mempool, 50 BSC mining reward</li>
             <li>Balance checks that count pending spends, so you cannot double-spend</li>
+            <li>Embedded H2 database: on restart every stored block is re-validated, never trusted</li>
           </ul>
         </article>
         <article class="card layer">
@@ -535,7 +538,7 @@
         <div class="arrow">reads &amp; writes</div>
         <div class="arch-row three">
           <div class="node"><span class="pkg">com.blocksmith.contract</span><b>ScriptVM</b><small>validates contract claims · hashlock, timelock, multisig</small></div>
-          <div class="node hl"><span class="pkg">com.blocksmith.core</span><b>Blockchain</b><small>blocks · mempool · balances · contract registry · orphan buffer</small></div>
+          <div class="node hl"><span class="pkg">com.blocksmith.core</span><b>Blockchain</b><small>blocks · mempool · balances · contract registry · orphan buffer · saved to H2</small></div>
           <div class="node"><span class="pkg">com.blocksmith.network</span><b>Node</b><small>TCP server · PeerManager · gossip · sync</small></div>
         </div>
         <div class="arrow">NEW_BLOCK · NEW_TRANSACTION · GET_BLOCKS · GET_PEERS · GET_MEMPOOL</div>
@@ -645,19 +648,19 @@
         <article class="card phase next">
           <div>
             <h3>Phase 4 · Production</h3>
-            <div class="meta">up next</div>
-            <div class="status"><span class="badge next">next</span></div>
+            <div class="meta">Nov 2026 · 277 tests</div>
+            <div class="status"><span class="badge next">in progress</span></div>
           </div>
           <div class="sprints">
-            <span class="sprint"><i>16</i>Database persistence</span>
+            <span class="sprint done"><i>16</i>Database persistence ✓</span>
             <span class="sprint"><i>17</i>Difficulty adjustment</span>
             <span class="sprint"><i>18</i>Block size &amp; limits</span>
             <span class="sprint"><i>19</i>Fee market</span>
           </div>
         </article>
       </div>
-      <div class="bar" role="img" aria-label="15 of 19 planned sprints shipped"><span style="width: 79%"></span></div>
-      <p class="caption">15 of 19 planned sprints shipped.</p>
+      <div class="bar" role="img" aria-label="16 of 19 planned sprints shipped"><span style="width: 84%"></span></div>
+      <p class="caption">16 of 19 planned sprints shipped.</p>
     </div>
   </section>
 
@@ -670,7 +673,7 @@
       <div class="run">
         <div class="card">
           <h3>Start a node with the dashboard</h3>
-          <p>Then open <code>http://localhost:7070/</code>.</p>
+          <p>Then open <code>http://localhost:7070/</code>. The chain is saved under <code>data/</code> and survives restarts.</p>
 <div class="term"><span class="p">$ </span>git clone https://github.com/bartoszclapinski/BlockSmith
 <span class="p">$ </span>cd BlockSmith
 <span class="p">$ </span>mvn exec:java</div>
@@ -678,7 +681,7 @@
         <div class="card">
           <h3>Run the tests and the console demo</h3>
           <p>The demo mines blocks, compares difficulties, moves coins and shows tamper detection in the terminal. Custom ports: <code style="white-space: nowrap">-Dexec.args="&lt;p2p&gt; &lt;api&gt;"</code>.</p>
-<div class="term"><span class="p">$ </span>mvn test   <span class="c"># 233 tests</span>
+<div class="term"><span class="p">$ </span>mvn test   <span class="c"># 277 tests</span>
 <span class="p">$ </span>mvn exec:java \
     -Dexec.mainClass=com.blocksmith.BlockSmithDemo</div>
         </div>

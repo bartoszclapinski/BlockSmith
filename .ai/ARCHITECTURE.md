@@ -336,7 +336,12 @@ mvn exec:java -Dexec.mainClass=com.blocksmith.BlockSmithDemo
 ```bash
 mvn exec:java                              # P2P on NetworkConfig.DEFAULT_PORT, API + dashboard on :7070
 mvn exec:java -Dexec.args="18555 18580"    # custom [p2pPort] [apiPort]
+mvn exec:java -Dexec.args="8335 7070 --restore backup.zip"   # install a backup first (Sprint 16d)
 ```
+
+Since Sprint 16 it opens an `H2ChainStore` under `data/node-<p2pPort>/` (override with
+`-Dblocksmith.dataDir`), restores the chain by replay, enables backups in `<dataDir>/backups/`,
+and closes the store on shutdown.
 
 ---
 
@@ -360,7 +365,25 @@ to everyone except the sender); blocks with an unknown parent wait in a bounded 
 
 ---
 
-## 📦 Package: `com.blocksmith.api` (Sprint 12-15)
+## 📦 Package: `com.blocksmith.storage` (Sprint 16)
+
+| Class | Role |
+|-------|------|
+| `ChainStore` | Interface: `saveBlock`, `loadBlocks`, `savePending`, `removePending`, `loadPending`; optional indexed lookups (`isIndexed`, block by hash, tx by id, txs by address) and `backup` |
+| `NoOpChainStore` | Default for `new Blockchain()`: remembers nothing |
+| `H2ChainStore` | Embedded H2 via JDBC. Tables `blocks(idx, hash, previous_hash, json)`, `pending_tx(seq, tx_id, json)`, `tx_index(tx_id, block_idx, pos, sender, recipient, amount)` with indexes on sender / recipient / block_idx. A block and its index rows are written in one DB transaction. `backup(zip)` = `BACKUP TO`; static `restoreBackup(zip, dir)` |
+| `StorageException` | Unchecked wrapper for storage failures |
+
+**Rules**:
+- Blocks are stored in the same Gson JSON peers exchange (`JsonUtil.GSON`, which handles `PublicKey`)
+- `Blockchain.appendBlock()` is the single append path; it saves the block before touching the mempool
+- On startup `Blockchain.restoreFromStore()` replays every stored block through `addBlock(Block)`
+  and stops at the first invalid one: **the database is data, validation is the authority**
+- Index answers are hints: `Blockchain` resolves them against the in-memory chain, so stale rows are ignored
+
+---
+
+## 📦 Package: `com.blocksmith.api` (Sprint 12-16)
 
 `ApiServer` — Javalin REST API on its own port; serves the dashboard from
 `src/main/resources/public` at `/`. Errors use one JSON envelope (`{"error": ...}`, 400/404/500).
@@ -368,13 +391,14 @@ Writes (tx, mined block) are broadcast to peers.
 
 | Method | Path | Purpose |
 |--------|------|---------|
-| GET | `/api/blocks`, `/api/blocks/latest`, `/api/blocks/{index}` | Read the chain |
+| GET | `/api/blocks`, `/api/blocks/latest`, `/api/blocks/{index}`, `/api/blocks/hash/{hash}` | Read the chain (by hash: Sprint 16c) |
 | GET | `/api/network/status`, `/api/network/peers` | Node stats (incl. `difficulty`), peer list |
-| POST / GET | `/api/transactions`, `/api/transactions/{id}` | Submit (unsigned, educational) / look up a tx |
+| POST / GET | `/api/transactions`, `/api/transactions/{id}` | Submit (unsigned, educational) / look up a tx (+ `status`, `blockIndex`, `confirmations`) |
 | POST | `/api/mine` | Mine pending txs (or an empty block) for `minerAddress` |
-| GET / POST | `/api/wallet/{address}`, `/api/wallet/create` | Balance + pending outgoing / new wallet |
+| GET / POST | `/api/wallet/{address}`, `/api/wallet/{address}/transactions`, `/api/wallet/create` | Balance + pending outgoing / history (Sprint 16c) / new wallet |
 | GET / POST | `/api/contracts`, `/api/contracts/{id}`, `/api/contracts/{id}/claim` | Deploy, inspect, claim contracts |
 | POST | `/api/multisig/create`, `/api/multisig/claim` | M-of-N multisig with server-held member keys |
+| POST | `/api/admin/backup` | Online database backup; localhost only, 503 if disabled (Sprint 16d) |
 
 ---
 
@@ -537,4 +561,4 @@ void methodName_scenario_expectedResult() { ... }
 
 ---
 
-*Last updated: 2026-11-10 (added network / api / contract / dashboard sections)*
+*Last updated: 2026-11-11 (added storage package, Sprint 16 endpoints)*

@@ -38,10 +38,10 @@
 | **Build Tool** | Maven 3.9.x |
 | **Test Framework** | JUnit 5 |
 | **Serialization** | Gson 2.10.1 |
-| **Current Phase** | Phase 3: API & Interface — ✅ Complete |
-| **Current Sprint** | Sprint 15 (Multi-signature Wallets) — Complete |
-| **Current Milestone** | 15c Complete + dashboard redesign (PR #157, #158); next: Phase 4 (Sprint 16 — Persistence) |
-| **Total Tests** | 233 (all passing) |
+| **Current Phase** | Phase 4: Production Features — in progress (25%) |
+| **Current Sprint** | Sprint 16 (Database Persistence) — Complete |
+| **Current Milestone** | 16d Complete; next: Sprint 17 (Difficulty Adjustment) |
+| **Total Tests** | 277 (all passing) |
 | **Main Branch** | `master` |
 
 ---
@@ -85,6 +85,7 @@ BlockSmith/
 │   ├── util/                         # Utility classes
 │   │   ├── HashUtil.java             # ✅ Complete
 │   │   ├── BlockchainConfig.java     # ✅ Complete
+│   │   ├── JsonUtil.java             # ✅ Shared Gson + PublicKey adapter (Sprint 16)
 │   │   └── BlockExplorer.java        # ⬜ Stub only (explorer role covered by the web dashboard)
 │   └── network/                      # Network layer (Sprint 8-11)
 │       ├── MessageType.java          # ✅ Complete
@@ -114,6 +115,11 @@ BlockSmith/
 │
 │   ├── api/                          # REST API (Sprint 12)
 │   │   └── ApiServer.java            # ✅ Complete (Javalin: blocks, tx, mine, wallet, network, contracts, multisig + static hosting)
+│   ├── storage/                      # Persistence (Sprint 16)
+│   │   ├── ChainStore.java           # ✅ Store interface: blocks, mempool, lookups, backup
+│   │   ├── NoOpChainStore.java       # ✅ Default (in-memory only)
+│   │   ├── H2ChainStore.java         # ✅ Embedded H2: blocks, pending_tx, tx_index; backup/restore
+│   │   └── StorageException.java     # ✅ Unchecked storage failure
 │   ├── contract/                     # Smart contracts (Sprint 14) + multisig (Sprint 15)
 │   │   ├── ScriptOp.java             # ✅ Opcode set (+ CHECKSIG/CHECKMULTISIG)
 │   │   ├── ScriptVM.java             # ✅ Stack-based interpreter (hashlock/timelock + sighash/signatures)
@@ -123,7 +129,7 @@ BlockSmith/
 │   └── BlockSmithNode.java           # ✅ Complete (runnable node: P2P + API + dashboard, Sprint 13a)
 │
 ├── src/main/resources/public/        # Web dashboard (Sprint 13-15, redesigned PR #157/#158): index.html, app.js, style.css
-├── src/test/java/com/blocksmith/     # 233 unit tests
+├── src/test/java/com/blocksmith/     # 277 unit tests
 ├── pom.xml                           # Maven configuration (Gson, JUnit, Javalin)
 └── README.md                         # Public documentation
 ```
@@ -163,12 +169,16 @@ BlockSmith/
 
 **Dashboard redesign (PR #157, #158)** — not a sprint; done after Sprint 15 from the design handoff in `.ai/design/UIUX redesign project/`. Single-screen "command deck" (top bar, chain-of-blocks hero, activity feed / actions / balance + contracts grid), "Clay" light/dark themes via CSS variables, command palette (Ctrl/⌘+K), side drawers for send / create wallet / deploy (hashlock, multisig 2-of-3) / claim, toasts, an activity feed derived client-side by diffing the 4s polls, and a 5-step onboarding tour (opt-out stored in `localStorage` as `bs_tour_optout`; `?` restarts it). Still vanilla JS, no build step. `GET /api/network/status` now also returns `difficulty`.
 
+### Phase 4: Production Features — in progress (Sprint 16-19)
+
+**Sprint 16: Database Persistence** — `com.blocksmith.storage`: `ChainStore` + embedded H2 (`H2ChainStore`). Every appended block (one `Blockchain.appendBlock()` path) and every pending tx is saved; on startup `restoreFromStore()` replays stored blocks through the normal `addBlock(Block)` validation (the DB is never trusted). `tx_index` gives block-by-hash, tx-by-id and address history (`GET /api/blocks/hash/{hash}`, `GET /api/wallet/{address}/transactions`); index answers are verified against the chain. Online backup via `POST /api/admin/backup` (localhost only), restore with `BlockSmithNode ... --restore <zip>`. Data lives in `data/node-<p2pPort>/`. Along the way: `JsonUtil.GSON` (signed txs serialize; #259) and block validation now recomputes tx ids and the Merkle root (#260). Open: #264 (contract scripts not in the tx id).
+
 ---
 
 ## What's NOT Implemented Yet
 
-### Phase 4: Production Features (Sprints 16-19) ← NEXT
-- Database persistence, dynamic difficulty, block limits, fee market
+### Phase 4: Production Features (Sprints 17-19) ← NEXT
+- Dynamic difficulty (17), block size limits (18), fee market (19)
 
 ### Deferred / known follow-ups
 - Mempool request is sent on outbound connect only; inbound side does not yet pull the peer's mempool
@@ -237,7 +247,7 @@ mvn exec:java -Dexec.mainClass=com.blocksmith.BlockSmithDemo
 | MiningTest | 9 | PoW mechanics, difficulty scaling |
 | TransactionTest | 22 | Tx creation, validation, signatures |
 | WalletTest | 13 | Key generation, addresses, signing |
-| MessageTest | 6 | Message serialization (Sprint 8a) |
+| MessageTest | 8 | Message serialization incl. signed transactions (Sprint 8a, #259) |
 | NodeTest | 8 | Node start/stop, connections (Sprint 8b) |
 | PeerTest | 7 | Peer connections, handshake (Sprint 8c) |
 | CommunicationTest | 6 | Bidirectional message exchange (Sprint 8d) |
@@ -253,7 +263,7 @@ mvn exec:java -Dexec.mainClass=com.blocksmith.BlockSmithDemo
 | TransactionBroadcastTest | 4 | NEW_TRANSACTION serialization and handler (Sprint 11a) |
 | MempoolPruneTest | 2 | Confirmed-tx pruning on block append (Sprint 11b) |
 | MempoolSyncTest | 4 | GET_MEMPOOL/MEMPOOL sync handlers (Sprint 11c) |
-| ApiReadEndpointsTest | 5 | REST block/status read endpoints (Sprint 12a) |
+| ApiReadEndpointsTest | 6 | REST block/status read endpoints (Sprint 12a) + signed tx in blocks (#259) |
 | ApiTransactionEndpointsTest | 5 | REST transaction submit/lookup + mining (Sprint 12b) |
 | ApiWalletNetworkEndpointsTest | 4 | REST wallet/network endpoints + JSON errors (Sprint 12c) |
 | ApiStaticHostingTest | 3 | Dashboard shell + static assets alongside the API (Sprint 13a) |
@@ -264,7 +274,14 @@ mvn exec:java -Dexec.mainClass=com.blocksmith.BlockSmithDemo
 | ApiContractsTest | 3 | Contract lifecycle over HTTP + error envelopes (Sprint 14c) |
 | MultiSigContractTest | 5 | M-of-N deploy/claim, threshold, wrong-key, replay safety, convergence (Sprint 15b) |
 | ApiMultiSigTest | 2 | Multisig lifecycle over HTTP + error envelopes (Sprint 15c) |
-| **Total** | **233** | All passing ✅ |
+| H2ChainStoreTest | 8 | Store round-trip, order, idempotency, signed tx, reopen (Sprint 16a) |
+| PersistRestoreTest | 6 | Restart round-trip, mempool, tamper rejected, orphans, no double-mine (Sprint 16b) |
+| BlockIntegrityTest | 3 | Edited tx keeps hash but fails Merkle check; forged peer block rejected (#260) |
+| IndexedQueryTest | 9 | Block by hash, tx by id, address history, index/scan parity, stale rows (Sprint 16c) |
+| ApiIndexedQueryTest | 4 | History / block-by-hash / tx location over HTTP (Sprint 16c) |
+| BackupRestoreTest | 8 | Backup round-trip, snapshot, old DB kept, bad/damaged/traversal zips (Sprint 16d) |
+| ApiBackupTest | 3 | `POST /api/admin/backup` path, uniqueness, 503 (Sprint 16d) |
+| **Total** | **277** | All passing ✅ |
 
 ---
 
@@ -275,7 +292,7 @@ mvn exec:java -Dexec.mainClass=com.blocksmith.BlockSmithDemo
 - **Doc branches**: `docs/{description}` (e.g., `docs/sprint11-complete`)
 - **Commits**: One per issue, format: `feat(scope): description #NN` — never add `Co-Authored-By`
 - **PRs**: created with `gh`, include `Closes #NN` lines, ff-only merge to sync local master
-- **Latest**: Dashboard redesign (PR #157, #158) after Sprint 15 (Multi-signature Wallets, PR #155); Phase 3 ✅ complete
+- **Latest**: Sprint 16 complete (Database Persistence, PR #258, #261, #262, #263); Phase 4 in progress
 
 ---
 
@@ -287,9 +304,9 @@ mvn exec:java -Dexec.mainClass=com.blocksmith.BlockSmithDemo
 | `CONVENTIONS.md` | Need full code style rules, THEORY comment format, test conventions |
 | `STATUS.md` | Need exact current status, implementation table, feature checklist |
 | `roadmap.md` | Need full project phases and timeline |
-| `sprints/sprint15/sprint-plan.md` | Most recent sprint's milestones, issues, acceptance criteria |
-| `sprints/sprint15/sprint-log.md` | What was completed in the latest sprint |
+| `sprints/sprint16/sprint-plan.md` | Most recent sprint's milestones, issues, acceptance criteria |
+| `sprints/sprint16/sprint-log.md` | What was completed in the latest sprint |
 
 ---
 
-*Last updated: 2026-11-10 | Sprint 15 Complete + Dashboard redesign (PR #157, #158) — Phase 3 ✅ Complete*
+*Last updated: 2026-11-11 | Sprint 16 Complete (Database Persistence) — Phase 4 in progress*
