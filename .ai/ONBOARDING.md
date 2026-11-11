@@ -38,10 +38,10 @@
 | **Build Tool** | Maven 3.9.x |
 | **Test Framework** | JUnit 5 |
 | **Serialization** | Gson 2.10.1 |
-| **Current Phase** | Phase 4: Production Features — in progress (25%) |
-| **Current Sprint** | Sprint 16 (Database Persistence) — Complete |
-| **Current Milestone** | 16d Complete; next: Sprint 17 (Difficulty Adjustment) |
-| **Total Tests** | 281 (all passing) |
+| **Current Phase** | Phase 4: Production Features — in progress (50%) |
+| **Current Sprint** | Sprint 17 (Difficulty Adjustment) — Complete |
+| **Current Milestone** | 17d Complete; next: Sprint 18 (Block Size & Limits) |
+| **Total Tests** | 310 (all passing) |
 | **Main Branch** | `master` |
 
 ---
@@ -81,11 +81,13 @@ BlockSmith/
 │   │   ├── Block.java                # ✅ Complete (deterministic genesis)
 │   │   ├── Blockchain.java           # ✅ Complete (external append, orphans, mempool prune)
 │   │   ├── Transaction.java          # ✅ Complete (with signatures)
-│   │   └── Wallet.java               # ✅ Complete (Sprint 5)
+│   │   ├── Wallet.java               # ✅ Complete (Sprint 5)
+│   │   └── ChainParams.java          # ✅ Consensus params: block time, retarget window, clamp, powLimit, future drift (Sprint 17)
 │   ├── util/                         # Utility classes
 │   │   ├── HashUtil.java             # ✅ Complete
 │   │   ├── BlockchainConfig.java     # ✅ Complete
 │   │   ├── JsonUtil.java             # ✅ Shared Gson + PublicKey adapter (Sprint 16)
+│   │   ├── Target.java               # ✅ 256-bit PoW target + difficulty display (Sprint 17)
 │   │   └── BlockExplorer.java        # ⬜ Stub only (explorer role covered by the web dashboard)
 │   └── network/                      # Network layer (Sprint 8-11)
 │       ├── MessageType.java          # ✅ Complete
@@ -129,7 +131,7 @@ BlockSmith/
 │   └── BlockSmithNode.java           # ✅ Complete (runnable node: P2P + API + dashboard, Sprint 13a)
 │
 ├── src/main/resources/public/        # Web dashboard (Sprint 13-15, redesigned PR #157/#158): index.html, app.js, style.css
-├── src/test/java/com/blocksmith/     # 281 unit tests
+├── src/test/java/com/blocksmith/     # 310 unit tests
 ├── pom.xml                           # Maven configuration (Gson, JUnit, Javalin)
 └── README.md                         # Public documentation
 ```
@@ -173,12 +175,14 @@ BlockSmith/
 
 **Sprint 16: Database Persistence** — `com.blocksmith.storage`: `ChainStore` + embedded H2 (`H2ChainStore`). Every appended block (one `Blockchain.appendBlock()` path) and every pending tx is saved; on startup `restoreFromStore()` replays stored blocks through the normal `addBlock(Block)` validation (the DB is never trusted). `tx_index` gives block-by-hash, tx-by-id and address history (`GET /api/blocks/hash/{hash}`, `GET /api/wallet/{address}/transactions`); index answers are verified against the chain. Online backup via `POST /api/admin/backup` (localhost only), restore with `BlockSmithNode ... --restore <zip>`. Data lives in `data/node-<p2pPort>/`. Along the way: `JsonUtil.GSON` (signed txs serialize; #259) and block validation now recomputes tx ids and the Merkle root (#260). Follow-up #264: contract scripts are now part of the tx id, so they are covered too.
 
+**Sprint 17: Difficulty Adjustment** — the PoW rule is a 256-bit numeric target (`Target`; "N zeros" = `16^(64-N) - 1`). `ChainParams` (DEFAULT: 10 s blocks, retarget every 10, max 4x, powLimit 3 zeros, 15 s future drift). `Blockchain.getNextTarget()` = `old * actual / expected` at window boundaries; targets are derived from timestamps (never stored), so peers and restore replay agree, and every append path validates against the expected target. Timestamp rules: after the median of the last 11 blocks, at most 15 s ahead of the node's `Clock`. API: live `difficulty`, `blocksUntilRetarget`, `GET /api/network/difficulty`; dashboard shows the countdown.
+
 ---
 
 ## What's NOT Implemented Yet
 
-### Phase 4: Production Features (Sprints 17-19) ← NEXT
-- Dynamic difficulty (17), block size limits (18), fee market (19)
+### Phase 4: Production Features (Sprints 18-19) ← NEXT
+- Block size limits (18), fee market (19)
 
 ### Deferred / known follow-ups
 - Mempool request is sent on outbound connect only; inbound side does not yet pull the peer's mempool
@@ -281,7 +285,12 @@ mvn exec:java -Dexec.mainClass=com.blocksmith.BlockSmithDemo
 | ApiIndexedQueryTest | 4 | History / block-by-hash / tx location over HTTP (Sprint 16c) |
 | BackupRestoreTest | 8 | Backup round-trip, snapshot, old DB kept, bad/damaged/traversal zips (Sprint 16d) |
 | ApiBackupTest | 3 | `POST /api/admin/backup` path, uniqueness, 503 (Sprint 16d) |
-| **Total** | **281** | All passing ✅ |
+| TargetTest | 7 | Numeric target = leading-zero rule, boundaries, display, hex (Sprint 17a) |
+| RetargetTest | 10 | Fast/slow windows, clamp, powLimit, weak peer blocks/orphans rejected, replay parity (Sprint 17b) |
+| TimestampRulesTest | 6 | Median rule, future limit, bounded time-warp, mining when peers are ahead (Sprint 17c) |
+| DifficultyReportTest | 3 | Epochs, retarget countdown, average block time (Sprint 17d) |
+| ApiDifficultyTest | 3 | Status difficulty fields, `/api/network/difficulty` shape (Sprint 17d) |
+| **Total** | **310** | All passing ✅ |
 
 ---
 
@@ -292,7 +301,7 @@ mvn exec:java -Dexec.mainClass=com.blocksmith.BlockSmithDemo
 - **Doc branches**: `docs/{description}` (e.g., `docs/sprint11-complete`)
 - **Commits**: One per issue, format: `feat(scope): description #NN` — never add `Co-Authored-By`
 - **PRs**: created with `gh`, include `Closes #NN` lines; merged with a **regular merge commit** (`gh pr merge N --merge`, not squash) so the one-commit-per-issue history stays on master (decided 2026-11-11; #130-#278 were squash-merged); then ff-only pull to sync local master
-- **Latest**: Sprint 16 complete (Database Persistence, PR #258, #261, #262, #263); Phase 4 in progress
+- **Latest**: Sprint 17 complete (Difficulty Adjustment, PR #276, #277, #278, #279); Phase 4 at 50%
 
 ---
 
@@ -304,9 +313,9 @@ mvn exec:java -Dexec.mainClass=com.blocksmith.BlockSmithDemo
 | `CONVENTIONS.md` | Need full code style rules, THEORY comment format, test conventions |
 | `STATUS.md` | Need exact current status, implementation table, feature checklist |
 | `roadmap.md` | Need full project phases and timeline |
-| `sprints/sprint16/sprint-plan.md` | Most recent sprint's milestones, issues, acceptance criteria |
-| `sprints/sprint16/sprint-log.md` | What was completed in the latest sprint |
+| `sprints/sprint17/sprint-plan.md` | Most recent sprint's milestones, issues, acceptance criteria |
+| `sprints/sprint17/sprint-log.md` | What was completed in the latest sprint |
 
 ---
 
-*Last updated: 2026-11-11 | Sprint 16 Complete (Database Persistence) — Phase 4 in progress*
+*Last updated: 2026-11-11 | Sprint 17 Complete (Difficulty Adjustment) — Phase 4 at 50%*

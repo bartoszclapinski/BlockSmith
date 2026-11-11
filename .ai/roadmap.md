@@ -34,9 +34,9 @@ Transform BlockSmith from an educational blockchain into a **fully functional di
 │  ├── Basic Smart Contracts                       ✅ Sprint 14       │
 │  └── Multi-signature Wallets                     ✅ Sprint 15       │
 │                                                                     │
-│  PHASE 4: Production Features (Sprint 16-19)   ███░░░░░░░░░ 25% ←NOW│
+│  PHASE 4: Production Features (Sprint 16-19)   ██████░░░░░░ 50% ←NOW│
 │  ├── Database Persistence                        ✅ Sprint 16       │
-│  ├── Difficulty Adjustment                       ⬜ Sprint 17       │
+│  ├── Difficulty Adjustment                       ✅ Sprint 17       │
 │  ├── Block Size & Limits                         ⬜ Sprint 18       │
 │  └── Fee Market                                  ⬜ Sprint 19       │
 │                                                                     │
@@ -143,7 +143,7 @@ POST /api/multisig/claim       # Assemble + submit a multisig claim
 | Sprint | Title | Key Deliverables |
 |--------|-------|------------------|
 | 16 | Database | H2 persistence, indexed queries, backup/restore ✅ Complete |
-| 17 | Difficulty Adjustment | Dynamic difficulty, target block time, adjustment algorithm |
+| 17 | Difficulty Adjustment | Numeric target, retarget every 10 blocks, timestamp rules ✅ Complete |
 | 18 | Block Limits | Max block size, transaction limits, fee priority |
 | 19 | Fee Market | Fee estimation, replace-by-fee, mempool eviction |
 
