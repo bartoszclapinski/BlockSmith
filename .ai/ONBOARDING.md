@@ -41,7 +41,7 @@
 | **Current Phase** | Phase 4: Production Features — in progress (25%) |
 | **Current Sprint** | Sprint 16 (Database Persistence) — Complete |
 | **Current Milestone** | 16d Complete; next: Sprint 17 (Difficulty Adjustment) |
-| **Total Tests** | 277 (all passing) |
+| **Total Tests** | 281 (all passing) |
 | **Main Branch** | `master` |
 
 ---
@@ -129,7 +129,7 @@ BlockSmith/
 │   └── BlockSmithNode.java           # ✅ Complete (runnable node: P2P + API + dashboard, Sprint 13a)
 │
 ├── src/main/resources/public/        # Web dashboard (Sprint 13-15, redesigned PR #157/#158): index.html, app.js, style.css
-├── src/test/java/com/blocksmith/     # 277 unit tests
+├── src/test/java/com/blocksmith/     # 281 unit tests
 ├── pom.xml                           # Maven configuration (Gson, JUnit, Javalin)
 └── README.md                         # Public documentation
 ```
@@ -171,7 +171,7 @@ BlockSmith/
 
 ### Phase 4: Production Features — in progress (Sprint 16-19)
 
-**Sprint 16: Database Persistence** — `com.blocksmith.storage`: `ChainStore` + embedded H2 (`H2ChainStore`). Every appended block (one `Blockchain.appendBlock()` path) and every pending tx is saved; on startup `restoreFromStore()` replays stored blocks through the normal `addBlock(Block)` validation (the DB is never trusted). `tx_index` gives block-by-hash, tx-by-id and address history (`GET /api/blocks/hash/{hash}`, `GET /api/wallet/{address}/transactions`); index answers are verified against the chain. Online backup via `POST /api/admin/backup` (localhost only), restore with `BlockSmithNode ... --restore <zip>`. Data lives in `data/node-<p2pPort>/`. Along the way: `JsonUtil.GSON` (signed txs serialize; #259) and block validation now recomputes tx ids and the Merkle root (#260). Open: #264 (contract scripts not in the tx id).
+**Sprint 16: Database Persistence** — `com.blocksmith.storage`: `ChainStore` + embedded H2 (`H2ChainStore`). Every appended block (one `Blockchain.appendBlock()` path) and every pending tx is saved; on startup `restoreFromStore()` replays stored blocks through the normal `addBlock(Block)` validation (the DB is never trusted). `tx_index` gives block-by-hash, tx-by-id and address history (`GET /api/blocks/hash/{hash}`, `GET /api/wallet/{address}/transactions`); index answers are verified against the chain. Online backup via `POST /api/admin/backup` (localhost only), restore with `BlockSmithNode ... --restore <zip>`. Data lives in `data/node-<p2pPort>/`. Along the way: `JsonUtil.GSON` (signed txs serialize; #259) and block validation now recomputes tx ids and the Merkle root (#260). Follow-up #264: contract scripts are now part of the tx id, so they are covered too.
 
 ---
 
@@ -276,12 +276,12 @@ mvn exec:java -Dexec.mainClass=com.blocksmith.BlockSmithDemo
 | ApiMultiSigTest | 2 | Multisig lifecycle over HTTP + error envelopes (Sprint 15c) |
 | H2ChainStoreTest | 8 | Store round-trip, order, idempotency, signed tx, reopen (Sprint 16a) |
 | PersistRestoreTest | 6 | Restart round-trip, mempool, tamper rejected, orphans, no double-mine (Sprint 16b) |
-| BlockIntegrityTest | 3 | Edited tx keeps hash but fails Merkle check; forged peer block rejected (#260) |
+| BlockIntegrityTest | 7 | Edited tx (amount or contract script) keeps the hash but fails the Merkle check (#260, #264) |
 | IndexedQueryTest | 9 | Block by hash, tx by id, address history, index/scan parity, stale rows (Sprint 16c) |
 | ApiIndexedQueryTest | 4 | History / block-by-hash / tx location over HTTP (Sprint 16c) |
 | BackupRestoreTest | 8 | Backup round-trip, snapshot, old DB kept, bad/damaged/traversal zips (Sprint 16d) |
 | ApiBackupTest | 3 | `POST /api/admin/backup` path, uniqueness, 503 (Sprint 16d) |
-| **Total** | **277** | All passing ✅ |
+| **Total** | **281** | All passing ✅ |
 
 ---
 

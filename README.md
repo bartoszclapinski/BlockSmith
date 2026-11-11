@@ -8,7 +8,7 @@ BlockSmith is a comprehensive blockchain project that goes beyond tutorials - im
 
 [![Java](https://img.shields.io/badge/Java-20+-orange.svg)](https://openjdk.org/)
 [![Maven](https://img.shields.io/badge/Maven-3.9+-blue.svg)](https://maven.apache.org/)
-[![Tests](https://img.shields.io/badge/Tests-277%20passing-brightgreen.svg)](#)
+[![Tests](https://img.shields.io/badge/Tests-281%20passing-brightgreen.svg)](#)
 [![Phase](https://img.shields.io/badge/Phase%204-In%20progress-yellow.svg)](#)
 [![Version](https://img.shields.io/badge/Version-1.0.0-blue.svg)](#)
 
@@ -214,7 +214,7 @@ Average attempts: ~16^difficulty (~65,536 for difficulty 4)
 mvn clean compile
 ```
 
-### Run all tests (277 tests)
+### Run all tests (281 tests)
 ```bash
 mvn test
 ```
@@ -291,7 +291,7 @@ BlockSmith/
 │   ├── BlockSmithNode.java     # Runnable node (P2P + API + dashboard)
 │   └── BlockSmithDemo.java     # Teaching demo application
 ├── src/main/resources/public/  # Web dashboard (index.html, app.js, style.css)
-├── src/test/java/              # 277 unit tests
+├── src/test/java/              # 281 unit tests
 ├── data/                       # Node databases (H2), one folder per node: data/node-<port>/
 ├── pom.xml                     # Maven configuration
 └── README.md
@@ -338,12 +338,12 @@ BlockSmith/
 | ApiMultiSigTest | 2 | Multisig lifecycle over HTTP + error envelopes |
 | H2ChainStoreTest | 8 | H2 store round-trip, ordering, idempotency, reopen |
 | PersistRestoreTest | 6 | Restart restores chain + mempool; tampered blocks rejected |
-| BlockIntegrityTest | 3 | Edited transactions fail the Merkle check |
+| BlockIntegrityTest | 7 | Edited transactions (amounts, contract scripts) fail the Merkle check |
 | IndexedQueryTest | 9 | Block by hash, tx by id, address history, index vs scan |
 | ApiIndexedQueryTest | 4 | History and block-by-hash over HTTP |
 | BackupRestoreTest | 8 | Backup round-trip and bad-backup handling |
 | ApiBackupTest | 3 | Backup endpoint over HTTP |
-| **Total** | **277** | All passing ✅ |
+| **Total** | **281** | All passing ✅ |
 
 ---
 
