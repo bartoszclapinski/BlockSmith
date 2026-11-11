@@ -2,6 +2,7 @@ package com.blocksmith.core;
 
 import com.blocksmith.util.HashUtil;
 import com.blocksmith.util.BlockchainConfig;
+import com.blocksmith.util.Target;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -214,13 +215,26 @@ public class Block {
      * @return Mining time in milliseconds
      */
     public long mineBlock(int difficulty) {
-        // Create target string: "0000" for difficulty 4
-        String target = "0".repeat(difficulty);
+        // "N leading zeros" is exactly the target 16^(64-N) - 1 (see Target).
+        return mineBlock(Target.fromLeadingZeros(difficulty));
+    }
+
+    /**
+     * Mines this block until its hash, read as a number, is at most
+     * {@code target} (Sprint 17a). A smaller target is harder to meet.
+     *
+     * @param target the largest acceptable hash value
+     * @return Mining time in milliseconds
+     */
+    public long mineBlock(java.math.BigInteger target) {
+        // Compare as 64-digit hex text: same order as the numbers, but no
+        // BigInteger has to be built for every attempt.
+        String targetHex = Target.toHex(target);
 
         long startTime = System.currentTimeMillis();
 
         // Keep incrementing nonce until we find a valid hash
-        while (!hash.startsWith(target)) {
+        while (!Target.meetsHex(hash, targetHex)) {
             nonce++;
             hash = calculateHash();
         }

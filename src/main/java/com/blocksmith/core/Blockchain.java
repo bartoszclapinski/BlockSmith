@@ -7,7 +7,9 @@ import com.blocksmith.storage.ChainStore;
 import com.blocksmith.storage.NoOpChainStore;
 import com.blocksmith.util.BlockchainConfig;
 import com.blocksmith.util.HashUtil;
+import com.blocksmith.util.Target;
 
+import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
@@ -53,6 +55,13 @@ public class Blockchain {
      * stays purely in memory.
      */
     private final ChainStore store;
+
+    /**
+     * The Proof-of-Work target every block must meet (Sprint 17a). Equal to
+     * the old "MINING_DIFFICULTY leading zeros" rule; Sprint 17b replaces this
+     * constant with a target derived from the chain's own timestamps.
+     */
+    private static final BigInteger TARGET = Target.fromLeadingZeros(BlockchainConfig.MINING_DIFFICULTY);
 
     /**
      * THEORY: CONTRACT REGISTRY (Sprint 14)
@@ -126,7 +135,7 @@ public class Blockchain {
 
         // Create and mine the Genesis block (deterministic: fixed timestamp)
         Block genesis = Block.createGenesisBlock();
-        genesis.mineBlock(BlockchainConfig.MINING_DIFFICULTY);
+        genesis.mineBlock(TARGET);
         chain.add(genesis);
         store.saveBlock(genesis);
     }
@@ -257,7 +266,7 @@ public class Blockchain {
         int newIndex = latestBlock.getIndex() + 1;
 
         Block newBlock = new Block(newIndex, data, latestBlock.getHash());
-        newBlock.mineBlock(BlockchainConfig.MINING_DIFFICULTY);
+        newBlock.mineBlock(TARGET);
 
         appendBlock(newBlock);
 
@@ -322,8 +331,7 @@ public class Blockchain {
         // otherwise an edited block could keep a valid-looking hash (#260).
         if (!block.hasValidMerkleRoot()) return false;
         if (!block.getHash().equals(block.calculateHash())) return false;
-        String target = "0".repeat(BlockchainConfig.MINING_DIFFICULTY);
-        return block.getHash().startsWith(target);
+        return Target.meets(block.getHash(), TARGET);
     }
 
     /**
@@ -513,7 +521,7 @@ public class Blockchain {
         Block newBlock = new Block (newIndex, blockTransactions, latestBlock.getHash());
 
         System.out.println("\n⛏️  Mining block #" + newIndex + " with " + blockTransactions.size() + " transactions...");
-        newBlock.mineBlock(BlockchainConfig.MINING_DIFFICULTY);
+        newBlock.mineBlock(TARGET);
 
         // Add block to chain. appendBlock also removes the block's
         // transactions from the pending pool (they're now confirmed).
@@ -874,12 +882,9 @@ public class Blockchain {
         if (genesis.getIndex() != 0) return false;
         if (!genesis.getPreviousHash().equals(BlockchainConfig.GENESIS_PREV_HASH)) return false;
 
-        // Build target string for difficulty check
-        String target = "0".repeat(BlockchainConfig.MINING_DIFFICULTY);
-
         // Check Genesis block hash validity
         if (!genesis.getHash().equals(genesis.calculateHash())) return false;
-        if (!genesis.getHash().startsWith(target)) return false;
+        if (!Target.meets(genesis.getHash(), TARGET)) return false;
 
         // Check rest of chain (from block 1 onwards)
         for (int i = 1; i < chain.size(); i++) {
@@ -895,7 +900,7 @@ public class Blockchain {
             if (!currentBlock.getPreviousHash().equals(previousBlock.getHash())) return false;
 
             // Verify block was mined (hash meets difficulty)
-            if (!currentBlock.getHash().startsWith(target)) return false;
+            if (!Target.meets(currentBlock.getHash(), TARGET)) return false;
         }
 
         return true;
