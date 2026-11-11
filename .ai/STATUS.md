@@ -100,12 +100,12 @@ Phase 4: Production Features  [████░░░░░░░░░░░] 25
 | ApiMultiSigTest | 2 | ✅ |
 | H2ChainStoreTest | 8 | ✅ |
 | PersistRestoreTest | 6 | ✅ |
-| BlockIntegrityTest | 3 | ✅ |
+| BlockIntegrityTest | 7 | ✅ |
 | IndexedQueryTest | 9 | ✅ |
 | ApiIndexedQueryTest | 4 | ✅ |
 | BackupRestoreTest | 8 | ✅ |
 | ApiBackupTest | 3 | ✅ |
-| **Total** | **277** | ✅ |
+| **Total** | **281** | ✅ |
 
 Last test run: `mvn test` - All passing
 
@@ -119,7 +119,7 @@ Last test run: `mvn test` - All passing
 |-------|--------|-------|-------|
 | Block.java | ✅ Complete | ~290 | Transactions + Merkle root + `hasValidMerkleRoot()` recomputes it from the txs (Sprint 16b, #260) |
 | Blockchain.java | ✅ Complete | ~640 | Pending pool + mining + external append + orphan buffer (Sprint 10) + tx dedupe + mempool prune (Sprint 11) + contract registry (deploy/claim, derived from chain) (Sprint 14b) + optional `ChainStore`, single `appendBlock()`, `restoreFromStore()` replay (Sprint 16b) + `getBlockByHash` / `findTransaction` / `getTransactionHistory` (Sprint 16c) + `backupTo` (Sprint 16d) |
-| Transaction.java | ✅ Complete | ~250 | Validation + signing + verification + optional contract locking/unlocking scripts (Sprint 14b) + `hasValidId()` (Sprint 16b, #260) |
+| Transaction.java | ✅ Complete | ~250 | Validation + signing + verification + optional contract locking/unlocking scripts (Sprint 14b) + `hasValidId()` (Sprint 16b, #260); contract scripts are part of the id (#264) |
 | Wallet.java | ✅ Complete | ~169 | ECDSA keys + signing |
 
 ### Utility Classes (`com.blocksmith.util`)
@@ -274,6 +274,7 @@ Design handoff (prototype + README) lives in `.ai/design/UIUX redesign project/`
 - [x] Block validation recomputes tx ids and the Merkle root; edited blocks rejected from peers and disk (Sprint 16b, #260)
 - [x] Indexed lookups: block by hash, tx by id, address history with confirmations (Sprint 16c)
 - [x] Online backup (`POST /api/admin/backup`) + `--restore <zip>` at startup (Sprint 16d)
+- [x] Contract scripts are part of the transaction id, so swapping one inside a block is detected (#264)
 
 ---
 
@@ -290,9 +291,6 @@ Design handoff (prototype + README) lives in `.ai/design/UIUX redesign project/`
 
 ## ⚠️ Known Issues
 
-- **#264** Contract scripts (`lockingScript` / `unlockingScript`) are not part of the
-  transaction id, so the Merkle check from #260 does not cover them: a script
-  could be edited inside an otherwise valid block. Fix: include scripts in the id.
 - Multisig member keys are held in memory by the API (by design, not persisted):
   a multisig created via the dashboard cannot be claimed after a node restart.
 
@@ -337,7 +335,6 @@ Design handoff (prototype + README) lives in `.ai/design/UIUX redesign project/`
    - Multisig signing is a server-side convenience (the node holds the member
      keys and signs claims); a production design signs client-side and submits
      only signatures. Member keys live in memory only (lost on restart)
-   - #264: include contract scripts in the transaction id
    - `nodeId` is random per start (not persisted with the chain)
    - `Blockchain` itself is not synchronized (network + API threads); the store is
    - Dashboard header shows `node-node-<id>` (prefix added twice)
