@@ -14,6 +14,7 @@ import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.OptionalInt;
 import java.util.Set;
 
 /**
@@ -720,6 +721,124 @@ public class Blockchain {
      */
     public int getPendingCount() {
         return pendingTransactions.size();
+    }
+
+    // ===== LOOKUPS (Sprint 16c) =====
+
+    /**
+     * A transaction plus where it sits.
+     *
+     * @param transaction the transaction
+     * @param blockIndex height of the block holding it, or null while pending
+     * @param confirmations blocks on top of it, counting its own (0 = pending)
+     */
+    public record TransactionLookup(Transaction transaction, Integer blockIndex, int confirmations) {
+        public boolean isConfirmed() {
+            return blockIndex != null;
+        }
+    }
+
+    /**
+     * Finds a block by its hash.
+     *
+     * With an indexed store this is one database lookup; otherwise it scans
+     * the chain. Either way the result is checked against the chain itself.
+     *
+     * @return the block, or null if no block on our chain has this hash
+     */
+    public Block getBlockByHash(String hash) {
+        if (store.isIndexed()) {
+            OptionalInt idx = store.findBlockIndexByHash(hash);
+            if (idx.isEmpty() || idx.getAsInt() >= chain.size()) return null;
+            Block block = chain.get(idx.getAsInt());
+            return block.getHash().equals(hash) ? block : null;
+        }
+        for (Block block : chain) {
+            if (block.getHash().equals(hash)) return block;
+        }
+        return null;
+    }
+
+    /**
+     * Finds a transaction by id, pending or confirmed.
+     *
+     * @return the lookup, or null if the id is unknown
+     */
+    public TransactionLookup findTransaction(String transactionId) {
+        for (Transaction tx : pendingTransactions) {
+            if (tx.getTransactionId().equals(transactionId)) {
+                return new TransactionLookup(tx, null, 0);
+            }
+        }
+        if (store.isIndexed()) {
+            OptionalInt idx = store.findTransactionBlockIndex(transactionId);
+            return idx.isEmpty() ? null : lookupInBlock(transactionId, idx.getAsInt());
+        }
+        for (Block block : chain) {
+            TransactionLookup found = lookupInBlock(transactionId, block.getIndex());
+            if (found != null) return found;
+        }
+        return null;
+    }
+
+    /**
+     * Every transaction sent or received by {@code address}: pending ones
+     * first (newest first), then confirmed ones from the newest block back.
+     *
+     * THEORY: Account history in an account-free chain
+     *
+     * The chain stores transactions, not accounts, so "my history" is a
+     * search: every transaction where I am the sender or the recipient.
+     * A scan reads the whole chain; the store's address index jumps straight
+     * to the matching rows (see H2ChainStore). The balance shown by
+     * getBalance() is just the sum over this same set.
+     *
+     * @return the address's transactions, newest first
+     */
+    public List<TransactionLookup> getTransactionHistory(String address) {
+        List<TransactionLookup> history = new ArrayList<>();
+        for (int i = pendingTransactions.size() - 1; i >= 0; i--) {
+            Transaction tx = pendingTransactions.get(i);
+            if (involves(tx, address)) history.add(new TransactionLookup(tx, null, 0));
+        }
+
+        if (store.isIndexed()) {
+            for (ChainStore.TxRef ref : store.findTransactionsByAddress(address)) {
+                TransactionLookup found = lookupInBlock(ref.transactionId(), ref.blockIndex());
+                if (found != null) history.add(found); // stale index rows are skipped
+            }
+            return history;
+        }
+
+        for (int b = chain.size() - 1; b >= 0; b--) {
+            List<Transaction> txs = chain.get(b).getTransactions();
+            for (int t = txs.size() - 1; t >= 0; t--) {
+                if (involves(txs.get(t), address)) {
+                    history.add(new TransactionLookup(txs.get(t), b, confirmationsOf(b)));
+                }
+            }
+        }
+        return history;
+    }
+
+    private static boolean involves(Transaction tx, String address) {
+        return address.equals(tx.getSender()) || address.equals(tx.getRecipient());
+    }
+
+    /** Number of blocks on top of height {@code blockIndex}, counting itself. */
+    private int confirmationsOf(int blockIndex) {
+        return getLatestBlock().getIndex() - blockIndex + 1;
+    }
+
+    /** Resolves a (tx id, height) hint against the chain; null if it is not really there. */
+    private TransactionLookup lookupInBlock(String transactionId, int blockIndex) {
+        if (blockIndex < 0 || blockIndex >= chain.size()) return null;
+        for (Transaction tx : chain.get(blockIndex).getTransactions()) {
+            if (tx.getTransactionId().equals(transactionId)) {
+                return new TransactionLookup(tx, blockIndex, confirmationsOf(blockIndex));
+            }
+        }
+        return null;
     }
 
     /**

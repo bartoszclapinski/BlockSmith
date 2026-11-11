@@ -1,6 +1,7 @@
 package com.blocksmith.storage;
 
 import java.util.List;
+import java.util.OptionalInt;
 
 import com.blocksmith.core.Block;
 import com.blocksmith.core.Transaction;
@@ -49,4 +50,41 @@ public interface ChainStore extends AutoCloseable {
     /** Releases the underlying resources. Does not throw checked exceptions. */
     @Override
     void close();
+
+    // ===== INDEXED LOOKUPS (Sprint 16c) =====
+    //
+    // THEORY: An index is a hint, the chain is the truth
+    //
+    // A store may keep lookup tables (block by hash, transactions by
+    // address) so the node does not have to scan every block. The answers
+    // are block heights only; the caller resolves them against the chain in
+    // memory and checks the result is really there. A stale row (for example
+    // from a stored block that failed validation on restore) is then simply
+    // ignored instead of producing a wrong answer.
+
+    /** Where a transaction sits: its id and the height of its block. */
+    record TxRef(String transactionId, int blockIndex) {}
+
+    /** True if this store answers the lookups below; false means "scan the chain". */
+    default boolean isIndexed() {
+        return false;
+    }
+
+    /** Height of the block with this hash, if the store knows it. */
+    default OptionalInt findBlockIndexByHash(String hash) {
+        return OptionalInt.empty();
+    }
+
+    /** Height of the block containing this transaction, if the store knows it. */
+    default OptionalInt findTransactionBlockIndex(String transactionId) {
+        return OptionalInt.empty();
+    }
+
+    /**
+     * Confirmed transactions sent or received by {@code address}, newest
+     * first (by block height, then position in the block).
+     */
+    default List<TxRef> findTransactionsByAddress(String address) {
+        return List.of();
+    }
 }
