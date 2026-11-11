@@ -723,6 +723,17 @@ public class Blockchain {
         return pendingTransactions.size();
     }
 
+    /**
+     * Writes an online backup of this chain's store to {@code zipFile}
+     * (Sprint 16d). The node keeps running while it is taken.
+     *
+     * @throws UnsupportedOperationException if the store cannot be backed up
+     *         (for example the default in-memory chain)
+     */
+    public void backupTo(java.nio.file.Path zipFile) {
+        store.backup(zipFile);
+    }
+
     // ===== LOOKUPS (Sprint 16c) =====
 
     /**

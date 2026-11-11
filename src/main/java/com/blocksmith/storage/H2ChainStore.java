@@ -312,6 +312,134 @@ public class H2ChainStore implements ChainStore {
         }
     }
 
+    // ===== BACKUP & RESTORE (Sprint 16d) =====
+
+    /** Name of the database file inside a data directory and inside a backup zip. */
+    static final String DB_FILE = "chain.mv.db";
+
+    /**
+     * THEORY: Online backup
+     *
+     * H2's {@code BACKUP TO} copies the database file into a zip while the
+     * database stays open. It is a consistent snapshot: blocks saved after
+     * the command started are simply not in it. Nothing has to stop, which
+     * matters for a node that peers expect to stay online.
+     *
+     * Only file databases can be backed up (an in-memory one has no file).
+     *
+     * @param zipFile where to write the backup; must not exist yet
+     */
+    @Override
+    public synchronized void backup(Path zipFile) {
+        try {
+            if (Files.exists(zipFile)) {
+                throw new StorageException("Backup target already exists: " + zipFile, null);
+            }
+            Path parent = zipFile.toAbsolutePath().getParent();
+            if (parent != null) Files.createDirectories(parent);
+            String target = zipFile.toAbsolutePath().toString().replace('\\', '/').replace("'", "''");
+            try (Statement st = connection.createStatement()) {
+                st.execute("BACKUP TO '" + target + "'");
+            }
+        } catch (SQLException | java.io.IOException e) {
+            throw new StorageException("Backup to " + zipFile + " failed", e);
+        }
+    }
+
+    /**
+     * Installs a backup as the database of {@code dataDirectory}, before the
+     * node opens it.
+     *
+     * THEORY: Restore carefully, then validate anyway
+     *
+     *   1. Unpack into a temporary folder, never straight into the data dir
+     *   2. Accept exactly one entry, chain.mv.db (rejects foreign zips and
+     *      "zip slip" names like ../../evil)
+     *   3. Open it once: a damaged database file fails HERE, while the
+     *      current data is still untouched
+     *   4. Only then move the current database aside (renamed, not deleted)
+     *      and put the backup in its place
+     *
+     * After this the node starts normally, and restoreFromStore() replays
+     * every block through validation. A backup is trusted no more than the
+     * live database is.
+     *
+     * @return the path the previous database was moved to, or null if there was none
+     * @throws StorageException if the backup is missing, not a BlockSmith backup, or damaged
+     */
+    public static Path restoreBackup(Path zipFile, Path dataDirectory) {
+        if (!Files.isRegularFile(zipFile)) {
+            throw new StorageException("Backup file not found: " + zipFile, null);
+        }
+        Path staging = null;
+        try {
+            Files.createDirectories(dataDirectory);
+            staging = Files.createTempDirectory(dataDirectory.toAbsolutePath(), "restore-");
+            Path unpacked = unpackBackup(zipFile, staging);
+
+            // Step 3: make sure H2 can actually read it (IFEXISTS: never create).
+            String url = "jdbc:h2:file:" + staging.resolve("chain").toString().replace('\\', '/')
+                    + ";IFEXISTS=TRUE";
+            try (H2ChainStore probe = new H2ChainStore(url)) {
+                probe.loadBlocks();
+            } catch (RuntimeException e) {
+                throw new StorageException("Backup " + zipFile + " is damaged: the database cannot be read", e);
+            }
+
+            // Step 4: keep the old database, then swap in the backup.
+            Path live = dataDirectory.resolve(DB_FILE);
+            Path previous = null;
+            if (Files.exists(live)) {
+                previous = dataDirectory.resolve(DB_FILE + ".before-restore-" + System.currentTimeMillis());
+                Files.move(live, previous);
+            }
+            Files.move(unpacked, live);
+            return previous;
+        } catch (java.io.IOException e) {
+            throw new StorageException("Restore from " + zipFile + " failed", e);
+        } finally {
+            deleteQuietly(staging);
+        }
+    }
+
+    /** Unpacks the single expected entry of a backup zip into {@code staging}. */
+    private static Path unpackBackup(Path zipFile, Path staging) throws java.io.IOException {
+        Path out = null;
+        try (java.util.zip.ZipInputStream zip =
+                     new java.util.zip.ZipInputStream(Files.newInputStream(zipFile))) {
+            java.util.zip.ZipEntry entry;
+            while ((entry = zip.getNextEntry()) != null) {
+                if (!DB_FILE.equals(entry.getName()) || out != null) {
+                    throw new StorageException("Not a BlockSmith backup: unexpected entry '"
+                            + entry.getName() + "' in " + zipFile, null);
+                }
+                out = staging.resolve(DB_FILE);
+                Files.copy(zip, out);
+            }
+        } catch (java.util.zip.ZipException e) {
+            throw new StorageException("Not a BlockSmith backup: " + zipFile + " is not a valid zip", e);
+        }
+        if (out == null) {
+            throw new StorageException("Not a BlockSmith backup: no " + DB_FILE + " in " + zipFile, null);
+        }
+        return out;
+    }
+
+    private static void deleteQuietly(Path dir) {
+        if (dir == null || !Files.exists(dir)) return;
+        try (java.util.stream.Stream<Path> paths = Files.walk(dir)) {
+            paths.sorted(java.util.Comparator.reverseOrder()).forEach(p -> {
+                try {
+                    Files.deleteIfExists(p);
+                } catch (java.io.IOException ignored) {
+                    // Leftover temp files are harmless.
+                }
+            });
+        } catch (java.io.IOException ignored) {
+            // Same: best effort cleanup.
+        }
+    }
+
     // ===== LIFECYCLE =====
 
     @Override

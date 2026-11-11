@@ -87,4 +87,17 @@ public interface ChainStore extends AutoCloseable {
     default List<TxRef> findTransactionsByAddress(String address) {
         return List.of();
     }
+
+    // ===== BACKUP (Sprint 16d) =====
+
+    /**
+     * Writes a consistent snapshot of the store to {@code zipFile} while the
+     * node keeps running.
+     *
+     * @throws UnsupportedOperationException if this store cannot be backed up
+     * @throws StorageException if the backup fails
+     */
+    default void backup(java.nio.file.Path zipFile) {
+        throw new UnsupportedOperationException("This node's store does not support backups");
+    }
 }

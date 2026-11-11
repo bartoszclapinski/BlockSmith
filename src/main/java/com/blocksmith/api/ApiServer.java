@@ -74,6 +74,9 @@ public class ApiServer {
 
     private Javalin app;
 
+    /** Where POST /api/admin/backup writes; null = backups disabled (Sprint 16d). */
+    private java.nio.file.Path backupDirectory;
+
     public ApiServer(Node node) {
         this(node, NetworkConfig.API_PORT);
     }
@@ -82,6 +85,14 @@ public class ApiServer {
         this.node = node;
         this.blockchain = node.getBlockchain();
         this.port = port;
+    }
+
+    /**
+     * Enables {@code POST /api/admin/backup}, writing backups into
+     * {@code directory}. Without this the endpoint answers 503.
+     */
+    public void enableBackups(java.nio.file.Path directory) {
+        this.backupDirectory = directory;
     }
 
     /** Starts the HTTP server and registers routes. */
@@ -138,6 +149,9 @@ public class ApiServer {
         // Multisig endpoints (Milestone 15c).
         app.post("/api/multisig/create", this::postMultiSigCreate);
         app.post("/api/multisig/claim", this::postMultiSigClaim);
+
+        // Admin endpoints (Milestone 16d).
+        app.post("/api/admin/backup", this::postBackup);
 
         // JSON error handling (Milestone 12c).
         app.exception(Exception.class, (e, ctx) -> {
@@ -594,6 +608,60 @@ public class ApiServer {
         Map<String, String> m = new LinkedHashMap<>();
         m.put("error", message);
         return m;
+    }
+
+    // ===== 16d: ADMIN =====
+
+    /**
+     * Takes an online backup of the node's database.
+     *
+     * Admin endpoints answer only requests from this machine (loopback): a
+     * backup writes to the node's disk, and anyone on the network could
+     * otherwise fill it. A real deployment would also require authentication.
+     */
+    private void postBackup(Context ctx) {
+        if (!isLoopback(ctx.ip())) {
+            ctx.status(403);
+            json(ctx, error("Admin endpoints are only available from localhost"));
+            return;
+        }
+        if (backupDirectory == null) {
+            ctx.status(503);
+            json(ctx, error("Backups are not enabled on this node"));
+            return;
+        }
+        String stamp = java.time.LocalDateTime.now()
+                .format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss-SSS"));
+        java.nio.file.Path file = backupDirectory.resolve("chain-" + stamp + ".zip").toAbsolutePath();
+        try {
+            blockchain.backupTo(file);
+        } catch (UnsupportedOperationException e) {
+            ctx.status(503);
+            json(ctx, error(e.getMessage()));
+            return;
+        } catch (RuntimeException e) {
+            ctx.status(500);
+            json(ctx, error("Backup failed: " + e.getMessage()));
+            return;
+        }
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("path", file.toString());
+        try {
+            m.put("sizeBytes", java.nio.file.Files.size(file));
+        } catch (java.io.IOException e) {
+            m.put("sizeBytes", -1);
+        }
+        m.put("chainLength", blockchain.getChainSize());
+        ctx.status(201);
+        json(ctx, m);
+    }
+
+    private static boolean isLoopback(String ip) {
+        try {
+            return java.net.InetAddress.getByName(ip).isLoopbackAddress();
+        } catch (java.net.UnknownHostException e) {
+            return false;
+        }
     }
 
     /** Writes {@code data} as a JSON response using Gson. */
