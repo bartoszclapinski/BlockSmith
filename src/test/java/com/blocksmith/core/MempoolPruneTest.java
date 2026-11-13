@@ -30,7 +30,12 @@ class MempoolPruneTest {
     /** Builds a valid, mined block carrying the given transactions on the tip. */
     private Block mineBlockWith(List<Transaction> transactions) {
         Block tip = blockchain.getLatestBlock();
-        Block block = new Block(tip.getIndex() + 1, transactions, tip.getHash());
+        // A real block starts with its coinbase (required since Sprint 18a).
+        List<Transaction> withReward = new java.util.ArrayList<>();
+        withReward.add(new Transaction(BlockchainConfig.COINBASE_ADDRESS, "peer-miner",
+                BlockchainConfig.MINING_REWARD));
+        withReward.addAll(transactions);
+        Block block = new Block(tip.getIndex() + 1, withReward, tip.getHash());
         block.mineBlock(BlockchainConfig.MINING_DIFFICULTY);
         return block;
     }
