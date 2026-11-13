@@ -361,6 +361,25 @@ height; orphans are only parked if they meet `powLimit` and are not too far in t
 
 ---
 
+## 🧾 Block rules, limits and fees (Sprint 18)
+
+| Piece | Role |
+|-------|------|
+| `Blockchain.blockRuleViolation(block)` | Content rules for a whole block; `null` = allowed, else the reason. Coinbase first, only one, pays <= reward + fees, no fee, no script |
+| `Blockchain.transactionRuleViolation(tx, check)` | Per tx, in block order: well formed, signature verifies (if signed), not already included, deploy has a lock, claim passes the VM once, sender can afford `getTotalCost()` |
+| `BlockCheck` (inner class) | Height + balances and ids changed by the earlier txs of the same block, so a split overspend is caught |
+| `ChainParams.maxBlockBytes` / `maxBlockTransactions` | 16 KB of block JSON / 50 txs (coinbase included); `Block.sizeBytes()` |
+| `Transaction.fee` | Paid by the sender on top of the amount; in the id and signed data only when != 0 (old ids unchanged). `feeRate()` = fee / `sizeBytes()` |
+
+**Rules**: the same checks run on every path (peer block, orphan attach, restore replay, our own
+mining, and `isChainValid()`, which replays the chain onto a fresh `Blockchain`). Proof-of-Work proves
+the work was done, not that the block is allowed. Mining sorts the mempool by fee rate (stable, so
+equal rates keep arrival order), fills the block up to the limits, drops stale txs, and only then
+builds the coinbase (reward + fees). Any subset of the mempool is a valid block, because every pending
+tx was admitted against confirmed balances only.
+
+---
+
 ## 📦 Package: `com.blocksmith.network` (Phase 2, Sprints 8-11)
 
 TCP peer-to-peer layer. Messages are JSON over sockets.
@@ -407,9 +426,10 @@ Writes (tx, mined block) are broadcast to peers.
 
 | Method | Path | Purpose |
 |--------|------|---------|
-| GET | `/api/blocks`, `/api/blocks/latest`, `/api/blocks/{index}`, `/api/blocks/hash/{hash}` | Read the chain (by hash: Sprint 16c) |
-| GET | `/api/network/status`, `/api/network/peers`, `/api/network/difficulty` | Node stats (live `difficulty`, `target`, `blocksUntilRetarget`...), peer list, difficulty epochs (Sprint 17d) |
-| POST / GET | `/api/transactions`, `/api/transactions/{id}` | Submit (unsigned, educational) / look up a tx (+ `status`, `blockIndex`, `confirmations`) |
+| GET | `/api/blocks`, `/api/blocks/latest`, `/api/blocks/{index}`, `/api/blocks/hash/{hash}` | Read the chain (by hash: Sprint 16c); each block adds `sizeBytes` and `totalFees` (Sprint 18d) |
+| GET | `/api/network/status`, `/api/network/peers`, `/api/network/difficulty` | Node stats (live `difficulty`, `target`, `blocksUntilRetarget`, `maxBlockBytes`, `maxBlockTransactions`...), peer list, difficulty epochs (Sprint 17d) |
+| POST / GET | `/api/transactions`, `/api/transactions/{id}` | Submit (unsigned, educational, optional `fee`) / look up a tx (+ `status`, `blockIndex`, `confirmations`) |
+| GET | `/api/mempool` | Pending txs in mining order with `sizeBytes` and `feeRate`, plus count, total fees and block limits (Sprint 18d) |
 | POST | `/api/mine` | Mine pending txs (or an empty block) for `minerAddress` |
 | GET / POST | `/api/wallet/{address}`, `/api/wallet/{address}/transactions`, `/api/wallet/create` | Balance + pending outgoing / history (Sprint 16c) / new wallet |
 | GET / POST | `/api/contracts`, `/api/contracts/{id}`, `/api/contracts/{id}/claim` | Deploy, inspect, claim contracts |
@@ -577,4 +597,4 @@ void methodName_scenario_expectedResult() { ... }
 
 ---
 
-*Last updated: 2026-11-11 (added difficulty section, Sprint 17 endpoints)*
+*Last updated: 2026-11-13 (added block rules / limits / fees section, Sprint 18 endpoints)*

@@ -7,7 +7,7 @@
 | **Sprint** | 18 |
 | **Title** | Block Rules, Size & Fees (roadmap: "Block Size & Limits") |
 | **Phase** | Phase 4: Production Features |
-| **Status** | 📋 Planned |
+| **Status** | ✅ Complete (2026-11-13) |
 | **Depends On** | Sprint 17 Complete (numeric target, retargeting) |
 
 > **Why the scope grew:** while planning, a test showed that a block from a
@@ -35,10 +35,10 @@ overspend or bypass a contract, and miners pick the best-paying transactions.
 
 | Milestone | Title | Branch | Status |
 |-----------|-------|--------|--------|
-| **18a** | Block content validation (consensus) | `sprint18a/block-content-rules` | ⬜ Planned (#281, #282) |
-| **18b** | Block size & transaction limits | `sprint18b/block-limits` | ⬜ Planned (#283, #284) |
-| **18c** | Transaction fees + fee-priority mining | `sprint18c/fees` | ⬜ Planned (#285, #286) |
-| **18d** | API + dashboard | `sprint18d/fees-api` | ⬜ Planned (#287, #288) |
+| **18a** | Block content validation (consensus) | `sprint18a/block-content-rules` | ✅ PR #290 (#281, #282) |
+| **18b** | Block size & transaction limits | `sprint18b/block-limits` | ✅ PR #291 (#283, #284) |
+| **18c** | Transaction fees + fee-priority mining | `sprint18c/fees` | ✅ PR #292 (#285, #286) |
+| **18d** | API + dashboard | `sprint18d/fees-api` | ✅ PR #293 (#287, #288) |
 
 ---
 
@@ -160,10 +160,12 @@ hash power is behind the block.
   educational); a signed one must verify. Requiring signatures everywhere
   would need client-side signing first
 - **Size = JSON bytes** (recommended: what peers actually send) vs a compact
-  binary encoding
+  binary encoding. **Chosen: JSON bytes**; defaults ended up at 16 KB / 50
+  transactions (smaller than the 32 KB / 100 sketched above, so a block fills
+  up from the dashboard)
 - **Fee rate = fee / bytes** (Bitcoin's sat/vB idea) vs a flat fee priority
 - **Fee in the id only when > 0** (recommended: no migration for old data)
 
 ---
 
-*Created: 2026-11-11 | Sprint 18 Planning*
+*Created: 2026-11-11 | Sprint 18 Planning | Completed: 2026-11-13*

@@ -38,10 +38,10 @@
 | **Build Tool** | Maven 3.9.x |
 | **Test Framework** | JUnit 5 |
 | **Serialization** | Gson 2.10.1 |
-| **Current Phase** | Phase 4: Production Features — in progress (50%) |
-| **Current Sprint** | Sprint 17 (Difficulty Adjustment) — Complete |
-| **Current Milestone** | 17d Complete; next: Sprint 18 (Block Size & Limits) |
-| **Total Tests** | 310 (all passing) |
+| **Current Phase** | Phase 4: Production Features — in progress (75%) |
+| **Current Sprint** | Sprint 18 (Block Rules, Size & Fees) — Complete |
+| **Current Milestone** | 18d Complete; next: Sprint 19 (Fee Market) |
+| **Total Tests** | 342 (all passing) |
 | **Main Branch** | `master` |
 
 ---
@@ -79,10 +79,10 @@ BlockSmith/
 │   ├── BlockSmithDemo.java           # Main demo application
 │   ├── core/                         # Core blockchain classes
 │   │   ├── Block.java                # ✅ Complete (deterministic genesis)
-│   │   ├── Blockchain.java           # ✅ Complete (external append, orphans, mempool prune)
-│   │   ├── Transaction.java          # ✅ Complete (with signatures)
+│   │   ├── Blockchain.java           # ✅ Complete (external append, orphans, mempool prune, block content rules, fee-rate mining)
+│   │   ├── Transaction.java          # ✅ Complete (with signatures and fees)
 │   │   ├── Wallet.java               # ✅ Complete (Sprint 5)
-│   │   └── ChainParams.java          # ✅ Consensus params: block time, retarget window, clamp, powLimit, future drift (Sprint 17)
+│   │   └── ChainParams.java          # ✅ Consensus params: block time, retarget window, clamp, powLimit, future drift (Sprint 17), block limits (Sprint 18)
 │   ├── util/                         # Utility classes
 │   │   ├── HashUtil.java             # ✅ Complete
 │   │   ├── BlockchainConfig.java     # ✅ Complete
@@ -131,7 +131,7 @@ BlockSmith/
 │   └── BlockSmithNode.java           # ✅ Complete (runnable node: P2P + API + dashboard, Sprint 13a)
 │
 ├── src/main/resources/public/        # Web dashboard (Sprint 13-15, redesigned PR #157/#158): index.html, app.js, style.css
-├── src/test/java/com/blocksmith/     # 310 unit tests
+├── src/test/java/com/blocksmith/     # 342 unit tests
 ├── pom.xml                           # Maven configuration (Gson, JUnit, Javalin)
 └── README.md                         # Public documentation
 ```
@@ -177,12 +177,14 @@ BlockSmith/
 
 **Sprint 17: Difficulty Adjustment** — the PoW rule is a 256-bit numeric target (`Target`; "N zeros" = `16^(64-N) - 1`). `ChainParams` (DEFAULT: 10 s blocks, retarget every 10, max 4x, powLimit 3 zeros, 15 s future drift). `Blockchain.getNextTarget()` = `old * actual / expected` at window boundaries; targets are derived from timestamps (never stored), so peers and restore replay agree, and every append path validates against the expected target. Timestamp rules: after the median of the last 11 blocks, at most 15 s ahead of the node's `Clock`. API: live `difficulty`, `blocksUntilRetarget`, `GET /api/network/difficulty`; dashboard shows the countdown.
 
+**Sprint 18: Block Rules, Size & Fees** — started as "Block Size & Limits" and grew when a planning test showed peer blocks were never checked for *content* (#281: a peer could mint 1,000,000 coins and overspend). 18a: `blockRuleViolation` / `transactionRuleViolation` check every block on every path (peer, orphan attach, restore, our own mining) — one coinbase, first, capped; valid and verifying txs; no duplicates; contract claims through the VM; no overspend, tracked across the block by `BlockCheck`; `isChainValid()` replays the chain. 18b: `ChainParams.maxBlockBytes` (16 KB of JSON) / `maxBlockTransactions` (50); mining fills a block and leaves the rest pending. 18c: `Transaction.fee` (in id and signature only when > 0, so old txs keep their ids), sender pays `getTotalCost()`, coinbase <= reward + fees, mining picks by `feeRate()` (fee per byte). 18d: `fee` in `POST /api/transactions`, `GET /api/mempool` (mining order), blocks with `sizeBytes` / `totalFees`, fee field in the dashboard.
+
 ---
 
 ## What's NOT Implemented Yet
 
-### Phase 4: Production Features (Sprints 18-19) ← NEXT
-- Block size limits (18), fee market (19)
+### Phase 4: Production Features (Sprint 19) ← NEXT
+- Fee market (19): fee estimation, replace-by-fee, mempool size limit + eviction
 
 ### Deferred / known follow-ups
 - Mempool request is sent on outbound connect only; inbound side does not yet pull the peer's mempool
@@ -290,7 +292,11 @@ mvn exec:java -Dexec.mainClass=com.blocksmith.BlockSmithDemo
 | TimestampRulesTest | 6 | Median rule, future limit, bounded time-warp, mining when peers are ahead (Sprint 17c) |
 | DifficultyReportTest | 3 | Epochs, retarget countdown, average block time (Sprint 17d) |
 | ApiDifficultyTest | 3 | Status difficulty fields, `/api/network/difficulty` shape (Sprint 17d) |
-| **Total** | **310** | All passing ✅ |
+| BlockContentRulesTest | 13 | Inflated/extra/misplaced coinbase, overspend (also split), duplicates, bad claims, forged stored block (Sprint 18a) |
+| BlockLimitsTest | 6 | Oversize / too many txs rejected, full mempool spread over blocks (Sprint 18b) |
+| FeeTest | 9 | Fee in id/signature, who pays, coinbase cap, fee-rate priority (Sprint 18c) |
+| ApiFeesTest | 4 | Fee over HTTP, bad fee 400, `/api/mempool` order, block size + limits (Sprint 18d) |
+| **Total** | **342** | All passing ✅ |
 
 ---
 
@@ -301,7 +307,7 @@ mvn exec:java -Dexec.mainClass=com.blocksmith.BlockSmithDemo
 - **Doc branches**: `docs/{description}` (e.g., `docs/sprint11-complete`)
 - **Commits**: One per issue, format: `feat(scope): description #NN` — never add `Co-Authored-By`
 - **PRs**: created with `gh`, include `Closes #NN` lines; merged with a **regular merge commit** (`gh pr merge N --merge`, not squash) so the one-commit-per-issue history stays on master (decided 2026-11-11; #130-#278 were squash-merged); then ff-only pull to sync local master
-- **Latest**: Sprint 17 complete (Difficulty Adjustment, PR #276, #277, #278, #279); Phase 4 at 50%
+- **Latest**: Sprint 18 complete (Block Rules, Size & Fees, PR #290, #291, #292, #293); Phase 4 at 75%
 
 ---
 
@@ -313,9 +319,9 @@ mvn exec:java -Dexec.mainClass=com.blocksmith.BlockSmithDemo
 | `CONVENTIONS.md` | Need full code style rules, THEORY comment format, test conventions |
 | `STATUS.md` | Need exact current status, implementation table, feature checklist |
 | `roadmap.md` | Need full project phases and timeline |
-| `sprints/sprint17/sprint-plan.md` | Most recent sprint's milestones, issues, acceptance criteria |
-| `sprints/sprint17/sprint-log.md` | What was completed in the latest sprint |
+| `sprints/sprint18/sprint-plan.md` | Most recent sprint's milestones, issues, acceptance criteria |
+| `sprints/sprint18/sprint-log.md` | What was completed in the latest sprint |
 
 ---
 
-*Last updated: 2026-11-11 | Sprint 17 Complete (Difficulty Adjustment) — Phase 4 at 50%*
+*Last updated: 2026-11-13 | Sprint 18 Complete (Block Rules, Size & Fees) — Phase 4 at 75%*
