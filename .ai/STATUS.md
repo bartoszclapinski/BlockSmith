@@ -9,7 +9,7 @@
 | Field | Value |
 |-------|-------|
 | **Phase** | 3 - API & Interface - ✅ COMPLETE |
-| **Current Sprint** | 18 (Block Rules, Size & Fees) - Complete |
+| **Current Sprint** | 19 (Fee Market) - Planned |
 | **Current Milestone** | 18d Complete (Fees, mempool and block size in API + dashboard) |
 | **Status** | Sprint 18 complete (18a-18d): block content rules, size limits, fees with fee-rate mining, `/api/mempool`. Next: Sprint 19 (Fee Market) |
 
@@ -56,7 +56,7 @@ Phase 4: Production Features  [███████████░░░░] 75
 ├── Sprint 16: Persistence   ✅ COMPLETE (16a ✅, 16b ✅, 16c ✅, 16d ✅)
 ├── Sprint 17: Difficulty    ✅ COMPLETE (17a ✅, 17b ✅, 17c ✅, 17d ✅)
 ├── Sprint 18: Block Rules   ✅ COMPLETE (18a ✅, 18b ✅, 18c ✅, 18d ✅)
-└── Sprint 19: Fee Market    ⬜ ← NEXT
+└── Sprint 19: Fee Market    📋 PLANNED (19a ⬜, 19b ⬜, 19c ⬜, 19d ⬜)
 ```
 
 ---
