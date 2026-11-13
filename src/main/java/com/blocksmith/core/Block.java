@@ -2,6 +2,7 @@ package com.blocksmith.core;
 
 import com.blocksmith.util.HashUtil;
 import com.blocksmith.util.BlockchainConfig;
+import com.blocksmith.util.JsonUtil;
 import com.blocksmith.util.Target;
 
 import java.util.ArrayList;
@@ -291,6 +292,14 @@ public class Block {
 
     public String getPreviousHash() {
         return previousHash;
+    }
+
+    /**
+     * Size of this block in bytes: its JSON, exactly as peers exchange it
+     * (Sprint 18b). The block-size limit is measured on this.
+     */
+    public int sizeBytes() {
+        return JsonUtil.GSON.toJson(this).getBytes(java.nio.charset.StandardCharsets.UTF_8).length;
     }
 
     public String getHash() {

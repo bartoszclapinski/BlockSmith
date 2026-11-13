@@ -53,12 +53,14 @@ public class MiningTest {
     @Test
     @DisplayName("Nonce change after mining")
     void nonceChangesAfterMining() {
-        Block block = new Block(1, "Test data", "0000previous-hash-123");
+        // Fixed timestamp: with the current time, nonce 0 already meets
+        // difficulty 2 about 1 time in 256, which made this test flaky. For
+        // this timestamp the nonce-0 hash is "c45b..." (invalid), so mining
+        // must move the nonce.
+        Block block = new Block(1, "Test data", "0000previous-hash-123", 1704067200000L);
         int initialNonce = block.getNonce();
         block.mineBlock(2);
 
-        // It's possible (but unlikely) nonce stays 0 if first hash is valid
-        // So we just verify nonce is still valid (>= 0)
         assertTrue(block.getNonce() > initialNonce, "Nonce should be greater than initial nonce after mining");
     }
 
