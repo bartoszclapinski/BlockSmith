@@ -291,7 +291,11 @@ function renderHero(status, blocks) {
         card.appendChild(top);
         card.appendChild(el("div", "block-hash", shortHash(block.hash)));
         const txCount = Array.isArray(block.transactions) ? block.transactions.length : 0;
-        card.appendChild(el("div", "block-meta", txCount + " tx · nonce " + block.nonce));
+        // Size and fees (Sprint 18d) instead of the nonce: what a block holds, not how it was mined.
+        const fees = typeof block.totalFees === "number" && block.totalFees > 0
+            ? " · fees " + formatAmount(block.totalFees) : "";
+        const size = typeof block.sizeBytes === "number" ? " · " + formatBytes(block.sizeBytes) : "";
+        card.appendChild(el("div", "block-meta", txCount + " tx" + fees + size));
         row.appendChild(card);
     });
 
@@ -456,6 +460,16 @@ function drawerShell(title, buildBody) {
     overlay.appendChild(wrap);
 }
 
+/** "1.2 KB" / "640 B" for block sizes (Sprint 18d). */
+function formatBytes(n) {
+    return n < 1024 ? n + " B" : (n / 1024).toFixed(1) + " KB";
+}
+
+/** Up to 4 decimals, no trailing zeros: 0.5, 0.125, 2. */
+function formatAmount(x) {
+    return String(Math.round(x * 10000) / 10000);
+}
+
 function field(labelText, placeholder, value) {
     const wrap = el("div", "field");
     wrap.appendChild(el("label", null, labelText));
@@ -501,17 +515,23 @@ function openSendDrawer() {
         const amount = field("Amount (BSC)", "0.00");
         const hint = el("span", "field-hint", "Sender " + shortHash(state.activeAddress));
         amount.wrap.appendChild(hint);
+        // Optional fee (Sprint 18d): a higher fee per byte gets mined sooner when blocks are full.
+        const fee = field("Fee (BSC, optional)", "0");
+        fee.wrap.appendChild(el("span", "field-hint", "Paid to the miner on top of the amount"));
         const err = errorBox();
         form.appendChild(recip.wrap);
         form.appendChild(amount.wrap);
+        form.appendChild(fee.wrap);
         form.appendChild(err.node);
         form.appendChild(submitButton("Submit transaction", function () {
             const r = recip.input.value.trim();
             const a = Number(amount.input.value);
+            const f = fee.input.value.trim() === "" ? 0 : Number(fee.input.value);
             if (!r) return err.show("Enter a recipient address.");
             if (!a || a <= 0) return err.show("Enter a valid amount.");
+            if (!(f >= 0)) return err.show("The fee must be zero or more.");
             runDrawer(err, function () {
-                return postJson("/api/transactions", { sender: state.activeAddress, recipient: r, amount: a })
+                return postJson("/api/transactions", { sender: state.activeAddress, recipient: r, amount: a, fee: f })
                     .then(function (tx) { return "Submitted tx " + shortHash(tx.transactionId); });
             });
         }));
