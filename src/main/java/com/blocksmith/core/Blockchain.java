@@ -75,6 +75,9 @@ public class Blockchain {
     /** Room left for the nonce to grow from "0" to 10 digits while mining (Sprint 18b). */
     private static final int NONCE_DIGITS_MARGIN = 9;
 
+    /** Room for the coinbase amount to grow from "50.0" to reward + fees with decimals (18c). */
+    private static final int COINBASE_AMOUNT_MARGIN = 24;
+
     /** How many previous blocks the median-time-past looks at (as in Bitcoin). */
     static final int MEDIAN_TIME_SPAN = 11;
 
@@ -496,7 +499,7 @@ public class Blockchain {
         }
 
         void apply(Transaction tx) {
-            delta.merge(tx.getSender(), -tx.getAmount(), Double::sum);
+            delta.merge(tx.getSender(), -tx.getTotalCost(), Double::sum);
             delta.merge(tx.getRecipient(), tx.getAmount(), Double::sum);
             ids.add(tx.getTransactionId());
             if (tx.getSender().startsWith(BlockchainConfig.CONTRACT_ADDRESS_PREFIX)) {
@@ -551,10 +554,15 @@ public class Blockchain {
         if (coinbase.getRecipient() == null || coinbase.getRecipient().isBlank()) {
             return "the coinbase has no recipient";
         }
-        if (coinbase.getAmount() <= 0 || coinbase.getAmount() > BlockchainConfig.MINING_REWARD) {
+        // The miner may claim the reward plus the fees of this block (18c),
+        // summed in block order (the same order mining uses).
+        double fees = 0;
+        for (int i = 1; i < txs.size(); i++) fees += txs.get(i).getFee();
+        if (coinbase.getAmount() <= 0 || coinbase.getAmount() > BlockchainConfig.MINING_REWARD + fees) {
             return "the coinbase pays " + coinbase.getAmount() + ", more than the reward "
-                    + BlockchainConfig.MINING_REWARD;
+                    + BlockchainConfig.MINING_REWARD + " + fees " + fees;
         }
+        if (coinbase.getFee() != 0) return "the coinbase carries a fee";
         if (coinbase.getLockingScript() != null || coinbase.getUnlockingScript() != null) {
             return "the coinbase carries a contract script";
         }
@@ -615,8 +623,8 @@ public class Blockchain {
             }
             if (!isValidClaim(tx, check.height)) return "the contract claim is not valid";
         }
-        if (check.balance(tx.getSender()) < tx.getAmount()) {
-            return "the sender cannot afford " + tx.getAmount();
+        if (check.balance(tx.getSender()) < tx.getTotalCost()) {
+            return "the sender cannot afford " + tx.getAmount() + " + fee " + tx.getFee();
         }
         return null;
     }
@@ -848,7 +856,7 @@ public class Blockchain {
         double pendingOutgoing = getPendingOutgoing(transaction.getSender());
         double availableBalance = senderBalance - pendingOutgoing;
 
-        if (availableBalance < transaction.getAmount()) {
+        if (availableBalance < transaction.getTotalCost()) {
             System.out.println("Transacion rejected: Insufficient funds. " + 
                 "Available: " + availableBalance + " " + BlockchainConfig.CURRENCY_SYMBOL + 
                 ", Required: " + transaction.getAmount() + " " + BlockchainConfig.CURRENCY_SYMBOL);
@@ -878,7 +886,7 @@ public class Blockchain {
     private double getPendingOutgoing(String address) {
         double pending = 0;
          for (Transaction tx : pendingTransactions) {
-            if (tx.getSender().equals(address)) pending += tx.getAmount();
+            if (tx.getSender().equals(address)) pending += tx.getTotalCost();
          }
          return pending;
     }
@@ -903,38 +911,40 @@ public class Blockchain {
      * @return The newly mined block, or null if no transactions
      */
     public Block minePendingTransactions(String minerAddress) {
-        // Create coinbase (reward) transaction
-        Transaction rewardTx = new Transaction(
-            BlockchainConfig.COINBASE_ADDRESS,
-            minerAddress,
-            BlockchainConfig.MINING_REWARD
-        );
-
         Block latestBlock = getLatestBlock();
         int newIndex = latestBlock.getIndex() + 1;
 
-        // Reward first, then every pending transaction that is still allowed.
-        // A pending tx can go stale: e.g. a block from a peer already spent the
-        // same funds. Mining it would make our own block invalid (Sprint 18a),
-        // so it is dropped from the mempool instead.
-        List<Transaction> blockTransactions = new ArrayList<>();
-        blockTransactions.add(rewardTx);
+        // The coinbase is the first transaction, but its amount (reward +
+        // fees, Sprint 18c) depends on what gets selected. So selection runs
+        // against a reward-only placeholder, and the real coinbase is built
+        // afterwards. The placeholder pays less, so anything valid with it is
+        // still valid with the real one.
+        Transaction placeholder = new Transaction(
+                BlockchainConfig.COINBASE_ADDRESS, minerAddress, BlockchainConfig.MINING_REWARD);
         BlockCheck check = new BlockCheck(newIndex);
-        check.apply(rewardTx);
+        check.apply(placeholder);
+        List<Transaction> selected = new ArrayList<>();
 
         // Block limits (Sprint 18b): start from the size of a block holding
-        // only the coinbase, and add each transaction's JSON plus a comma.
-        // The nonce grows from "0" to at most 10 digits while mining, so keep
-        // that much room. What does not fit waits for the next block.
-        int bytes = new Block(newIndex, blockTransactions, latestBlock.getHash(), 0L).sizeBytes()
-                + NONCE_DIGITS_MARGIN;
-        for (Transaction tx : new ArrayList<>(pendingTransactions)) {
-            if (blockTransactions.size() >= params.maxBlockTransactions()) break;
-            int txBytes = JsonUtil.GSON.toJson(tx).getBytes(java.nio.charset.StandardCharsets.UTF_8).length + 1;
+        // only the coinbase and add each transaction's JSON plus a comma.
+        // Keep room for the nonce to grow to 10 digits and for the coinbase
+        // amount to gain the fees' decimals. What does not fit stays pending.
+        int bytes = new Block(newIndex, List.of(placeholder), latestBlock.getHash(), 0L).sizeBytes()
+                + NONCE_DIGITS_MARGIN + COINBASE_AMOUNT_MARGIN;
+
+        // Fee priority (Sprint 18c): best fee per byte first. List.sort is
+        // stable, so equal rates (e.g. all zero) keep arrival order. Any
+        // order is safe: every pending tx was admitted against confirmed
+        // balances only, so it never depends on another pending tx.
+        // A pending tx can also go stale (Sprint 18a), e.g. a block from a
+        // peer already spent the same funds: it is dropped, not mined.
+        for (Transaction tx : byFeeRate(pendingTransactions)) {
+            if (selected.size() + 1 >= params.maxBlockTransactions()) break;
+            int txBytes = tx.sizeBytes() + 1;
             if (bytes + txBytes > params.maxBlockBytes()) continue;   // a smaller one may still fit
             String why = transactionRuleViolation(tx, check);
             if (why == null) {
-                blockTransactions.add(tx);
+                selected.add(tx);
                 check.apply(tx);
                 bytes += txBytes;
             } else {
@@ -944,8 +954,16 @@ public class Blockchain {
             }
         }
 
-        // Create and mine the new block
+        // The miner collects the block reward plus every fee in the block.
+        double fees = 0;
+        for (Transaction tx : selected) fees += tx.getFee();
+        Transaction rewardTx = new Transaction(
+                BlockchainConfig.COINBASE_ADDRESS, minerAddress, BlockchainConfig.MINING_REWARD + fees);
+        List<Transaction> blockTransactions = new ArrayList<>();
+        blockTransactions.add(rewardTx);
+        blockTransactions.addAll(selected);
 
+        // Create and mine the new block
         Block newBlock = new Block(newIndex, blockTransactions, latestBlock.getHash(),
                 nextBlockTimestamp(newIndex));
 
@@ -961,10 +979,17 @@ public class Blockchain {
         appendBlock(newBlock);
 
         System.out.println("✅ Block mined and added to chain!");
-        System.out.println("   Miner " + minerAddress + " received " + 
-            BlockchainConfig.MINING_REWARD + " " + BlockchainConfig.CURRENCY_SYMBOL);
-        
-        return newBlock;        
+        System.out.println("   Miner " + minerAddress + " received " +
+            rewardTx.getAmount() + " " + BlockchainConfig.CURRENCY_SYMBOL + " (reward + fees)");
+
+        return newBlock;
+    }
+
+    /** Pending transactions, best fee per byte first; ties keep arrival order. */
+    private static List<Transaction> byFeeRate(List<Transaction> pool) {
+        List<Transaction> sorted = new ArrayList<>(pool);
+        sorted.sort(java.util.Comparator.comparingDouble(Transaction::feeRate).reversed());
+        return sorted;
     }
 
     /**
@@ -989,7 +1014,8 @@ public class Blockchain {
             // scan all transactions in block
             for (Transaction tx : block.getTransactions()) {
                 // if address is sender, substract amount
-                if (tx.getSender().equals(address)) balance -= tx.getAmount();
+                // the sender pays the amount plus the fee (Sprint 18c)
+                if (tx.getSender().equals(address)) balance -= tx.getTotalCost();
 
                 // if address is recipient, add amount
                 if (tx.getRecipient().equals(address)) balance += tx.getAmount();                       

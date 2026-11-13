@@ -55,6 +55,12 @@ public class Transaction {
     private String unlockingScript;
 
     /**
+     * What the sender pays the miner on top of {@code amount} (Sprint 18c).
+     * 0 for transactions created before fees existed (and for the coinbase).
+     */
+    private double fee;
+
+    /**
      * Creates a new transaction.
      * 
      * @param sender The address sending funds
@@ -62,9 +68,18 @@ public class Transaction {
      * @param amount The amount to transfer (must be positive)     * 
      */
     public Transaction(String sender, String recipient, double amount) {
+        this(sender, recipient, amount, 0);
+    }
+
+    /**
+     * Creates a transaction that pays a fee to whoever mines it (Sprint 18c).
+     * The sender is charged {@code amount + fee}.
+     */
+    public Transaction(String sender, String recipient, double amount, double fee) {
         this.sender = sender;
         this.recipient = recipient;
         this.amount = amount;
+        this.fee = fee;
         this.timestamp = System.currentTimeMillis();
         this.transactionId = calculateHash();
     }
@@ -92,6 +107,9 @@ public class Transaction {
     private String calculateHash() {
         StringBuilder data = new StringBuilder()
                 .append(sender).append(recipient).append(amount).append(timestamp);
+        // The fee joins the id only when there is one, so every transaction
+        // created before Sprint 18c keeps exactly the id it always had.
+        if (fee != 0) data.append("|fee:").append(fee);
         if (lockingScript != null) {
             data.append("|lock:").append(lockingScript.length()).append(':').append(lockingScript);
         }
@@ -145,8 +163,7 @@ public class Transaction {
             Signature ecdsaVerify = Signature.getInstance("SHA256withECDSA");
             ecdsaVerify.initVerify(senderPublicKey);
 
-            String dataToVerify = sender + recipient + amount + timestamp;
-            ecdsaVerify.update(dataToVerify.getBytes(StandardCharsets.UTF_8));
+            ecdsaVerify.update(getSignatureData().getBytes(StandardCharsets.UTF_8));
 
             return ecdsaVerify.verify(signature);
         } catch (Exception e) {
@@ -173,6 +190,10 @@ public class Transaction {
         // Amount must be positive
         if (amount <= 0) return false;
 
+        // Fee must be a real, non-negative number (a negative fee would let a
+        // sender pay less than the amount and inflate the coinbase allowance)
+        if (Double.isNaN(fee) || Double.isInfinite(fee) || fee < 0) return false;
+
         // Sender must be non-empty
         if (sender == null || sender.trim().isEmpty()) return false;
 
@@ -198,6 +219,47 @@ public class Transaction {
 
     public double getAmount() {
         return amount;
+    }
+
+    /** The fee paid to the miner (Sprint 18c). */
+    public double getFee() {
+        return fee;
+    }
+
+    /** Size of this transaction in bytes: its JSON, as it travels inside a block. */
+    public int sizeBytes() {
+        return com.blocksmith.util.JsonUtil.GSON.toJson(this)
+                .getBytes(StandardCharsets.UTF_8).length;
+    }
+
+    /**
+     * Fee per byte (Sprint 18c): what a miner earns for the block space this
+     * transaction takes. Block space is the scarce resource, so a 700-byte
+     * signed transaction must pay three times the fee of a 235-byte one to
+     * look as attractive. Bitcoin quotes the same idea in sat/vB.
+     */
+    public double feeRate() {
+        return fee / sizeBytes();
+    }
+
+    /** What the sender is charged: amount plus fee. */
+    public double getTotalCost() {
+        return amount + fee;
+    }
+
+    /**
+     * The exact text a wallet signs and a node verifies.
+     *
+     * THEORY: Sign everything that moves money
+     *
+     * A signature only protects what it covers. If the fee were not signed,
+     * anyone relaying the transaction could raise it and drain the sender.
+     * Like the id, the fee is appended only when present, so signatures made
+     * before fees existed still verify.
+     */
+    public String getSignatureData() {
+        String data = sender + recipient + amount + timestamp;
+        return fee != 0 ? data + "|fee:" + fee : data;
     }
 
     public long getTimestamp() {
