@@ -134,11 +134,8 @@ public class Wallet {
             Signature ecdsaSign = Signature.getInstance("SHA256withECDSA");
             ecdsaSign.initSign(this.privateKey);
 
-            String dataToSign = transaction.getSender()
-                              + transaction.getRecipient()
-                              + transaction.getAmount()
-                              + transaction.getTimestamp();
-            ecdsaSign.update(dataToSign.getBytes(StandardCharsets.UTF_8));
+            // Same text the node verifies (includes the fee when there is one).
+            ecdsaSign.update(transaction.getSignatureData().getBytes(StandardCharsets.UTF_8));
 
             byte[] signatureBytes = ecdsaSign.sign();
 
