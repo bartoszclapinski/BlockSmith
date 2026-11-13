@@ -9,9 +9,9 @@
 | Field | Value |
 |-------|-------|
 | **Phase** | 3 - API & Interface - ✅ COMPLETE |
-| **Current Sprint** | 18 (Block Rules, Size & Fees) - Planned |
-| **Current Milestone** | 17d Complete (Live difficulty in API + dashboard) |
-| **Status** | Sprint 17 complete (17a-17d): numeric target, retarget every 10 blocks, timestamp rules, live difficulty. Next: Sprint 18 (Block Limits) |
+| **Current Sprint** | 18 (Block Rules, Size & Fees) - Complete |
+| **Current Milestone** | 18d Complete (Fees, mempool and block size in API + dashboard) |
+| **Status** | Sprint 18 complete (18a-18d): block content rules, size limits, fees with fee-rate mining, `/api/mempool`. Next: Sprint 19 (Fee Market) |
 
 ---
 
@@ -52,11 +52,11 @@ Phase 3: API & Interface     [███████████████] 100
 ├── Sprint 14: Smart Contracts ✅ COMPLETE (14a ✅, 14b ✅, 14c ✅)
 └── Sprint 15: Multi-sig Wallets ✅ COMPLETE (15a ✅, 15b ✅, 15c ✅)
 
-Phase 4: Production Features  [████████░░░░░░░] 50% ← IN PROGRESS
+Phase 4: Production Features  [███████████░░░░] 75% ← IN PROGRESS
 ├── Sprint 16: Persistence   ✅ COMPLETE (16a ✅, 16b ✅, 16c ✅, 16d ✅)
 ├── Sprint 17: Difficulty    ✅ COMPLETE (17a ✅, 17b ✅, 17c ✅, 17d ✅)
-├── Sprint 18: Block Rules   📋 PLANNED (18a ⬜, 18b ⬜, 18c ⬜, 18d ⬜)
-└── Sprint 19: Fee Market    ⬜
+├── Sprint 18: Block Rules   ✅ COMPLETE (18a ✅, 18b ✅, 18c ✅, 18d ✅)
+└── Sprint 19: Fee Market    ⬜ ← NEXT
 ```
 
 ---
@@ -110,7 +110,11 @@ Phase 4: Production Features  [████████░░░░░░░] 50
 | TimestampRulesTest | 6 | ✅ |
 | DifficultyReportTest | 3 | ✅ |
 | ApiDifficultyTest | 3 | ✅ |
-| **Total** | **310** | ✅ |
+| BlockContentRulesTest | 13 | ✅ |
+| BlockLimitsTest | 6 | ✅ |
+| FeeTest | 9 | ✅ |
+| ApiFeesTest | 4 | ✅ |
+| **Total** | **342** | ✅ |
 
 Last test run: `mvn test` - All passing
 
@@ -122,11 +126,11 @@ Last test run: `mvn test` - All passing
 
 | Class | Status | Lines | Notes |
 |-------|--------|-------|-------|
-| Block.java | ✅ Complete | ~290 | Transactions + Merkle root + `hasValidMerkleRoot()` recomputes it from the txs (Sprint 16b, #260) + `mineBlock(BigInteger target)`, explicit-timestamp constructor (Sprint 17) |
-| Blockchain.java | ✅ Complete | ~640 | Pending pool + mining + external append + orphan buffer (Sprint 10) + tx dedupe + mempool prune (Sprint 11) + contract registry (deploy/claim, derived from chain) (Sprint 14b) + optional `ChainStore`, single `appendBlock()`, `restoreFromStore()` replay (Sprint 16b) + `getBlockByHash` / `findTransaction` / `getTransactionHistory` (Sprint 16c) + `backupTo` (Sprint 16d) + `ChainParams`, targets per height, `getNextTarget` / retarget, median-time-past + future limit with injectable `Clock`, difficulty report (Sprint 17) |
-| Transaction.java | ✅ Complete | ~250 | Validation + signing + verification + optional contract locking/unlocking scripts (Sprint 14b) + `hasValidId()` (Sprint 16b, #260); contract scripts are part of the id (#264) |
+| Block.java | ✅ Complete | ~290 | Transactions + Merkle root + `hasValidMerkleRoot()` recomputes it from the txs (Sprint 16b, #260) + `mineBlock(BigInteger target)`, explicit-timestamp constructor (Sprint 17) + `sizeBytes()` (Sprint 18b) |
+| Blockchain.java | ✅ Complete | ~1440 | Pending pool + mining + external append + orphan buffer (Sprint 10) + tx dedupe + mempool prune (Sprint 11) + contract registry (deploy/claim, derived from chain) (Sprint 14b) + optional `ChainStore`, single `appendBlock()`, `restoreFromStore()` replay (Sprint 16b) + `getBlockByHash` / `findTransaction` / `getTransactionHistory` (Sprint 16c) + `backupTo` (Sprint 16d) + `ChainParams`, targets per height, `getNextTarget` / retarget, median-time-past + future limit with injectable `Clock`, difficulty report (Sprint 17) + block content rules (`blockRuleViolation` / `transactionRuleViolation`, `BlockCheck`), `isChainValid()` by replay (Sprint 18a) + block limits, mining fills up to them (18b) + coinbase = reward + fees, fee-rate block assembly, `getPendingInMiningOrder()` (18c/18d) |
+| Transaction.java | ✅ Complete | ~340 | Validation + signing + verification + optional contract locking/unlocking scripts (Sprint 14b) + `hasValidId()` (Sprint 16b, #260); contract scripts are part of the id (#264) + `fee` (in id/signature only when > 0), `getTotalCost()`, `sizeBytes()`, `feeRate()` (Sprint 18c) |
 | Wallet.java | ✅ Complete | ~169 | ECDSA keys + signing |
-| ChainParams.java | ✅ Complete | ~70 | Consensus params record: initial target, block time, retarget interval, 4x clamp, powLimit, max future drift (Sprint 17b/17c) |
+| ChainParams.java | ✅ Complete | ~100 | Consensus params record: initial target, block time, retarget interval, 4x clamp, powLimit, max future drift (Sprint 17b/17c), max block bytes / transactions (Sprint 18b) |
 
 ### Utility Classes (`com.blocksmith.util`)
 
@@ -170,7 +174,7 @@ Last test run: `mvn test` - All passing
 
 | Class | Status | Lines | Notes |
 |-------|--------|-------|-------|
-| ApiServer.java | ✅ Complete | ~530 | Javalin REST API: blocks, transactions, mining, wallet, network, JSON errors (Sprint 12) + static dashboard hosting (Sprint 13a) + contract deploy/claim/inspect endpoints (Sprint 14c) + multisig create/claim endpoints, server-held member keys (Sprint 15c) + `JsonUtil` Gson (#259) + block by hash, address history, tx location (Sprint 16c) + `POST /api/admin/backup`, loopback only (Sprint 16d) + live difficulty in status, `GET /api/network/difficulty` (Sprint 17d) |
+| ApiServer.java | ✅ Complete | ~780 | Javalin REST API: blocks, transactions, mining, wallet, network, JSON errors (Sprint 12) + static dashboard hosting (Sprint 13a) + contract deploy/claim/inspect endpoints (Sprint 14c) + multisig create/claim endpoints, server-held member keys (Sprint 15c) + `JsonUtil` Gson (#259) + block by hash, address history, tx location (Sprint 16c) + `POST /api/admin/backup`, loopback only (Sprint 16d) + live difficulty in status, `GET /api/network/difficulty` (Sprint 17d) + optional `fee`, `GET /api/mempool`, block `sizeBytes` / `totalFees`, limits in status (Sprint 18d) |
 
 ### Contract Classes (`com.blocksmith.contract`)
 
@@ -286,6 +290,10 @@ Design handoff (prototype + README) lives in `.ai/design/UIUX redesign project/`
 - [x] Difficulty retargets every 10 blocks toward 10 s/block, clamped to 4x, derived from timestamps (Sprint 17b)
 - [x] Timestamp rules: after the median of the last 11 blocks, at most 15 s in the future (Sprint 17c)
 - [x] Live difficulty + retarget countdown in the API and dashboard (Sprint 17d)
+- [x] Block content rules on every path: coinbase cap, no overspend, no duplicates, signatures, contract claims (Sprint 18a, #281)
+- [x] Block limits: 16 KB / 50 transactions; mining fills a block and leaves the rest pending (Sprint 18b)
+- [x] Transaction fees: sender pays amount + fee, miner collects them, blocks filled by fee per byte (Sprint 18c)
+- [x] Fees, `/api/mempool` and block size in the API and dashboard (Sprint 18d)
 
 ---
 
@@ -294,7 +302,7 @@ Design handoff (prototype + README) lives in `.ai/design/UIUX redesign project/`
 | Item | Value |
 |------|-------|
 | **Current Branch** | `master` |
-| **Last Commit** | Sprint 17 complete (PR #276, #277, #278, #279) |
+| **Last Commit** | Sprint 18 complete (PR #290, #291, #292, #293) |
 | **Tag** | `v1.0.0` (Phase 1) |
 | **Main Branch** | `master` |
 
@@ -302,9 +310,6 @@ Design handoff (prototype + README) lives in `.ai/design/UIUX redesign project/`
 
 ## ⚠️ Known Issues
 
-- **#281 (critical)** Blocks from peers are accepted without checking their
-  transactions: inflated coinbase, overspending and unverified contract claims
-  all pass. Fix planned as Sprint 18a.
 - Multisig member keys are held in memory by the API (by design, not persisted):
   a multisig created via the dashboard cannot be claimed after a node restart.
 
@@ -344,13 +349,24 @@ Design handoff (prototype + README) lives in `.ai/design/UIUX redesign project/`
    - Process: PRs now use a regular merge commit; squash/rebase disabled in
      repo settings
 
-3. **Phases 1-3 COMPLETE**; Phase 4 at 50% (2 of 4 sprints)
+3. **Sprint 18 COMPLETE** - Block Rules, Size & Fees (2026-11-11 to 2026-11-13)
+   - 18a (PR #290): block content rules on every path (fixes critical #281:
+     peers could mint coins and overspend); `isChainValid()` by replay
+   - 18b (PR #291): `maxBlockBytes` 16 KB / `maxBlockTransactions` 50; mining
+     fills a block to the limits, the rest stays pending
+   - 18c (PR #292): `Transaction.fee` (in id/signature only when > 0), sender
+     pays amount + fee, coinbase <= reward + fees, fee-rate block assembly
+   - 18d (PR #293): `fee` in `POST /api/transactions`, `GET /api/mempool`,
+     block size + fees in the API and dashboard
 
-4. **Next: Sprint 18 (Block Size & Limits)** - not yet planned: max block size,
-   max transactions per block, fee priority when choosing pending txs. Note:
-   `minePendingTransactions` currently puts the whole mempool in one block
+4. **Phases 1-3 COMPLETE**; Phase 4 at 75% (3 of 4 sprints)
 
-5. **Deferred / future work**
+5. **Next: Sprint 19 (Fee Market)** - not yet planned: fee estimation from
+   recent blocks / the mempool, replace-by-fee, mempool size limit with
+   eviction of the lowest fee rate. Builds on `feeRate()` and
+   `getPendingInMiningOrder()`
+
+6. **Deferred / future work**
    - Gossip auto-connect to DISCOVERED peers (needs MAX_PEERS guarding)
    - Self-identification filtering in peer lists
    - Mempool request is sent on outbound connect only; inbound side does not
@@ -365,7 +381,9 @@ Design handoff (prototype + README) lives in `.ai/design/UIUX redesign project/`
    - WebSocket push for the dashboard (currently 4s polling)
    - Contract deploy uses `System.currentTimeMillis()` in the id seed; fine for
      uniqueness but not reproducible across a re-mine
+   - Two coinbases with the same id (same miner, reward and millisecond)
+     overwrite each other's row in `tx_index`
 
 ---
 
-*Last updated: 2026-11-11 | Sprint 17 Complete (Difficulty Adjustment) - Phase 4 in progress (50%)*
+*Last updated: 2026-11-13 | Sprint 18 Complete (Block Rules, Size & Fees) - Phase 4 in progress (75%)*

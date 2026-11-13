@@ -8,7 +8,7 @@ BlockSmith is a comprehensive blockchain project that goes beyond tutorials - im
 
 [![Java](https://img.shields.io/badge/Java-20+-orange.svg)](https://openjdk.org/)
 [![Maven](https://img.shields.io/badge/Maven-3.9+-blue.svg)](https://maven.apache.org/)
-[![Tests](https://img.shields.io/badge/Tests-310%20passing-brightgreen.svg)](#)
+[![Tests](https://img.shields.io/badge/Tests-342%20passing-brightgreen.svg)](#)
 [![Phase](https://img.shields.io/badge/Phase%204-In%20progress-yellow.svg)](#)
 [![Version](https://img.shields.io/badge/Version-1.0.0-blue.svg)](#)
 
@@ -69,7 +69,7 @@ BlockSmith is a comprehensive blockchain project that goes beyond tutorials - im
   - ✅ M-of-N multisig contracts, replay-safe claim sighash (Sprint 15b)
   - ✅ Multisig REST endpoints + dashboard panel (Sprint 15c)
 
-### Phase 4: Production Features 🚧 In progress (50%)
+### Phase 4: Production Features 🚧 In progress (75%)
 - ✅ Database persistence (Sprint 16)
   - ✅ Embedded H2 store; blocks kept in the same JSON format peers exchange (Sprint 16a)
   - ✅ Every block + pending tx saved; restart restores by replaying through validation (Sprint 16b)
@@ -81,7 +81,12 @@ BlockSmith is a comprehensive blockchain project that goes beyond tutorials - im
   - ✅ Retarget every 10 blocks toward 10 s per block, max 4x per step (Sprint 17b)
   - ✅ Timestamp rules: median-time-past + 15 s future limit (Sprint 17c)
   - ✅ Live difficulty and retarget countdown in the API and dashboard (Sprint 17d)
-- ⬜ Block size limits (Sprint 18) and fee market (Sprint 19)
+- ✅ Block rules, size limits and fees (Sprint 18)
+  - ✅ Every block's contents are checked: coinbase cap, no overspending, no duplicates, contract claims (Sprint 18a)
+  - ✅ Max 16 KB / 50 transactions per block; the rest waits for the next block (Sprint 18b)
+  - ✅ Transaction fees; miners fill blocks by fee per byte and collect the fees (Sprint 18c)
+  - ✅ Fees, `GET /api/mempool` and block size in the API and dashboard (Sprint 18d)
+- ⬜ Fee market: fee estimation, replace-by-fee, mempool eviction (Sprint 19)
 
 ---
 
@@ -218,7 +223,7 @@ Average attempts: ~16^difficulty (~65,536 for difficulty 4)
 mvn clean compile
 ```
 
-### Run all tests (310 tests)
+### Run all tests (342 tests)
 ```bash
 mvn test
 ```
@@ -295,7 +300,7 @@ BlockSmith/
 │   ├── BlockSmithNode.java     # Runnable node (P2P + API + dashboard)
 │   └── BlockSmithDemo.java     # Teaching demo application
 ├── src/main/resources/public/  # Web dashboard (index.html, app.js, style.css)
-├── src/test/java/              # 310 unit tests
+├── src/test/java/              # 342 unit tests
 ├── data/                       # Node databases (H2), one folder per node: data/node-<port>/
 ├── pom.xml                     # Maven configuration
 └── README.md
@@ -352,7 +357,11 @@ BlockSmith/
 | TimestampRulesTest | 6 | Median-time-past, future limit, time-warp |
 | DifficultyReportTest | 3 | Difficulty epochs and countdown |
 | ApiDifficultyTest | 3 | Difficulty over HTTP |
-| **Total** | **310** | All passing ✅ |
+| BlockContentRulesTest | 13 | Peer blocks cannot mint coins, overspend or bypass contracts |
+| BlockLimitsTest | 6 | Block size and transaction-count limits |
+| FeeTest | 9 | Who pays fees, who collects them, fee-rate priority |
+| ApiFeesTest | 4 | Fees and the mempool over HTTP |
+| **Total** | **342** | All passing ✅ |
 
 ---
 
@@ -419,8 +428,8 @@ BlockSmith/
 |--------|-------|--------|
 | Sprint 16 | Database Persistence | ✅ Complete (16a, 16b, 16c, 16d) |
 | Sprint 17 | Difficulty Adjustment | ✅ Complete (17a, 17b, 17c, 17d) |
-| Sprint 18 | Block Size & Limits | ⬜ Next |
-| Sprint 19 | Fee Market | ⬜ Planned |
+| Sprint 18 | Block Rules, Size & Fees | ✅ Complete (18a, 18b, 18c, 18d) |
+| Sprint 19 | Fee Market | ⬜ Next |
 
 ---
 
