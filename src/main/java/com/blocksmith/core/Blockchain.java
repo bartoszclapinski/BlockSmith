@@ -14,6 +14,7 @@ import java.math.BigInteger;
 import java.time.Clock;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -71,6 +72,9 @@ public class Blockchain {
 
     /** This node's clock: for the future-time rule and for mining (Sprint 17c). */
     private final Clock clock;
+
+    /** This node's mempool limits (Sprint 19a): policy, not consensus. */
+    private final MempoolPolicy mempoolPolicy;
 
     /** Room left for the nonce to grow from "0" to 10 digits while mining (Sprint 18b). */
     private static final int NONCE_DIGITS_MARGIN = 9;
@@ -176,11 +180,25 @@ public class Blockchain {
      * pin "now" when checking timestamp rules.
      */
     public Blockchain(ChainStore store, ChainParams params, Clock clock) {
+        this(store, params, clock, MempoolPolicy.DEFAULT);
+    }
+
+    /**
+     * Creates a blockchain with explicit mempool limits (Sprint 19a).
+     * Unlike the params, the policy is this node's own choice.
+     */
+    public Blockchain(ChainStore store, ChainParams params, MempoolPolicy mempoolPolicy) {
+        this(store, params, Clock.systemUTC(), mempoolPolicy);
+    }
+
+    /** Creates a blockchain with every dependency explicit. */
+    public Blockchain(ChainStore store, ChainParams params, Clock clock, MempoolPolicy mempoolPolicy) {
         this.chain = new ArrayList<>();
         this.pendingTransactions = new ArrayList<>();
         this.store = store;
         this.params = params;
         this.clock = clock;
+        this.mempoolPolicy = mempoolPolicy;
 
         // Create and mine the Genesis block (deterministic: fixed timestamp)
         Block genesis = Block.createGenesisBlock();
@@ -437,17 +455,16 @@ public class Blockchain {
             restored++;
         }
 
-        int pendingRestored = 0;
         for (Transaction tx : store.loadPending()) {
             // Already in a block (the node stopped between saving the block
             // and clearing pending): re-adding it would let it be mined twice.
-            if (!isConfirmed(tx.getTransactionId()) && addTransaction(tx)) {
-                pendingRestored++;
-            } else {
+            if (isConfirmed(tx.getTransactionId()) || !addTransaction(tx)) {
                 store.removePending(tx.getTransactionId());
             }
         }
-        return new RestoreReport(restored, candidates - restored, pendingRestored);
+        // Counted at the end: a smaller mempool policy than before the
+        // restart (Sprint 19a) may evict some of the ones re-added first.
+        return new RestoreReport(restored, candidates - restored, pendingTransactions.size());
     }
 
     /**
@@ -863,11 +880,99 @@ public class Blockchain {
                 return false;
         }
 
+        // Mempool limit (Sprint 19a): when full, the cheapest transactions
+        // make room, but only for one that pays clearly more per byte.
+        String noRoom = makeRoomFor(transaction);
+        if (noRoom != null) {
+            System.out.println("Transaction rejected: " + noRoom);
+            return false;
+        }
+
         // Add to pending pool (and remember it across restarts)
         pendingTransactions.add(transaction);
         store.savePending(transaction);
         System.out.println("Transaction added to pending pool: " + transaction);
         return true;
+    }
+
+    // ===== MEMPOOL LIMIT (Sprint 19a) =====
+
+    /**
+     * Makes room for {@code tx} by evicting the cheapest pending transactions.
+     *
+     * Victims are taken lowest fee rate first and, among equal rates, newest
+     * first (the ones that have waited longest keep their place). The new
+     * transaction must beat every victim's rate by the policy's increment;
+     * if it cannot, nothing is evicted and the transaction is refused.
+     *
+     * Only the decision is all-or-nothing: victims are chosen first, then
+     * removed, so a refused transaction never costs anyone their place.
+     *
+     * @return null if {@code tx} now fits, else why it was refused
+     */
+    private String makeRoomFor(Transaction tx) {
+        int size = tx.sizeBytes();
+        if (size > mempoolPolicy.maxBytes()) {
+            return "larger than the whole mempool (" + size + " bytes)";
+        }
+        int count = pendingTransactions.size();
+        int bytes = getPendingBytes();
+        if (fits(count, bytes, size)) return null;
+
+        List<Transaction> candidates = new ArrayList<>(pendingTransactions);
+        Collections.reverse(candidates);                                    // newest first
+        candidates.sort(Comparator.comparingDouble(Transaction::feeRate));  // stable: ties stay newest first
+
+        double rate = tx.feeRate();
+        List<Transaction> victims = new ArrayList<>();
+        for (Transaction victim : candidates) {
+            if (fits(count, bytes, size)) break;
+            double needed = victim.feeRate() + mempoolPolicy.incrementalFeeRate();
+            if (!(rate > victim.feeRate() && rate >= needed)) {
+                return "mempool full, fee rate " + rate + " BSC/byte is below the minimum " + needed;
+            }
+            victims.add(victim);
+            count--;
+            bytes -= victim.sizeBytes();
+        }
+
+        for (Transaction victim : victims) {
+            pendingTransactions.remove(victim);
+            store.removePending(victim.getTransactionId());
+            System.out.println("Evicted pending transaction " + shortId(victim)
+                    + " (fee rate " + victim.feeRate() + ") to make room");
+        }
+        return null;
+    }
+
+    private boolean fits(int count, int bytes, int size) {
+        return count + 1 <= mempoolPolicy.maxTransactions() && bytes + size <= mempoolPolicy.maxBytes();
+    }
+
+    /** This node's mempool limits. */
+    public MempoolPolicy getMempoolPolicy() {
+        return mempoolPolicy;
+    }
+
+    /** Total size of the pending transactions, in bytes of their JSON. */
+    public int getPendingBytes() {
+        int bytes = 0;
+        for (Transaction tx : pendingTransactions) bytes += tx.sizeBytes();
+        return bytes;
+    }
+
+    /**
+     * The fee rate (BSC per byte) a new transaction must pay to get into the
+     * mempool: 0 while a typical transaction still fits, else the lowest
+     * pending rate plus the increment (Bitcoin calls it {@code mempoolminfee}).
+     */
+    public double getMempoolMinFeeRate() {
+        if (fits(pendingTransactions.size(), getPendingBytes(), MempoolPolicy.TYPICAL_TX_BYTES)) {
+            return 0;
+        }
+        double lowest = Double.MAX_VALUE;
+        for (Transaction tx : pendingTransactions) lowest = Math.min(lowest, tx.feeRate());
+        return lowest + mempoolPolicy.incrementalFeeRate();
     }
 
     /**
