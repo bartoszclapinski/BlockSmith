@@ -124,8 +124,12 @@ public class ApiServer {
 
     private void registerRoutes() {
         // Read/query endpoints (Milestone 12a).
-        app.get("/api/blocks", ctx -> json(ctx, blockchain.getChain()));
-        app.get("/api/blocks/latest", ctx -> json(ctx, blockchain.getLatestBlock()));
+        app.get("/api/blocks", ctx -> {
+            JsonArray blocks = new JsonArray();
+            for (Block b : blockchain.getChain()) blocks.add(blockJson(b));
+            json(ctx, blocks);
+        });
+        app.get("/api/blocks/latest", ctx -> json(ctx, blockJson(blockchain.getLatestBlock())));
         app.get("/api/blocks/{index}", this::getBlockByIndex);
         app.get("/api/blocks/hash/{hash}", this::getBlockByHash);
         app.get("/api/network/status", ctx -> json(ctx, status()));
@@ -135,6 +139,7 @@ public class ApiServer {
         app.post("/api/transactions", this::postTransaction);
         app.get("/api/transactions/{id}", this::getTransactionById);
         app.post("/api/mine", this::postMine);
+        app.get("/api/mempool", this::getMempool);
 
         // Wallet + network endpoints (Milestone 12c).
         app.get("/api/wallet/{address}", this::getWallet);
@@ -189,12 +194,29 @@ public class ApiServer {
             return;
         }
 
+        // Optional fee (Sprint 18c/18d): paid by the sender on top of the
+        // amount, collected by whoever mines the transaction.
+        double fee = 0;
+        if (body.has("fee") && !body.get("fee").isJsonNull()) {
+            try {
+                fee = body.get("fee").getAsDouble();
+            } catch (RuntimeException e) {
+                fee = Double.NaN;
+            }
+            if (!(fee >= 0) || Double.isInfinite(fee)) {
+                ctx.status(400);
+                json(ctx, error("fee must be a non-negative number"));
+                return;
+            }
+        }
+
         // Build the transaction through its constructor so the id and timestamp
         // are computed correctly (Gson would bypass the constructor).
         Transaction tx = new Transaction(
                 body.get("sender").getAsString(),
                 body.get("recipient").getAsString(),
-                body.get("amount").getAsDouble());
+                body.get("amount").getAsDouble(),
+                fee);
 
         if (!blockchain.addTransaction(tx)) {
             ctx.status(400);
@@ -244,7 +266,7 @@ public class ApiServer {
         Block mined = blockchain.minePendingTransactions(body.get("minerAddress").getAsString());
         node.broadcastBlock(mined);
         ctx.status(201);
-        json(ctx, mined);
+        json(ctx, blockJson(mined));
     }
 
     // ===== 12c: WALLET + NETWORK =====
@@ -553,7 +575,7 @@ public class ApiServer {
             json(ctx, error("No block at index " + index));
             return;
         }
-        json(ctx, blockchain.getBlock(index));
+        json(ctx, blockJson(blockchain.getBlock(index)));
     }
 
     /** Finds a block by hash (16c); 404 if no block on our chain has it. */
@@ -565,7 +587,7 @@ public class ApiServer {
             json(ctx, error("No block with hash " + hash));
             return;
         }
-        json(ctx, block);
+        json(ctx, blockJson(block));
     }
 
     /**
@@ -608,6 +630,9 @@ public class ApiServer {
         m.put("targetBlockTimeMs", blockchain.getChainParams().targetBlockTimeMs());
         m.put("retargetInterval", blockchain.getChainParams().retargetInterval());
         m.put("blocksUntilRetarget", blockchain.getBlocksUntilRetarget());
+        // Block limits (Sprint 18b/18d)
+        m.put("maxBlockBytes", blockchain.getChainParams().maxBlockBytes());
+        m.put("maxBlockTransactions", blockchain.getChainParams().maxBlockTransactions());
         Long avg = blockchain.getAverageBlockTimeMs();
         if (avg != null) m.put("averageBlockTimeMs", avg);
         m.put("pendingTransactions", blockchain.getPendingTransactions().size());
@@ -644,6 +669,43 @@ public class ApiServer {
         }
         m.put("epochs", epochs);
         return m;
+    }
+
+    /**
+     * A block's JSON plus {@code sizeBytes} and {@code totalFees} (Sprint 18d).
+     * The extra fields are for people; peers exchange the plain block.
+     */
+    private JsonObject blockJson(Block block) {
+        JsonObject o = gson.toJsonTree(block).getAsJsonObject();
+        double fees = 0;
+        List<Transaction> txs = block.getTransactions();
+        for (int i = 1; i < txs.size(); i++) fees += txs.get(i).getFee();
+        o.addProperty("sizeBytes", block.sizeBytes());
+        o.addProperty("totalFees", fees);
+        return o;
+    }
+
+    /**
+     * GET /api/mempool (Sprint 18d): pending transactions in the order a miner
+     * considers them (best fee per byte first), each with its size and fee rate.
+     */
+    private void getMempool(Context ctx) {
+        JsonArray txs = new JsonArray();
+        double totalFees = 0;
+        for (Transaction tx : blockchain.getPendingInMiningOrder()) {
+            JsonObject o = gson.toJsonTree(tx).getAsJsonObject();
+            o.addProperty("sizeBytes", tx.sizeBytes());
+            o.addProperty("feeRate", tx.feeRate());
+            txs.add(o);
+            totalFees += tx.getFee();
+        }
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("count", txs.size());
+        m.put("totalFees", totalFees);
+        m.put("maxBlockTransactions", blockchain.getChainParams().maxBlockTransactions());
+        m.put("maxBlockBytes", blockchain.getChainParams().maxBlockBytes());
+        m.put("transactions", txs);
+        json(ctx, m);
     }
 
     private Map<String, String> error(String message) {

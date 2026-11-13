@@ -985,6 +985,15 @@ public class Blockchain {
         return newBlock;
     }
 
+    /**
+     * The mempool in the order a miner considers it (Sprint 18d): best fee
+     * per byte first, ties in arrival order. Limits and stale checks still
+     * decide what actually makes it into the next block.
+     */
+    public List<Transaction> getPendingInMiningOrder() {
+        return Collections.unmodifiableList(byFeeRate(pendingTransactions));
+    }
+
     /** Pending transactions, best fee per byte first; ties keep arrival order. */
     private static List<Transaction> byFeeRate(List<Transaction> pool) {
         List<Transaction> sorted = new ArrayList<>(pool);
