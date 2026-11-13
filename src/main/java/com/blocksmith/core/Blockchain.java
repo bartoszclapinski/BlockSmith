@@ -7,6 +7,7 @@ import com.blocksmith.storage.ChainStore;
 import com.blocksmith.storage.NoOpChainStore;
 import com.blocksmith.util.BlockchainConfig;
 import com.blocksmith.util.HashUtil;
+import com.blocksmith.util.JsonUtil;
 import com.blocksmith.util.Target;
 
 import java.math.BigInteger;
@@ -70,6 +71,9 @@ public class Blockchain {
 
     /** This node's clock: for the future-time rule and for mining (Sprint 17c). */
     private final Clock clock;
+
+    /** Room left for the nonce to grow from "0" to 10 digits while mining (Sprint 18b). */
+    private static final int NONCE_DIGITS_MARGIN = 9;
 
     /** How many previous blocks the median-time-past looks at (as in Bitcoin). */
     static final int MEDIAN_TIME_SPAN = 11;
@@ -534,6 +538,9 @@ public class Blockchain {
      * same quirk, BIP30/BIP34). In an account model that is harmless.
      */
     private String blockRuleViolation(Block block) {
+        String tooBig = limitViolation(block);
+        if (tooBig != null) return tooBig;
+
         List<Transaction> txs = block.getTransactions();
         if (txs.isEmpty()) return null;               // data-only block (legacy addBlock(String))
 
@@ -559,6 +566,31 @@ public class Blockchain {
             String why = transactionRuleViolation(tx, check);
             if (why != null) return "transaction " + shortId(tx) + ": " + why;
             check.apply(tx);
+        }
+        return null;
+    }
+
+    /**
+     * Why this block is over the network's size limits, or null (Sprint 18b).
+     *
+     * THEORY: Why blocks have a maximum size
+     *
+     * Every full node downloads, checks and stores every block. Without a
+     * cap, one miner could publish a gigantic block that slower nodes cannot
+     * keep up with, pushing them off the network (fewer independent nodes =
+     * less decentralisation), or simply flood everyone's disk and bandwidth.
+     * A cap also makes block space scarce, which is what gives fees meaning:
+     * when more transactions wait than fit, the miner picks the best-paying
+     * ones (Sprint 18c). Bitcoin's cap is ~4 MB of "weight" per block.
+     */
+    private String limitViolation(Block block) {
+        int count = block.getTransactions().size();
+        if (count > params.maxBlockTransactions()) {
+            return count + " transactions, more than the limit of " + params.maxBlockTransactions();
+        }
+        int bytes = block.sizeBytes();
+        if (bytes > params.maxBlockBytes()) {
+            return bytes + " bytes, more than the limit of " + params.maxBlockBytes();
         }
         return null;
     }
@@ -670,7 +702,7 @@ public class Blockchain {
         // easiest one allowed (cheap spam filter); attachOrphans checks the
         // real target. A malformed block is dropped outright.
         if (block.getIndex() > tip.getIndex() + 1 && isWellFormed(block, params.powLimit())
-                && isNotTooFarInFuture(block)) {
+                && isNotTooFarInFuture(block) && limitViolation(block) == null) {
             orphans.put(block.getPreviousHash(), block);
         }
 
@@ -889,11 +921,22 @@ public class Blockchain {
         blockTransactions.add(rewardTx);
         BlockCheck check = new BlockCheck(newIndex);
         check.apply(rewardTx);
+
+        // Block limits (Sprint 18b): start from the size of a block holding
+        // only the coinbase, and add each transaction's JSON plus a comma.
+        // The nonce grows from "0" to at most 10 digits while mining, so keep
+        // that much room. What does not fit waits for the next block.
+        int bytes = new Block(newIndex, blockTransactions, latestBlock.getHash(), 0L).sizeBytes()
+                + NONCE_DIGITS_MARGIN;
         for (Transaction tx : new ArrayList<>(pendingTransactions)) {
+            if (blockTransactions.size() >= params.maxBlockTransactions()) break;
+            int txBytes = JsonUtil.GSON.toJson(tx).getBytes(java.nio.charset.StandardCharsets.UTF_8).length + 1;
+            if (bytes + txBytes > params.maxBlockBytes()) continue;   // a smaller one may still fit
             String why = transactionRuleViolation(tx, check);
             if (why == null) {
                 blockTransactions.add(tx);
                 check.apply(tx);
+                bytes += txBytes;
             } else {
                 pendingTransactions.remove(tx);
                 store.removePending(tx.getTransactionId());
