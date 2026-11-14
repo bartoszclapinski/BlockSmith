@@ -184,6 +184,13 @@ public class Blockchain {
      */
     private final List<BigInteger> cumulativeWork = new ArrayList<>();
 
+    /** A chain switch, for the API and the log (Sprint 21b). */
+    public record ReorgEvent(int depth, int forkHeight, String oldTip, String newTip,
+                             int newHeight, int transactionsBack, long timestamp) {}
+
+    private int reorgCount = 0;
+    private ReorgEvent lastReorg = null;
+
     /**
      * THEORY: ORPHAN BLOCKS
      *
@@ -818,10 +825,13 @@ public class Blockchain {
         // Its parent is known but it does not extend our tip: a COMPETING
         // block (Sprint 21a). Keep it on a side branch; it may later turn
         // out to be on the chain with the most work (Sprint 21b).
+        // If its branch now has more work than our chain, we switch to it
+        // (Sprint 21b); then the block IS on our chain and we return true,
+        // so the node relays it like any other block it accepted.
         String parent = block.getPreviousHash();
         if (heightByHash.containsKey(parent) || sideBlocks.containsKey(parent)) {
-            addSideBlock(block);
-            return false;
+            Block branchTip = addSideBlock(block);
+            return branchTip != null && tryReorg(branchTip) && heightByHash.containsKey(block.getHash());
         }
 
         // Parent unknown: park as an orphan until the parent shows up (it may
@@ -846,20 +856,156 @@ public class Blockchain {
      * side branch) if it passes the cheap checks, sits right above its
      * parent, and its branch leaves our chain at most {@link #MAX_REORG_DEPTH}
      * below the tip. Orphans waiting on it follow it onto the side branch.
+     *
+     * @return the highest block kept (the new tip of that branch), or null
      */
-    private void addSideBlock(Block block) {
+    private Block addSideBlock(Block block) {
+        Block kept = null;
         while (block != null) {
             Integer parentHeight = heightOf(block.getPreviousHash());
             int forkHeight = forkHeightOf(block);
             if (parentHeight == null || block.getIndex() != parentHeight + 1 || !cheapChecksPass(block)
                     || getLatestBlock().getIndex() - forkHeight > MAX_REORG_DEPTH) {
-                return;
+                return kept;
             }
             sideBlocks.put(block.getHash(), block);
             System.out.println("Kept competing block #" + block.getIndex() + " on a side branch (fork at #"
                     + forkHeight + ")");
+            kept = block;
             block = orphans.remove(block.getHash());          // a child that arrived first
         }
+        return kept;
+    }
+
+    // ===== REORGANISATION (Sprint 21b) =====
+
+    /**
+     * Switches to the branch ending at {@code branchTip} if it is valid and
+     * has strictly more work than our chain.
+     *
+     * THEORY: Fork choice by replay
+     *
+     * Bitcoin keeps "undo data" for every block so it can roll its state
+     * back to the fork point. We do something simpler and harder to get
+     * wrong: build the CANDIDATE chain (ours up to the fork point, then the
+     * branch) on a fresh Blockchain, through addBlock, the same validation
+     * every block, every restore and isChainValid() go through: targets,
+     * timestamps, content rules, sequences, contracts. If any branch block
+     * fails, the branch is invalid and dropped from that block on. If all
+     * pass, the candidate knows its exact total work; only if it is
+     * STRICTLY more than ours do we adopt it (a tie keeps the chain we saw
+     * first, as Bitcoin does, so two equal branches cannot flip-flop).
+     *
+     * Cost: one replay of the chain per attempt, fine at this scale. A cheap
+     * pre-filter skips branches lower than our tip: within a retarget window
+     * both sides share the target, so a lower branch cannot have more work.
+     *
+     * @return true if we switched
+     */
+    private boolean tryReorg(Block branchTip) {
+        if (branchTip.getIndex() < getLatestBlock().getIndex()) return false;
+
+        // The branch, oldest first, back to its last ancestor on our chain.
+        java.util.LinkedList<Block> branch = new java.util.LinkedList<>();
+        Block b = branchTip;
+        while (true) {
+            branch.addFirst(b);
+            if (heightByHash.containsKey(b.getPreviousHash())) break;
+            b = sideBlocks.get(b.getPreviousHash());
+            if (b == null) return false;                      // detached (an ancestor was evicted)
+        }
+        int forkHeight = heightByHash.get(branch.getFirst().getPreviousHash());
+        if (getLatestBlock().getIndex() - forkHeight > MAX_REORG_DEPTH) return false;
+
+        Blockchain candidate = new Blockchain(NoOpChainStore.INSTANCE, params, clock, mempoolPolicy);
+        for (int h = 1; h <= forkHeight; h++) {
+            if (!candidate.addBlock(chain.get(h))) {
+                throw new IllegalStateException("Our own chain failed its replay at #" + h);
+            }
+        }
+        for (int i = 0; i < branch.size(); i++) {
+            if (!candidate.addBlock(branch.get(i))) {
+                // Invalid from here on: forget this block and everything built on it.
+                for (Block bad : branch.subList(i, branch.size())) sideBlocks.remove(bad.getHash());
+                System.out.println("Side branch rejected at #" + branch.get(i).getIndex()
+                        + ": it does not pass full validation");
+                return false;
+            }
+        }
+        if (candidate.getTotalWork().compareTo(getTotalWork()) <= 0) return false;
+
+        adoptChain(candidate, forkHeight);
+        return true;
+    }
+
+    /**
+     * Makes {@code candidate}'s chain ours (Sprint 21b). All under the lock,
+     * so no other thread ever sees half of the old chain and half of the new.
+     *
+     *   1. undo:  our blocks above the fork point become side blocks (if
+     *             their branch wins again later, we can switch back)
+     *   2. apply: chain, targets, work, confirmed ids and sequences, the
+     *             contract registry and the tip all come from the candidate
+     *   3. store: rewrite from the fork point, drop anything higher
+     *   4. mempool: the undone blocks' transactions, then the old pending
+     *             ones, are re-submitted against the new chain, in order;
+     *             whatever is now confirmed, conflicting or unaffordable
+     *             falls out
+     */
+    private void adoptChain(Blockchain candidate, int forkHeight) {
+        List<Block> undone = new ArrayList<>(chain.subList(forkHeight + 1, chain.size()));
+        List<Transaction> oldPending = new ArrayList<>(pendingTransactions);
+        String oldTip = tipHash;
+
+        chain.clear();
+        chain.addAll(candidate.chain);
+        targets.clear();
+        targets.addAll(candidate.targets);
+        cumulativeWork.clear();
+        cumulativeWork.addAll(candidate.cumulativeWork);
+        heightByHash.clear();
+        heightByHash.putAll(candidate.heightByHash);
+        confirmedTxIds.clear();
+        confirmedTxIds.addAll(candidate.confirmedTxIds);
+        confirmedSequences.clear();
+        confirmedSequences.addAll(candidate.confirmedSequences);
+        contracts.clear();
+        contracts.putAll(candidate.contracts);
+        tipHash = candidate.tipHash;                          // a mine in progress sees this and starts over
+
+        for (Block applied : chain.subList(forkHeight + 1, chain.size())) sideBlocks.remove(applied.getHash());
+        for (Block old : undone) sideBlocks.put(old.getHash(), old);
+
+        for (int h = forkHeight + 1; h < chain.size(); h++) store.saveBlock(chain.get(h));
+        store.truncateAbove(chain.size() - 1);
+
+        for (Transaction tx : oldPending) store.removePending(tx.getTransactionId());
+        pendingTransactions.clear();
+        List<Transaction> resubmit = new ArrayList<>();
+        for (Block old : undone) {
+            List<Transaction> txs = old.getTransactions();
+            if (txs.size() > 1) resubmit.addAll(txs.subList(1, txs.size()));   // not the coinbase
+        }
+        resubmit.addAll(oldPending);
+        int back = 0;
+        for (Transaction tx : resubmit) if (submitTransaction(tx) == null) back++;
+
+        reorgCount++;
+        lastReorg = new ReorgEvent(undone.size(), forkHeight, oldTip, tipHash, chain.size() - 1, back,
+                clock.millis());
+        System.out.println("🔀 Reorganised: undid " + undone.size() + " block(s) back to #" + forkHeight
+                + ", now at #" + (chain.size() - 1) + "; " + back + " transaction(s) pending");
+        attachOrphans();
+    }
+
+    /** How many times this node switched to a branch with more work (Sprint 21b). */
+    public synchronized int getReorgCount() {
+        return reorgCount;
+    }
+
+    /** The most recent chain switch, or null if there was none (Sprint 21b). */
+    public synchronized ReorgEvent getLastReorg() {
+        return lastReorg;
     }
 
     /** Height of a block on our chain or on a side branch, or null if unknown. */

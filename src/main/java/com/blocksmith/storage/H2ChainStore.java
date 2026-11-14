@@ -204,6 +204,30 @@ public class H2ChainStore implements ChainStore {
         }
     }
 
+    @Override
+    public synchronized void truncateAbove(int height) {
+        try {
+            connection.setAutoCommit(false);
+            try (PreparedStatement blocks = connection.prepareStatement("DELETE FROM blocks WHERE idx > ?");
+                 PreparedStatement index = connection.prepareStatement("DELETE FROM tx_index WHERE block_idx > ?")) {
+                blocks.setInt(1, height);
+                blocks.executeUpdate();
+                index.setInt(1, height);
+                index.executeUpdate();
+            }
+            connection.commit();
+        } catch (SQLException e) {
+            rollbackQuietly();
+            throw new StorageException("Cannot drop blocks above #" + height, e);
+        } finally {
+            try {
+                connection.setAutoCommit(true);
+            } catch (SQLException ignored) {
+                // The connection is unusable anyway; the next call will report it.
+            }
+        }
+    }
+
     private void rollbackQuietly() {
         try {
             connection.rollback();
