@@ -8,7 +8,7 @@ BlockSmith is a comprehensive blockchain project that goes beyond tutorials - im
 
 [![Java](https://img.shields.io/badge/Java-20+-orange.svg)](https://openjdk.org/)
 [![Maven](https://img.shields.io/badge/Maven-3.9+-blue.svg)](https://maven.apache.org/)
-[![Tests](https://img.shields.io/badge/Tests-403%20passing-brightgreen.svg)](#)
+[![Tests](https://img.shields.io/badge/Tests-419%20passing-brightgreen.svg)](#)
 [![Phase](https://img.shields.io/badge/Phase%204-Complete-brightgreen.svg)](#)
 [![Version](https://img.shields.io/badge/Version-1.0.0-blue.svg)](#)
 
@@ -101,7 +101,13 @@ BlockSmith is a comprehensive blockchain project that goes beyond tutorials - im
   - ✅ Chain work; competing blocks kept on side branches (Sprint 21a)
   - ✅ Reorganisation onto the valid chain with the most work; undone transactions back to the mempool (Sprint 21b)
   - ✅ Block-locator sync: two nodes that both mine end on one chain (Sprint 21c)
-- ⬜ Required signatures: no more unsigned transfers through the API (next)
+- ✅ Required signatures (Sprint 22)
+  - ✅ Only the owner can spend: every transfer is signed by the key behind the sender's address (Sprint 22a)
+  - ✅ Prepare / sign elsewhere / submit: the node never holds your private key (Sprint 22b)
+  - ✅ Keys created and kept in the browser (Web Crypto) by the dashboard (Sprint 22c)
+
+> Upgrading from an older checkout? Chains saved before Sprint 22 contain unsigned transfers and
+> restore only up to the first one: start with a fresh `data/` directory.
 
 ---
 
@@ -238,7 +244,7 @@ Average attempts: ~16^difficulty (~65,536 for difficulty 4)
 mvn clean compile
 ```
 
-### Run all tests (403 tests)
+### Run all tests (419 tests)
 ```bash
 mvn test
 ```
@@ -315,7 +321,7 @@ BlockSmith/
 │   ├── BlockSmithNode.java     # Runnable node (P2P + API + dashboard)
 │   └── BlockSmithDemo.java     # Teaching demo application
 ├── src/main/resources/public/  # Web dashboard (index.html, app.js, style.css)
-├── src/test/java/              # 403 unit tests
+├── src/test/java/              # 419 unit tests
 ├── data/                       # Node databases (H2), one folder per node: data/node-<port>/
 ├── pom.xml                     # Maven configuration
 └── README.md
@@ -386,7 +392,10 @@ BlockSmith/
 | SideBranchTest | 5 | Chain work; competing blocks kept |
 | ReorgTest | 11 | Switching to the chain with the most work |
 | ForkSyncTest | 3 | Fork-aware sync; two mining nodes converge |
-| **Total** | **403** | All passing ✅ |
+| SignatureRuleTest | 8 | Only the sender's own key can authorise a transfer |
+| ApiSigningTest | 6 | Prepare / sign / submit over HTTP |
+| WebCryptoInteropTest | 2 | Browser (Web Crypto) and Java agree on addresses and signatures |
+| **Total** | **419** | All passing ✅ |
 
 ---
 
@@ -461,7 +470,7 @@ BlockSmith/
 |--------|-------|--------|
 | Sprint 20 | Thread Safety | ✅ Complete (20a, 20b, 20c) |
 | Sprint 21 | Fork Choice | ✅ Complete (21a, 21b, 21c) |
-| Sprint 22 | Required Signatures | ⬜ Next |
+| Sprint 22 | Required Signatures | ✅ Complete (22a, 22b, 22c) |
 
 ---
 
