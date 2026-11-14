@@ -7,7 +7,7 @@
 | **Sprint** | 24 |
 | **Title** | Encrypted Browser Keystore |
 | **Phase** | Hardening (after the roadmap) |
-| **Status** | 📋 Planned |
+| **Status** | ✅ Complete (2026-11-14) |
 | **Depends On** | Sprint 22 (browser keys), Sprint 23 (multisig member keys) |
 
 > **Why:** since Sprints 22-23 the node never holds a private key: the
@@ -48,9 +48,9 @@ interop test.
 
 | Milestone | Title | Branch | Status |
 |-----------|-------|--------|--------|
-| **24a** | Encrypted keystore: passphrase, unlock, lock, migration | `sprint24a/encrypted-keystore` | ⬜ Planned (#353, #354) |
-| **24b** | Backups and passphrase management + Java interop | `sprint24b/keystore-backup` | ⬜ Planned (#355, #356) |
-| **24c** | End-to-end under encryption + docs | `sprint24c/keystore-e2e` | ⬜ Planned (#357, #358) |
+| **24a** | Encrypted keystore: passphrase, unlock, lock, migration | `sprint24a/encrypted-keystore` | ✅ PR #360 (#353, #354) |
+| **24b** | Backups and passphrase management + Java interop | `sprint24b/keystore-backup` | ✅ PR #361 (#355, #356) |
+| **24c** | End-to-end under encryption + docs | `sprint24c/keystore-e2e` | ✅ PR #362 (#357, #358) |
 
 ---
 
@@ -150,4 +150,4 @@ interop test.
 
 ---
 
-*Created: 2026-11-14 | Sprint 24 Planning*
+*Created: 2026-11-14 | Sprint 24 Planning | Completed: 2026-11-14*

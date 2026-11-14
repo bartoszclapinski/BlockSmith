@@ -8,7 +8,7 @@ BlockSmith is a comprehensive blockchain project that goes beyond tutorials - im
 
 [![Java](https://img.shields.io/badge/Java-20+-orange.svg)](https://openjdk.org/)
 [![Maven](https://img.shields.io/badge/Maven-3.9+-blue.svg)](https://maven.apache.org/)
-[![Tests](https://img.shields.io/badge/Tests-428%20passing-brightgreen.svg)](#)
+[![Tests](https://img.shields.io/badge/Tests-435%20passing-brightgreen.svg)](#)
 [![Phase](https://img.shields.io/badge/Phase%204-Complete-brightgreen.svg)](#)
 [![Version](https://img.shields.io/badge/Version-1.0.0-blue.svg)](#)
 
@@ -110,10 +110,15 @@ BlockSmith is a comprehensive blockchain project that goes beyond tutorials - im
   - ✅ The node makes no member keys: a multisig is created from the members' public keys (Sprint 23a)
   - ✅ Members sign a claim in their own browsers; the node only assembles the signatures (Sprint 23b)
   - ✅ A claim signed in two browser profiles is checked by the Java script VM (Sprint 23c)
+- ✅ Encrypted browser keystore (Sprint 24)
+  - ✅ Keys stored only encrypted under your passphrase (PBKDF2 + AES-GCM); unlocked on demand, auto-lock (Sprint 24a)
+  - ✅ Encrypted backups and passphrase change; a backup opens with standard Java crypto (Sprint 24b)
+  - ✅ Every signing flow checked live with locked keys (Sprint 24c)
 
 > Upgrading from an older checkout? Chains saved before Sprint 22 contain unsigned transfers and
 > restore only up to the first one, and multisig contracts from before Sprint 23 cannot be claimed:
-> start with a fresh `data/` directory.
+> start with a fresh `data/` directory. Browser keys from before Sprint 24 were stored in plain text and
+> may stay in the browser's files after they are encrypted: for anything you care about, make new keys.
 
 ---
 
@@ -250,7 +255,7 @@ Average attempts: ~16^difficulty (~65,536 for difficulty 4)
 mvn clean compile
 ```
 
-### Run all tests (428 tests)
+### Run all tests (435 tests)
 ```bash
 mvn test
 ```
@@ -327,7 +332,7 @@ BlockSmith/
 │   ├── BlockSmithNode.java     # Runnable node (P2P + API + dashboard)
 │   └── BlockSmithDemo.java     # Teaching demo application
 ├── src/main/resources/public/  # Web dashboard (index.html, app.js, style.css)
-├── src/test/java/              # 428 unit tests
+├── src/test/java/              # 435 unit tests
 ├── data/                       # Node databases (H2), one folder per node: data/node-<port>/
 ├── pom.xml                     # Maven configuration
 └── README.md
@@ -401,7 +406,9 @@ BlockSmith/
 | SignatureRuleTest | 8 | Only the sender's own key can authorise a transfer |
 | ApiSigningTest | 6 | Prepare / sign / submit over HTTP |
 | WebCryptoInteropTest | 4 | Browser (Web Crypto) and Java agree on addresses, signatures and multisig claims |
-| **Total** | **428** | All passing ✅ |
+| DashboardKeystoreTest | 4 | The dashboard stores keys encrypted only and signs through the keystore |
+| KeystoreInteropTest | 3 | A browser keystore backup opens with standard Java crypto |
+| **Total** | **435** | All passing ✅ |
 
 ---
 
@@ -478,6 +485,7 @@ BlockSmith/
 | Sprint 21 | Fork Choice | ✅ Complete (21a, 21b, 21c) |
 | Sprint 22 | Required Signatures | ✅ Complete (22a, 22b, 22c) |
 | Sprint 23 | Client-side Multisig | ✅ Complete (23a, 23b, 23c) |
+| Sprint 24 | Encrypted Browser Keystore | ✅ Complete (24a, 24b, 24c) |
 
 ---
 
