@@ -7,7 +7,7 @@
 | **Sprint** | 22 |
 | **Title** | Required Signatures |
 | **Phase** | Hardening (after the roadmap) |
-| **Status** | 📋 Planned |
+| **Status** | ✅ Complete (2026-11-14) |
 | **Depends On** | Sprint 5 (wallets, ECDSA), Sprint 18a (block content rules), Sprint 19 (sequences, bumps) |
 
 > **Why:** a probe on master (not committed), with a funded Victim wallet:
@@ -45,9 +45,9 @@ browser; the node never sees a private key.
 
 | Milestone | Title | Branch | Status |
 |-----------|-------|--------|--------|
-| **22a** | Consensus: the sender must sign | `sprint22a/sender-must-sign` | ⬜ Planned (#331, #332) |
-| **22b** | API: prepare, sign elsewhere, submit | `sprint22b/prepare-submit` | ⬜ Planned (#333, #334) |
-| **22c** | Dashboard: keys and signing in the browser | `sprint22c/browser-signing` | ⬜ Planned (#335, #336) |
+| **22a** | Consensus: the sender must sign | `sprint22a/sender-must-sign` | ✅ PR #338 (#331, #332) |
+| **22b** | API: prepare, sign elsewhere, submit | `sprint22b/prepare-submit` | ✅ PR #339 (#333, #334) |
+| **22c** | Dashboard: keys and signing in the browser | `sprint22c/browser-signing` | ✅ PR #340 (#335, #336) |
 
 ---
 
@@ -162,4 +162,4 @@ the address, then checks the signature.
 
 ---
 
-*Created: 2026-11-14 | Sprint 22 Planning*
+*Created: 2026-11-14 | Sprint 22 Planning | Completed: 2026-11-14*

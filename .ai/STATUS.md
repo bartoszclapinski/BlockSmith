@@ -9,9 +9,9 @@
 | Field | Value |
 |-------|-------|
 | **Phase** | 4 - Production Features - ✅ COMPLETE (all 4 phases done) |
-| **Current Sprint** | 22 (Required Signatures, hardening) - Planned |
-| **Current Milestone** | 21c Complete (Fork-aware sync; two mining nodes converge) |
-| **Status** | Sprint 21 complete (21a-21c): chain work, side branches, reorg onto the most-work chain, block-locator sync. Next: require signatures (API accepts unsigned txs for any sender) |
+| **Current Sprint** | 22 (Required Signatures, hardening) - Complete |
+| **Current Milestone** | 22c Complete (Browser keys and signing) |
+| **Status** | Sprint 22 complete (22a-22c): only the sender can spend (signature bound to the address), prepare/sign/submit API, browser keys. Next: see the candidates in the notes |
 
 ---
 
@@ -61,7 +61,7 @@ Phase 4: Production Features  [███████████████] 10
 Hardening (after the roadmap)
 ├── Sprint 20: Thread Safety ✅ COMPLETE (20a ✅, 20b ✅, 20c ✅)
 ├── Sprint 21: Fork Choice   ✅ COMPLETE (21a ✅, 21b ✅, 21c ✅)
-└── Sprint 22: Signatures    📋 PLANNED (22a ⬜, 22b ⬜, 22c ⬜)
+└── Sprint 22: Signatures    ✅ COMPLETE (22a ✅, 22b ✅, 22c ✅)
 ```
 
 ---
@@ -129,7 +129,10 @@ Hardening (after the roadmap)
 | SideBranchTest | 5 | ✅ |
 | ReorgTest | 11 | ✅ |
 | ForkSyncTest | 3 | ✅ |
-| **Total** | **403** | ✅ |
+| SignatureRuleTest | 8 | ✅ |
+| ApiSigningTest | 6 | ✅ |
+| WebCryptoInteropTest | 2 | ✅ |
+| **Total** | **419** | ✅ |
 
 Last test run: `mvn test` - All passing
 
@@ -143,9 +146,9 @@ Last test run: `mvn test` - All passing
 |-------|--------|-------|-------|
 | Block.java | ✅ Complete | ~355 | Transactions + Merkle root + `hasValidMerkleRoot()` recomputes it from the txs (Sprint 16b, #260) + `mineBlock(BigInteger target)`, explicit-timestamp constructor (Sprint 17) + `sizeBytes()` (Sprint 18b) + `mineBlock(target, stop)` (Sprint 20b) |
 | Blockchain.java | ✅ Complete | ~2200 | Pending pool + mining + external append + orphan buffer (Sprint 10) + tx dedupe + mempool prune (Sprint 11) + contract registry (deploy/claim, derived from chain) (Sprint 14b) + optional `ChainStore`, single `appendBlock()`, `restoreFromStore()` replay (Sprint 16b) + `getBlockByHash` / `findTransaction` / `getTransactionHistory` (Sprint 16c) + `backupTo` (Sprint 16d) + `ChainParams`, targets per height, `getNextTarget` / retarget, median-time-past + future limit with injectable `Clock`, difficulty report (Sprint 17) + block content rules (`blockRuleViolation` / `transactionRuleViolation`, `BlockCheck`), `isChainValid()` by replay (Sprint 18a) + block limits, mining fills up to them (18b) + coinbase = reward + fees, fee-rate block assembly, `getPendingInMiningOrder()` (18c/18d) + mempool limit / eviction, `getMempoolMinFeeRate()` (19a) + `confirmedSequences`, replacement rules (19b) + `estimateFeeRate()` (19c) + `submitTransaction()` with reasons, `minimumBumpFee()` (19d) + monitor (`synchronized`, snapshot getters) (20a) + mining as template / unlocked work / submit, `volatile tipHash`, cancellable mining (20b) + `atomically()` (20c) + cumulative work, side branches (21a) + `tryReorg` / `adoptChain`, `ReorgEvent` (21b) + block locator, `getBlocksAfter` (21c) |
-| Transaction.java | ✅ Complete | ~410 | Validation + signing + verification + optional contract locking/unlocking scripts (Sprint 14b) + `hasValidId()` (Sprint 16b, #260); contract scripts are part of the id (#264) + `fee` (in id/signature only when > 0), `getTotalCost()`, `sizeBytes()`, `feeRate()` (Sprint 18c) + optional `sequence` (in id/signature only when set), `withFee()`, `randomSequence()` (Sprint 19b) |
-| Wallet.java | ✅ Complete | ~169 | ECDSA keys + signing |
-| ChainParams.java | ✅ Complete | ~100 | Consensus params record: initial target, block time, retarget interval, 4x clamp, powLimit, max future drift (Sprint 17b/17c), max block bytes / transactions (Sprint 18b) |
+| Transaction.java | ✅ Complete | ~425 | Validation + signing + verification + optional contract locking/unlocking scripts (Sprint 14b) + `hasValidId()` (Sprint 16b, #260); contract scripts are part of the id (#264) + `fee` (in id/signature only when > 0), `getTotalCost()`, `sizeBytes()`, `feeRate()` (Sprint 18c) + optional `sequence` (in id/signature only when set), `withFee()`, `randomSequence()` (Sprint 19b) + `isSignedBySender()`, contract scripts in the signed data (Sprint 22a) |
+| Wallet.java | ✅ Complete | ~190 | ECDSA keys + signing + `addressOf(PublicKey)` (Sprint 22a) + `signData`, `getPublicKeyHex` (Sprint 22b) |
+| ChainParams.java | ✅ Complete | ~125 | Consensus params record: initial target, block time, retarget interval, 4x clamp, powLimit, max future drift (Sprint 17b/17c), max block bytes / transactions (Sprint 18b), `requireSignatures` + `withoutSignatureRule()` (Sprint 22a) |
 | MempoolPolicy.java | ✅ Complete | ~50 | Node policy record (not consensus): max bytes 64 KB, max txs 200, incremental fee rate (Sprint 19a) |
 
 ### Utility Classes (`com.blocksmith.util`)
@@ -190,7 +193,7 @@ Last test run: `mvn test` - All passing
 
 | Class | Status | Lines | Notes |
 |-------|--------|-------|-------|
-| ApiServer.java | ✅ Complete | ~905 | Javalin REST API: blocks, transactions, mining, wallet, network, JSON errors (Sprint 12) + static dashboard hosting (Sprint 13a) + contract deploy/claim/inspect endpoints (Sprint 14c) + multisig create/claim endpoints, server-held member keys (Sprint 15c) + `JsonUtil` Gson (#259) + block by hash, address history, tx location (Sprint 16c) + `POST /api/admin/backup`, loopback only (Sprint 16d) + live difficulty in status, `GET /api/network/difficulty` (Sprint 17d) + optional `fee`, `GET /api/mempool`, block `sizeBytes` / `totalFees`, limits in status (Sprint 18d) + `GET /api/fees/estimate`, `POST /api/transactions/{id}/bump`, sequence on new txs, refusal reasons, mempool policy fields (Sprint 19d) + multi-value responses from one `atomically` snapshot, `pendingOutgoing` with fees (Sprint 20c) + `totalWork`, `sideBlocks`, `reorgs`, `lastReorg` in status (Sprint 21c) |
+| ApiServer.java | ✅ Complete | ~1095 | Javalin REST API: blocks, transactions, mining, wallet, network, JSON errors (Sprint 12) + static dashboard hosting (Sprint 13a) + contract deploy/claim/inspect endpoints (Sprint 14c) + multisig create/claim endpoints, server-held member keys (Sprint 15c) + `JsonUtil` Gson (#259) + block by hash, address history, tx location (Sprint 16c) + `POST /api/admin/backup`, loopback only (Sprint 16d) + live difficulty in status, `GET /api/network/difficulty` (Sprint 17d) + optional `fee`, `GET /api/mempool`, block `sizeBytes` / `totalFees`, limits in status (Sprint 18d) + `GET /api/fees/estimate`, `POST /api/transactions/{id}/bump`, sequence on new txs, refusal reasons, mempool policy fields (Sprint 19d) + multi-value responses from one `atomically` snapshot, `pendingOutgoing` with fees (Sprint 20c) + `totalWork`, `sideBlocks`, `reorgs`, `lastReorg` in status (Sprint 21c) + prepare/submit templates for transfers, deploys and bumps; `/api/wallet/create` retired (Sprint 22b/22c) |
 
 ### Contract Classes (`com.blocksmith.contract`)
 
@@ -320,6 +323,9 @@ Design handoff (prototype + README) lives in `.ai/design/UIUX redesign project/`
 - [x] Chain work and side branches: competing blocks are kept, not dropped (Sprint 21a)
 - [x] Reorganisation onto the valid chain with the most work; undone txs back to the mempool (Sprint 21b)
 - [x] Block-locator sync; two nodes that both mine converge (Sprint 21c)
+- [x] Only the sender can spend: signature required and bound to the sender's address (Sprint 22a)
+- [x] Prepare / sign elsewhere / submit API for transfers, deploys and bumps (Sprint 22b)
+- [x] Browser keys and signing (Web Crypto) in the dashboard (Sprint 22c)
 
 ---
 
@@ -328,7 +334,7 @@ Design handoff (prototype + README) lives in `.ai/design/UIUX redesign project/`
 | Item | Value |
 |------|-------|
 | **Current Branch** | `master` |
-| **Last Commit** | Sprint 21 complete (PR #327, #328, #329) |
+| **Last Commit** | Sprint 22 complete (PR #338, #339, #340) |
 | **Tag** | `v1.0.0` (Phase 1) |
 | **Main Branch** | `master` |
 
@@ -418,14 +424,25 @@ Design handoff (prototype + README) lives in `.ai/design/UIUX redesign project/`
    - 21c (PR #329): block locator sync, reorgs in status + dashboard; two
      mining nodes converge
 
-8. **Next (recommended): require signatures.** `POST /api/transactions`
-   still accepts an unsigned transaction for ANY sender, so anyone who can
-   reach a node's API can move anyone's coins. Fix: sign in the dashboard
-   (keys stay in the browser), submit signature + public key, and make
-   unsigned transfers invalid (consensus). Then the rest of the deferred
-   list, or a bonus feature (SPV, explorer)
+8. **Sprint 22 COMPLETE** - Required Signatures (2026-11-14)
+   - Probe: an unsigned transfer and one signed with the attacker's own key
+     both stole from a victim
+   - 22a (PR #338): consensus rule, key bound to the sender's address;
+     contract scripts now signed; tests on `TestChains` (unsigned params)
+   - 22b (PR #339): prepare / sign / submit; signed bumps priced correctly
+   - 22c (PR #340): browser keys (Web Crypto), interop vectors from a real
+     browser, `/api/wallet/create` retired
+   - **Local `data/` chains with unsigned transfers restore only up to the
+     first one: start a fresh data directory**
 
-9. **Deferred / future work**
+9. **Next candidates** (no sprint planned yet):
+   - Client-side multisig: the node still holds multisig member keys and
+     signs claims for them, the last exception to "the node never holds a
+     user's private key"
+   - Persistent `nodeId` + auto-connect to discovered peers (network)
+   - A bonus feature from `roadmap.md` (SPV light client, explorer app)
+
+10. **Deferred / future work**
    - Gossip auto-connect to DISCOVERED peers (needs MAX_PEERS guarding)
    - Self-identification filtering in peer lists
    - Mempool request is sent on outbound connect only; inbound side does not
@@ -446,4 +463,4 @@ Design handoff (prototype + README) lives in `.ai/design/UIUX redesign project/`
 
 ---
 
-*Last updated: 2026-11-14 | Sprint 21 Complete (Fork Choice) - roadmap done, hardening in progress*
+*Last updated: 2026-11-14 | Sprint 22 Complete (Required Signatures) - roadmap done, hardening in progress*
