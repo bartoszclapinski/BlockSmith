@@ -38,10 +38,10 @@
 | **Build Tool** | Maven 3.9.x |
 | **Test Framework** | JUnit 5 |
 | **Serialization** | Gson 2.10.1 |
-| **Current Phase** | Phase 4: Production Features — in progress (75%) |
-| **Current Sprint** | Sprint 18 (Block Rules, Size & Fees) — Complete |
-| **Current Milestone** | 18d Complete; next: Sprint 19 (Fee Market) |
-| **Total Tests** | 342 (all passing) |
+| **Current Phase** | Phase 4: Production Features — ✅ Complete (all 4 phases done) |
+| **Current Sprint** | Sprint 19 (Fee Market) — Complete |
+| **Current Milestone** | 19d Complete; roadmap done (next: deferred items / bonus features) |
+| **Total Tests** | 370 (all passing) |
 | **Main Branch** | `master` |
 
 ---
@@ -82,7 +82,8 @@ BlockSmith/
 │   │   ├── Blockchain.java           # ✅ Complete (external append, orphans, mempool prune, block content rules, fee-rate mining)
 │   │   ├── Transaction.java          # ✅ Complete (with signatures and fees)
 │   │   ├── Wallet.java               # ✅ Complete (Sprint 5)
-│   │   └── ChainParams.java          # ✅ Consensus params: block time, retarget window, clamp, powLimit, future drift (Sprint 17), block limits (Sprint 18)
+│   │   ├── ChainParams.java          # ✅ Consensus params: block time, retarget window, clamp, powLimit, future drift (Sprint 17), block limits (Sprint 18)
+│   │   └── MempoolPolicy.java        # ✅ Node policy: mempool size limit + incremental fee rate (Sprint 19)
 │   ├── util/                         # Utility classes
 │   │   ├── HashUtil.java             # ✅ Complete
 │   │   ├── BlockchainConfig.java     # ✅ Complete
@@ -131,7 +132,7 @@ BlockSmith/
 │   └── BlockSmithNode.java           # ✅ Complete (runnable node: P2P + API + dashboard, Sprint 13a)
 │
 ├── src/main/resources/public/        # Web dashboard (Sprint 13-15, redesigned PR #157/#158): index.html, app.js, style.css
-├── src/test/java/com/blocksmith/     # 342 unit tests
+├── src/test/java/com/blocksmith/     # 370 unit tests
 ├── pom.xml                           # Maven configuration (Gson, JUnit, Javalin)
 └── README.md                         # Public documentation
 ```
@@ -171,7 +172,7 @@ BlockSmith/
 
 **Dashboard redesign (PR #157, #158)** — not a sprint; done after Sprint 15 from the design handoff in `.ai/design/UIUX redesign project/`. Single-screen "command deck" (top bar, chain-of-blocks hero, activity feed / actions / balance + contracts grid), "Clay" light/dark themes via CSS variables, command palette (Ctrl/⌘+K), side drawers for send / create wallet / deploy (hashlock, multisig 2-of-3) / claim, toasts, an activity feed derived client-side by diffing the 4s polls, and a 5-step onboarding tour (opt-out stored in `localStorage` as `bs_tour_optout`; `?` restarts it). Still vanilla JS, no build step. `GET /api/network/status` now also returns `difficulty`.
 
-### Phase 4: Production Features — in progress (Sprint 16-19)
+### Phase 4: Production Features — ✅ complete (Sprint 16-19)
 
 **Sprint 16: Database Persistence** — `com.blocksmith.storage`: `ChainStore` + embedded H2 (`H2ChainStore`). Every appended block (one `Blockchain.appendBlock()` path) and every pending tx is saved; on startup `restoreFromStore()` replays stored blocks through the normal `addBlock(Block)` validation (the DB is never trusted). `tx_index` gives block-by-hash, tx-by-id and address history (`GET /api/blocks/hash/{hash}`, `GET /api/wallet/{address}/transactions`); index answers are verified against the chain. Online backup via `POST /api/admin/backup` (localhost only), restore with `BlockSmithNode ... --restore <zip>`. Data lives in `data/node-<p2pPort>/`. Along the way: `JsonUtil.GSON` (signed txs serialize; #259) and block validation now recomputes tx ids and the Merkle root (#260). Follow-up #264: contract scripts are now part of the tx id, so they are covered too.
 
@@ -179,12 +180,14 @@ BlockSmith/
 
 **Sprint 18: Block Rules, Size & Fees** — started as "Block Size & Limits" and grew when a planning test showed peer blocks were never checked for *content* (#281: a peer could mint 1,000,000 coins and overspend). 18a: `blockRuleViolation` / `transactionRuleViolation` check every block on every path (peer, orphan attach, restore, our own mining) — one coinbase, first, capped; valid and verifying txs; no duplicates; contract claims through the VM; no overspend, tracked across the block by `BlockCheck`; `isChainValid()` replays the chain. 18b: `ChainParams.maxBlockBytes` (16 KB of JSON) / `maxBlockTransactions` (50); mining fills a block and leaves the rest pending. 18c: `Transaction.fee` (in id and signature only when > 0, so old txs keep their ids), sender pays `getTotalCost()`, coinbase <= reward + fees, mining picks by `feeRate()` (fee per byte). 18d: `fee` in `POST /api/transactions`, `GET /api/mempool` (mining order), blocks with `sizeBytes` / `totalFees`, fee field in the dashboard.
 
+**Sprint 19: Fee Market** — 19a: `MempoolPolicy` (node policy, not consensus: 64 KB / 200 txs / incremental fee rate); a full mempool evicts the lowest fee rate (newest first on ties) only for a tx that beats every victim by the increment; `getMempoolMinFeeRate()`. 19b: replace-by-fee. In an account model a replacement with a new id is just a second payment, so `Transaction.sequence` (optional, in id/signature only when set) plus a consensus rule: a `(sender, sequence)` pair confirms at most once (`confirmedSequences`). Mempool rules after BIP125: only the fee changes, higher fee and rate + increment, same key for signed txs. 19c: `estimateFeeRate(n)` = max(mempool view: simulate n blocks like mining; history view: cheapest rate of recent full blocks; mempool minimum). 19d: `GET /api/fees/estimate`, `POST /api/transactions/{id}/bump`, `submitTransaction()` reasons in 400s, dashboard suggested fees + Mempool drawer with Bump.
+
 ---
 
 ## What's NOT Implemented Yet
 
-### Phase 4: Production Features (Sprint 19) ← NEXT
-- Fee market (19): fee estimation, replace-by-fee, mempool size limit + eviction
+### Roadmap complete
+- All planned sprints (0-19) are done. Next candidates: the deferred list below, or a bonus feature (light clients / SPV, explorer app)
 
 ### Deferred / known follow-ups
 - Mempool request is sent on outbound connect only; inbound side does not yet pull the peer's mempool
@@ -266,7 +269,7 @@ mvn exec:java -Dexec.mainClass=com.blocksmith.BlockSmithDemo
 | BlockBroadcastTest | 4 | NEW_BLOCK serialization and handler (Sprint 10b) |
 | OrphanBlockTest | 3 | Orphan buffering and attachment (Sprint 10c) |
 | ChainSyncTest | 5 | GET_BLOCKS/BLOCKS sync handlers (Sprint 10d) |
-| TransactionBroadcastTest | 4 | NEW_TRANSACTION serialization and handler (Sprint 11a) |
+| TransactionBroadcastTest | 5 | NEW_TRANSACTION serialization and handler (Sprint 11a), gossiped fee bump (Sprint 19b) |
 | MempoolPruneTest | 2 | Confirmed-tx pruning on block append (Sprint 11b) |
 | MempoolSyncTest | 4 | GET_MEMPOOL/MEMPOOL sync handlers (Sprint 11c) |
 | ApiReadEndpointsTest | 6 | REST block/status read endpoints (Sprint 12a) + signed tx in blocks (#259) |
@@ -296,7 +299,11 @@ mvn exec:java -Dexec.mainClass=com.blocksmith.BlockSmithDemo
 | BlockLimitsTest | 6 | Oversize / too many txs rejected, full mempool spread over blocks (Sprint 18b) |
 | FeeTest | 9 | Fee in id/signature, who pays, coinbase cap, fee-rate priority (Sprint 18c) |
 | ApiFeesTest | 4 | Fee over HTTP, bad fee 400, `/api/mempool` order, block size + limits (Sprint 18d) |
-| **Total** | **342** | All passing ✅ |
+| MempoolLimitTest | 7 | Full pool refuses, eviction order, byte/count limits, min fee rate, restore trim (Sprint 19a) |
+| ReplaceByFeeTest | 11 | Bump rules, same key, full pool, one version per sequence, conflicts dropped, restore (Sprint 19b) |
+| FeeEstimationTest | 5 | Floor, mempool cut-off, 1 >= 3 >= 6, history after full blocks, min fee rate (Sprint 19c) |
+| ApiFeeMarketTest | 4 | Estimate shape, bump end to end, bump refused, full mempool 400 (Sprint 19d) |
+| **Total** | **370** | All passing ✅ |
 
 ---
 
@@ -307,7 +314,8 @@ mvn exec:java -Dexec.mainClass=com.blocksmith.BlockSmithDemo
 - **Doc branches**: `docs/{description}` (e.g., `docs/sprint11-complete`)
 - **Commits**: One per issue, format: `feat(scope): description #NN` — never add `Co-Authored-By`
 - **PRs**: created with `gh`, include `Closes #NN` lines; merged with a **regular merge commit** (`gh pr merge N --merge`, not squash) so the one-commit-per-issue history stays on master (decided 2026-11-11; #130-#278 were squash-merged); then ff-only pull to sync local master
-- **Latest**: Sprint 18 complete (Block Rules, Size & Fees, PR #290, #291, #292, #293); Phase 4 at 75%
+- **Latest**: Sprint 19 complete (Fee Market, PR #304, #305, #306, #307); Phase 4 complete, roadmap done
+- **Maven path**: run `mvn` from `F:\Repos\Java\BlockSmith` (capital J); from a lowercase path Jetty 404s static files and 3 dashboard tests fail
 
 ---
 
@@ -319,9 +327,9 @@ mvn exec:java -Dexec.mainClass=com.blocksmith.BlockSmithDemo
 | `CONVENTIONS.md` | Need full code style rules, THEORY comment format, test conventions |
 | `STATUS.md` | Need exact current status, implementation table, feature checklist |
 | `roadmap.md` | Need full project phases and timeline |
-| `sprints/sprint18/sprint-plan.md` | Most recent sprint's milestones, issues, acceptance criteria |
-| `sprints/sprint18/sprint-log.md` | What was completed in the latest sprint |
+| `sprints/sprint19/sprint-plan.md` | Most recent sprint's milestones, issues, acceptance criteria |
+| `sprints/sprint19/sprint-log.md` | What was completed in the latest sprint |
 
 ---
 
-*Last updated: 2026-11-13 | Sprint 18 Complete (Block Rules, Size & Fees) — Phase 4 at 75%*
+*Last updated: 2026-11-14 | Sprint 19 Complete (Fee Market) — Phase 4 complete, roadmap done*

@@ -380,6 +380,24 @@ tx was admitted against confirmed balances only.
 
 ---
 
+## 💸 Fee market (Sprint 19)
+
+| Piece | Role |
+|-------|------|
+| `core.MempoolPolicy` | Node **policy** (not consensus): `maxBytes` 64 KB, `maxTransactions` 200, `incrementalFeeRate` 0.0001 BSC/byte |
+| Eviction (`addTransaction`) | A tx that does not fit must beat every victim's rate by the increment; victims = cheapest, newest first on ties; all or nothing. `getMempoolMinFeeRate()` |
+| `Transaction.sequence` | Optional replace-by-fee key, in the id and signed data only when set; `withFee()` builds the same payment at a new fee |
+| `confirmedSequences` | Consensus: a `(sender, sequence)` pair confirms at most once (in a block and on chain); rebuilt by replay |
+| Replacement rules | Only the fee changes; higher fee and rate >= old rate + increment; signed only by the same key; old cost released |
+| `estimateFeeRate(n)` | max(mempool view: simulate n blocks like mining, beat the cheapest that got in; history view: cheapest rate of each of the last 6 blocks, 0 if it had room; mempool minimum) |
+| `submitTransaction(tx)` | `addTransaction` with the refusal reason (API 400s); `minimumBumpFee(tx)` for the dashboard |
+
+**Rules**: the policy only shapes this node's mempool; blocks are never checked against it. RBF is
+safe because consensus, not the mempool, guarantees that two versions of one payment cannot both
+confirm. The sequence does not have to be consecutive, so any subset of the mempool is still a valid block.
+
+---
+
 ## 📦 Package: `com.blocksmith.network` (Phase 2, Sprints 8-11)
 
 TCP peer-to-peer layer. Messages are JSON over sockets.
@@ -428,8 +446,10 @@ Writes (tx, mined block) are broadcast to peers.
 |--------|------|---------|
 | GET | `/api/blocks`, `/api/blocks/latest`, `/api/blocks/{index}`, `/api/blocks/hash/{hash}` | Read the chain (by hash: Sprint 16c); each block adds `sizeBytes` and `totalFees` (Sprint 18d) |
 | GET | `/api/network/status`, `/api/network/peers`, `/api/network/difficulty` | Node stats (live `difficulty`, `target`, `blocksUntilRetarget`, `maxBlockBytes`, `maxBlockTransactions`...), peer list, difficulty epochs (Sprint 17d) |
-| POST / GET | `/api/transactions`, `/api/transactions/{id}` | Submit (unsigned, educational, optional `fee`) / look up a tx (+ `status`, `blockIndex`, `confirmations`) |
-| GET | `/api/mempool` | Pending txs in mining order with `sizeBytes` and `feeRate`, plus count, total fees and block limits (Sprint 18d) |
+| POST / GET | `/api/transactions`, `/api/transactions/{id}` | Submit (unsigned, educational, optional `fee`, random `sequence`; 400 says why) / look up a tx (+ `status`, `blockIndex`, `confirmations`) |
+| POST | `/api/transactions/{id}/bump` | Same payment at a higher `fee` (default: smallest allowed bump); 404 not pending, 400 not replaceable / signed / too small (Sprint 19d) |
+| GET | `/api/fees/estimate` | `fast` / `normal` / `slow` (1 / 3 / 6 blocks): `feeRate` and `fee` for a typical tx, `typicalTxBytes`, `mempoolMinFeeRate` (Sprint 19d) |
+| GET | `/api/mempool` | Pending txs in mining order with `sizeBytes`, `feeRate`, `replaceable`, `minBumpFee`; count, total fees, block limits, mempool `bytes` / limits / `mempoolMinFeeRate` (Sprint 18d, 19d) |
 | POST | `/api/mine` | Mine pending txs (or an empty block) for `minerAddress` |
 | GET / POST | `/api/wallet/{address}`, `/api/wallet/{address}/transactions`, `/api/wallet/create` | Balance + pending outgoing / history (Sprint 16c) / new wallet |
 | GET / POST | `/api/contracts`, `/api/contracts/{id}`, `/api/contracts/{id}/claim` | Deploy, inspect, claim contracts |
@@ -597,4 +617,4 @@ void methodName_scenario_expectedResult() { ... }
 
 ---
 
-*Last updated: 2026-11-13 (added block rules / limits / fees section, Sprint 18 endpoints)*
+*Last updated: 2026-11-14 (added fee market section, Sprint 19 endpoints)*

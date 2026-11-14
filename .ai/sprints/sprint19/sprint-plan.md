@@ -7,7 +7,7 @@
 | **Sprint** | 19 |
 | **Title** | Fee Market |
 | **Phase** | Phase 4: Production Features (last planned sprint) |
-| **Status** | 📋 Planned |
+| **Status** | ✅ Complete (2026-11-14) |
 | **Depends On** | Sprint 18 Complete (fees, `feeRate()`, block limits, `getPendingInMiningOrder()`) |
 
 > **Where we are:** since Sprint 18 a block holds at most 16 KB / 50
@@ -32,10 +32,10 @@ can suggest a fee for "next block", "within 3 blocks" and "within 6 blocks".
 
 | Milestone | Title | Branch | Status |
 |-----------|-------|--------|--------|
-| **19a** | Mempool limit + eviction | `sprint19a/mempool-limit` | ⬜ Planned (#295, #296) |
-| **19b** | Replace-by-fee (consensus) | `sprint19b/replace-by-fee` | ⬜ Planned (#297, #298) |
-| **19c** | Fee estimation | `sprint19c/fee-estimation` | ⬜ Planned (#299, #300) |
-| **19d** | API + dashboard | `sprint19d/fee-market-api` | ⬜ Planned (#301, #302) |
+| **19a** | Mempool limit + eviction | `sprint19a/mempool-limit` | ✅ PR #304 (#295, #296) |
+| **19b** | Replace-by-fee (consensus) | `sprint19b/replace-by-fee` | ✅ PR #305 (#297, #298) |
+| **19c** | Fee estimation | `sprint19c/fee-estimation` | ✅ PR #306 (#299, #300) |
+| **19d** | API + dashboard | `sprint19d/fee-market-api` | ✅ PR #307 (#301, #302) |
 
 ---
 
@@ -183,4 +183,4 @@ long run fees are what pays miners to secure the chain.
 
 ---
 
-*Created: 2026-11-13 | Sprint 19 Planning*
+*Created: 2026-11-13 | Sprint 19 Planning | Completed: 2026-11-14 (Phase 4 complete)*
