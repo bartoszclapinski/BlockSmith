@@ -149,6 +149,41 @@ public class Blockchain {
      */
     static final int MAX_ORPHANS = 50;
 
+    /** Deepest fork we consider: a branch must leave our chain at most this far below the tip (Sprint 21). */
+    public static final int MAX_REORG_DEPTH = 100;
+
+    /** Largest number of side-branch blocks held at once (Sprint 21a). */
+    static final int MAX_SIDE_BLOCKS = 200;
+
+    /**
+     * THEORY: SIDE BRANCHES (Sprint 21a)
+     *
+     * Two miners can find a block at the same height at the same time. Each
+     * node first sees one of them; the other is a COMPETING block: valid,
+     * with a parent we know, but not on our chain. It is not junk: if more
+     * blocks are built on it, its branch may become the one with the most
+     * work, and every node must then switch to it (Sprint 21b). So instead
+     * of dropping it, we keep it here, keyed by its own hash, so a child
+     * can find it as a parent. Bounded like the orphans; oldest dropped first.
+     */
+    private final Map<String, Block> sideBlocks =
+            new LinkedHashMap<>(16, 0.75f, false) {
+                @Override
+                protected boolean removeEldestEntry(Map.Entry<String, Block> eldest) {
+                    return size() > MAX_SIDE_BLOCKS;
+                }
+            };
+
+    /** Height of every block on our chain, by hash (Sprint 21a): "is this parent on our chain, and where?" */
+    private final Map<String, Integer> heightByHash = new HashMap<>();
+
+    /**
+     * Cumulative work up to and including each height (Sprint 21a), next to
+     * {@code targets}: derived from them, never stored, so every node and
+     * every restore computes the same numbers.
+     */
+    private final List<BigInteger> cumulativeWork = new ArrayList<>();
+
     /**
      * THEORY: ORPHAN BLOCKS
      *
@@ -239,6 +274,8 @@ public class Blockchain {
         chain.add(genesis);
         tipHash = genesis.getHash();
         targets.add(params.initialTarget());
+        heightByHash.put(genesis.getHash(), 0);
+        cumulativeWork.add(Target.work(params.initialTarget()));
         store.saveBlock(genesis);
     }
 
@@ -519,6 +556,9 @@ public class Blockchain {
         chain.add(block);
         tipHash = block.getHash();
         targets.add(target);
+        heightByHash.put(block.getHash(), block.getIndex());
+        cumulativeWork.add(cumulativeWork.get(cumulativeWork.size() - 1).add(Target.work(target)));
+        sideBlocks.remove(block.getHash());
         for (Transaction tx : block.getTransactions()) {
             confirmedTxIds.add(tx.getTransactionId());
             SequenceKey key = SequenceKey.of(tx);
@@ -770,17 +810,90 @@ public class Blockchain {
             return true;
         }
 
-        // Arrived ahead of its parent (index beyond tip+1): park as an orphan
-        // until the missing parent shows up. Without its history we cannot
+        // Already ours (on the chain or kept on a side branch): nothing to do.
+        if (heightByHash.containsKey(block.getHash()) || sideBlocks.containsKey(block.getHash())) {
+            return false;
+        }
+
+        // Its parent is known but it does not extend our tip: a COMPETING
+        // block (Sprint 21a). Keep it on a side branch; it may later turn
+        // out to be on the chain with the most work (Sprint 21b).
+        String parent = block.getPreviousHash();
+        if (heightByHash.containsKey(parent) || sideBlocks.containsKey(parent)) {
+            addSideBlock(block);
+            return false;
+        }
+
+        // Parent unknown: park as an orphan until the parent shows up (it may
+        // extend our chain or a side branch). Without its history we cannot
         // know its exact target yet, so for now it only has to meet the
-        // easiest one allowed (cheap spam filter); attachOrphans checks the
-        // real target. A malformed block is dropped outright.
-        if (block.getIndex() > tip.getIndex() + 1 && isWellFormed(block, params.powLimit())
-                && isNotTooFarInFuture(block) && limitViolation(block) == null) {
+        // easiest one allowed (cheap spam filter); the real target is checked
+        // once it connects. A malformed block is dropped outright.
+        if (block.getIndex() > 0 && cheapChecksPass(block)) {
             orphans.put(block.getPreviousHash(), block);
         }
 
         return false;
+    }
+
+    /** The checks a block gets before we know its branch's history: well formed vs powLimit, time, size. */
+    private boolean cheapChecksPass(Block block) {
+        return isWellFormed(block, params.powLimit()) && isNotTooFarInFuture(block) && limitViolation(block) == null;
+    }
+
+    /**
+     * Keeps a competing block (its parent is known, on our chain or on a
+     * side branch) if it passes the cheap checks, sits right above its
+     * parent, and its branch leaves our chain at most {@link #MAX_REORG_DEPTH}
+     * below the tip. Orphans waiting on it follow it onto the side branch.
+     */
+    private void addSideBlock(Block block) {
+        while (block != null) {
+            Integer parentHeight = heightOf(block.getPreviousHash());
+            int forkHeight = forkHeightOf(block);
+            if (parentHeight == null || block.getIndex() != parentHeight + 1 || !cheapChecksPass(block)
+                    || getLatestBlock().getIndex() - forkHeight > MAX_REORG_DEPTH) {
+                return;
+            }
+            sideBlocks.put(block.getHash(), block);
+            System.out.println("Kept competing block #" + block.getIndex() + " on a side branch (fork at #"
+                    + forkHeight + ")");
+            block = orphans.remove(block.getHash());          // a child that arrived first
+        }
+    }
+
+    /** Height of a block on our chain or on a side branch, or null if unknown. */
+    private Integer heightOf(String hash) {
+        Integer h = heightByHash.get(hash);
+        if (h != null) return h;
+        Block side = sideBlocks.get(hash);
+        return side != null ? side.getIndex() : null;
+    }
+
+    /** Height where a side-branch block's branch leaves our chain (its last ancestor on our chain). */
+    private int forkHeightOf(Block block) {
+        String hash = block.getPreviousHash();
+        while (!heightByHash.containsKey(hash)) {
+            Block side = sideBlocks.get(hash);
+            if (side == null) return -1;                     // detached: treat as too deep
+            hash = side.getPreviousHash();
+        }
+        return heightByHash.get(hash);
+    }
+
+    /** How many competing blocks we hold on side branches (Sprint 21a). */
+    public synchronized int getSideBlockCount() {
+        return sideBlocks.size();
+    }
+
+    /** True if a block with this hash is held on a side branch (Sprint 21a). */
+    public synchronized boolean isSideBlock(String hash) {
+        return sideBlocks.containsKey(hash);
+    }
+
+    /** Total work of our chain, genesis included (Sprint 21a): what fork choice compares. */
+    public synchronized BigInteger getTotalWork() {
+        return cumulativeWork.get(cumulativeWork.size() - 1);
     }
 
     /**

@@ -35,7 +35,10 @@ class MempoolPruneTest {
         withReward.add(new Transaction(BlockchainConfig.COINBASE_ADDRESS, "peer-miner",
                 BlockchainConfig.MINING_REWARD));
         withReward.addAll(transactions);
-        Block block = new Block(tip.getIndex() + 1, withReward, tip.getHash());
+        // After the tip's timestamp: in the same millisecond it would fail the
+        // median-time-past rule (Sprint 17c) and the test would flake.
+        Block block = new Block(tip.getIndex() + 1, withReward, tip.getHash(),
+                Math.max(System.currentTimeMillis(), tip.getTimestamp() + 1));
         block.mineBlock(BlockchainConfig.MINING_DIFFICULTY);
         return block;
     }
