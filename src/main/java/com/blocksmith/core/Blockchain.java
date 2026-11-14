@@ -851,16 +851,36 @@ public class Blockchain {
      * @return true if transaction was added, false if invalid
      */
     public boolean addTransaction(Transaction transaction) {
+        String why = submitTransaction(transaction);
+        // Duplicates are routine (gossip echoes), so they are not logged.
+        if (why != null && !why.equals(ALREADY_PENDING) && !why.equals(ALREADY_CONFIRMED)) {
+            System.out.println("Transaction rejected: " + why);
+        }
+        return why == null;
+    }
+
+    /** {@link #submitTransaction} reason: the same id is already waiting. */
+    public static final String ALREADY_PENDING = "already pending";
+
+    /** {@link #submitTransaction} reason: the same id is already in a block. */
+    public static final String ALREADY_CONFIRMED = "already confirmed";
+
+    /**
+     * Same as {@link #addTransaction}, but says WHY a transaction was
+     * refused (Sprint 19d), so the API can tell the user, e.g. "mempool
+     * full, fee rate ... is below the minimum ...".
+     *
+     * @return null if the transaction was added, else the reason it was not
+     */
+    public String submitTransaction(Transaction transaction) {
         // Validate the transaction
         if (transaction == null || !transaction.isValid()) {
-            System.out.println("Transaction rejected: Invalid transaction");
-            return false;
+            return "invalid transaction (amount, fee, sender or recipient)";
         }
 
         // Reject COINBASE transactions (only mining creates these)
         if (transaction.getSender().equals(BlockchainConfig.COINBASE_ADDRESS)) {
-            System.out.println("Transaction rejected: Cannot manually create COINBASE transactions");
-            return false;
+            return "cannot manually create COINBASE transactions";
         }
 
         // Contract rules (Sprint 14). A transfer TO a contract address must
@@ -869,31 +889,29 @@ public class Blockchain {
         if (transaction.getRecipient().startsWith(BlockchainConfig.CONTRACT_ADDRESS_PREFIX)
                 && (transaction.getLockingScript() == null
                     || transaction.getLockingScript().isBlank())) {
-            System.out.println("Transaction rejected: Contract deploy requires a locking script");
-            return false;
+            return "a contract deploy requires a locking script";
         }
         if (transaction.getSender().startsWith(BlockchainConfig.CONTRACT_ADDRESS_PREFIX)
                 && !isValidClaim(transaction)) {
-            return false;
+            return "the contract claim is not valid";
         }
 
         // A signed transaction must verify (Sprint 18a: blocks enforce the
         // same rule, so a bad one would make our own mined block invalid).
         if ((transaction.getSignature() != null || transaction.getSenderPublicKey() != null)
                 && !transaction.verifySignature()) {
-            System.out.println("Transaction rejected: Signature does not verify");
-            return false;
+            return "the signature does not verify";
         }
 
         // Reject duplicates already waiting in the pool. This also stops a
         // gossiped transaction from being relayed twice (returns false).
         String txId = transaction.getTransactionId();
         if (confirmedTxIds.contains(txId)) {
-            return false;                              // already in a block: replaying it is not allowed
+            return ALREADY_CONFIRMED;                  // already in a block: replaying it is not allowed
         }
         for (Transaction pending : pendingTransactions) {
             if (pending.getTransactionId().equals(txId)) {
-                return false;
+                return ALREADY_PENDING;
             }
         }
 
@@ -903,16 +921,12 @@ public class Blockchain {
         Transaction replaced = null;
         if (key != null) {
             if (confirmedSequences.contains(key)) {
-                System.out.println("Transaction rejected: sequence " + key.sequence() + " already confirmed");
-                return false;
+                return "sequence " + key.sequence() + " of this sender is already confirmed";
             }
             replaced = pendingWithSequence(key);
             if (replaced != null) {
                 String why = replacementViolation(replaced, transaction);
-                if (why != null) {
-                    System.out.println("Replacement rejected: " + why);
-                    return false;
-                }
+                if (why != null) return "replacement refused: " + why;
             }
         }
 
@@ -924,10 +938,9 @@ public class Blockchain {
                 + (replaced != null ? replaced.getTotalCost() : 0);
 
         if (availableBalance < transaction.getTotalCost()) {
-            System.out.println("Transacion rejected: Insufficient funds. " + 
-                "Available: " + availableBalance + " " + BlockchainConfig.CURRENCY_SYMBOL + 
-                ", Required: " + transaction.getAmount() + " " + BlockchainConfig.CURRENCY_SYMBOL);
-                return false;
+            return "insufficient funds: available " + availableBalance + " " + BlockchainConfig.CURRENCY_SYMBOL
+                    + ", required " + transaction.getTotalCost() + " " + BlockchainConfig.CURRENCY_SYMBOL
+                    + " (amount + fee)";
         }
 
         // Mempool limit (Sprint 19a): when full, the cheapest transactions
@@ -939,8 +952,7 @@ public class Blockchain {
         String noRoom = makeRoomFor(transaction);
         if (noRoom != null) {
             if (replaced != null) pendingTransactions.add(replacedAt, replaced);
-            System.out.println("Transaction rejected: " + noRoom);
-            return false;
+            return noRoom;
         }
         if (replaced != null) {
             store.removePending(replaced.getTransactionId());
@@ -952,7 +964,7 @@ public class Blockchain {
         pendingTransactions.add(transaction);
         store.savePending(transaction);
         System.out.println("Transaction added to pending pool: " + transaction);
-        return true;
+        return null;
     }
 
     // ===== REPLACE-BY-FEE (Sprint 19b) =====
@@ -999,6 +1011,32 @@ public class Blockchain {
             return "fee rate " + tx.feeRate() + " BSC/byte is below the minimum " + needed;
         }
         return null;
+    }
+
+    /**
+     * The smallest fee (rounded up to 0.0001 BSC) at which an unsigned
+     * replacement of {@code pending} passes the replacement rules (Sprint
+     * 19d): a higher fee and a fee rate at least the increment above the old
+     * one. The replacement's size changes a little with the fee's digits, so
+     * the candidate is checked on a real {@link Transaction#withFee} copy.
+     *
+     * @throws IllegalStateException if {@code pending} has no sequence
+     */
+    public double minimumBumpFee(Transaction pending) {
+        double needed = pending.feeRate() + mempoolPolicy.incrementalFeeRate();
+        double fee = Math.max(roundUpFee(needed * pending.sizeBytes()), roundUpFee(pending.getFee() + 0.0001));
+        for (int i = 0; i < 10_000; i++) {
+            Transaction probe = pending.withFee(fee);
+            if (probe.feeRate() > pending.feeRate() && probe.feeRate() >= needed) return fee;
+            fee = roundUpFee(fee + 0.0001);
+        }
+        return fee;
+    }
+
+    /** Rounds a fee UP to 4 decimals (0.0001 BSC), so it never pays too little. */
+    public static double roundUpFee(double fee) {
+        double rounded = Math.ceil(fee * 10_000 - 1e-9) / 10_000;
+        return rounded > 0 ? rounded : 0;              // never -0.0 (ceil of a tiny negative)
     }
 
     /** The pending transaction with this id, or null (Sprint 19b: what a bump starts from). */

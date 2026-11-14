@@ -335,7 +335,7 @@ function renderBalance(balanceInfo) {
     if (balanceInfo) {
         amount.textContent = Number(balanceInfo.balance).toFixed(1);
         const pending = balanceInfo.pendingOutgoing;
-        addr.textContent = state.activeAddress + (pending ? "  (−" + pending + " pending)" : "");
+        addr.textContent = state.activeAddress + (pending ? "  (−" + formatAmount(pending) + " pending)" : "");
     } else {
         amount.textContent = "—";
         addr.textContent = state.activeAddress;
@@ -375,6 +375,7 @@ let paletteQuery = "";
 const COMMANDS = [
     { icon: "⛏", label: "Mine pending block", hint: "Sequence the mempool into a new block", run: function () { closeOverlay(); doMine(); } },
     { icon: "↗", label: "Send transaction", hint: "Transfer BSC to an address", run: function () { openDrawer("send"); } },
+    { icon: "≡", label: "Mempool", hint: "Pending transactions by fee rate · bump a fee", run: function () { openDrawer("mempool"); } },
     { icon: "＋", label: "Create wallet", hint: "Generate a new key pair", run: function () { openDrawer("wallet"); } },
     { icon: "▤", label: "Deploy contract", hint: "Hashlock or multisig", run: function () { openDrawer("deploy"); } },
     { icon: "⪉", label: "Multisig wallet", hint: "Deploy a 2-of-3 contract", run: function () { openDrawer("deploy", { deployType: "multi" }); } },
@@ -500,6 +501,7 @@ function submitButton(label, onClick) {
 
 function openDrawer(type, opts) {
     if (type === "send") return openSendDrawer();
+    if (type === "mempool") return openMempoolDrawer();
     if (type === "wallet") return openWalletDrawer();
     if (type === "deploy" || type === "multisig") return openDeployDrawer((opts && opts.deployType) || (type === "multisig" ? "multi" : "hash"));
 }
@@ -518,6 +520,24 @@ function openSendDrawer() {
         // Optional fee (Sprint 18d): a higher fee per byte gets mined sooner when blocks are full.
         const fee = field("Fee (BSC, optional)", "0");
         fee.wrap.appendChild(el("span", "field-hint", "Paid to the miner on top of the amount"));
+        // Suggested fees (Sprint 19d): what gets mined within 1 / 3 / 6 blocks.
+        const suggest = el("div", "segmented fee-suggest");
+        fee.wrap.appendChild(suggest);
+        fetchJson("/api/fees/estimate").then(function (est) {
+            [["fast", "Next block"], ["normal", "~3 blocks"], ["slow", "~6 blocks"]].forEach(function (pair) {
+                const e = est[pair[0]];
+                const btn = el("button", "seg-btn");
+                btn.type = "button";
+                btn.appendChild(el("span", "fee-suggest-label", pair[1]));
+                btn.appendChild(el("span", "fee-suggest-value", formatAmount(e.fee) + " BSC"));
+                btn.addEventListener("click", function () {
+                    fee.input.value = String(e.fee);
+                    suggest.querySelectorAll(".seg-btn").forEach(function (b) { b.classList.remove("active"); });
+                    btn.classList.add("active");
+                });
+                suggest.appendChild(btn);
+            });
+        }).catch(function () { suggest.remove(); });
         const err = errorBox();
         form.appendChild(recip.wrap);
         form.appendChild(amount.wrap);
@@ -538,6 +558,60 @@ function openSendDrawer() {
         drawer.appendChild(form);
         setTimeout(function () { recip.input.focus(); }, 30);
     });
+}
+
+/** Mempool drawer (Sprint 19d): pending txs in mining order, with a bump button. */
+function openMempoolDrawer() {
+    drawerShell("Mempool", function (drawer) {
+        const body = el("div", "drawer-form");
+        const summary = el("div", "mp-summary", "Loading…");
+        const list = el("div", "mp-list");
+        const err = errorBox();
+        body.appendChild(summary);
+        body.appendChild(err.node);
+        body.appendChild(list);
+        drawer.appendChild(body);
+
+        fetchJson("/api/mempool").then(function (mp) {
+            summary.textContent = mp.count + " pending · " + formatBytes(mp.bytes) + " of "
+                + formatBytes(mp.maxMempoolBytes) + " · fees " + formatAmount(mp.totalFees) + " BSC"
+                + (mp.mempoolMinFeeRate > 0 ? " · full: min " + formatRate(mp.mempoolMinFeeRate) : "");
+            if (!mp.transactions.length) {
+                list.appendChild(el("div", "feed-empty", "Nothing waiting. Send a transaction to see it here."));
+                return;
+            }
+            mp.transactions.forEach(function (tx, i) {
+                const row = el("div", "mp-row");
+                const main = el("div", "mp-main");
+                main.appendChild(el("div", "mp-title", "#" + (i + 1) + "  " + formatAmount(tx.amount) + " BSC → " + shortHash(tx.recipient)));
+                main.appendChild(el("div", "mp-meta", "fee " + formatAmount(tx.fee) + " · " + formatRate(tx.feeRate)
+                    + " · " + formatBytes(tx.sizeBytes) + " · from " + shortHash(tx.sender)));
+                row.appendChild(main);
+                if (typeof tx.minBumpFee === "number") {
+                    const bump = el("button", "mp-bump", "Bump → " + formatAmount(tx.minBumpFee));
+                    bump.type = "button";
+                    bump.title = "Replace it with the same payment at the smallest higher fee allowed";
+                    bump.addEventListener("click", function () {
+                        err.hide();
+                        postJson("/api/transactions/" + encodeURIComponent(tx.transactionId) + "/bump", { fee: tx.minBumpFee })
+                            .then(function (b) {
+                                openMempoolDrawer();   // before the toast: redrawing clears the overlay
+                                toast("Bumped to fee " + formatAmount(b.fee) + " · " + shortHash(b.transactionId));
+                                refresh();
+                            })
+                            .catch(function (e) { err.show(e.message); });
+                    });
+                    row.appendChild(bump);
+                }
+                list.appendChild(row);
+            });
+        }).catch(function (e) { summary.textContent = ""; err.show(e.message); });
+    });
+}
+
+/** A fee rate for people: BSC per kB (rates per byte are tiny numbers). */
+function formatRate(perByte) {
+    return formatAmount(perByte * 1000) + " BSC/kB";
 }
 
 function openWalletDrawer() {
@@ -692,8 +766,8 @@ function openClaimDrawer(contract) {
 function runDrawer(err, work) {
     err.hide();
     work().then(function (message) {
+        closeOverlay();          // first: closing clears the overlay, toast included
         toast(message);
-        closeOverlay();
         refresh();
     }).catch(function (e) { err.show(e.message); });
 }
