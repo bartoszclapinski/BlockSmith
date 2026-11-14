@@ -166,6 +166,20 @@ public class Wallet {
      * Returns the wallet address. Safe to share with others.
      * (0x + 40 hex characters)
      */
+    /**
+     * Signs arbitrary text with this wallet's private key (Sprint 22b): what
+     * a client does with the {@code signatureData} a node hands out for a
+     * prepared transaction. Returns the DER signature as hex.
+     */
+    public String signData(String data) {
+        return com.blocksmith.util.SignatureUtil.sign(privateKey, data);
+    }
+
+    /** This wallet's public key as hex (X.509), the form the API accepts (Sprint 22b). */
+    public String getPublicKeyHex() {
+        return com.blocksmith.util.SignatureUtil.publicKeyToHex(publicKey);
+    }
+
     public String getAddress() {
         return address;
     }

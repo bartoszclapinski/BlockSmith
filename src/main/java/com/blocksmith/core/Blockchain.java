@@ -1386,6 +1386,14 @@ public class Blockchain {
      */
     public synchronized double minimumBumpFee(Transaction pending) {
         double needed = pending.feeRate() + mempoolPolicy.incrementalFeeRate();
+        if (pending.getSignature() != null) {
+            // A signed bump is as big as the signed original, give or take
+            // a few bytes of fee digits and DER signature length (Sprint
+            // 22b): price it on that size plus a margin, since the unsigned
+            // probe below would look far smaller than what gets submitted.
+            return Math.max(roundUpFee(needed * (pending.sizeBytes() + SIGNED_SIZE_MARGIN)),
+                    roundUpFee(pending.getFee() + 0.0001));
+        }
         double fee = Math.max(roundUpFee(needed * pending.sizeBytes()), roundUpFee(pending.getFee() + 0.0001));
         for (int i = 0; i < 10_000; i++) {
             Transaction probe = pending.withFee(fee);
@@ -1394,6 +1402,9 @@ public class Blockchain {
         }
         return fee;
     }
+
+    /** Bytes of slack when pricing a signed bump (Sprint 22b). */
+    private static final int SIGNED_SIZE_MARGIN = 32;
 
     /** Rounds a fee UP to 4 decimals (0.0001 BSC), so it never pays too little. */
     public static double roundUpFee(double fee) {
@@ -1839,16 +1850,21 @@ public class Blockchain {
         // The contract id seeds the contract's address; hashing the deploy
         // parameters keeps it unique and lets every node derive the same id
         // from the transaction once it arrives in a block.
-        String contractId = HashUtil.applySha256(
-                funder + lockingScript + amount + System.currentTimeMillis());
-
-        Transaction deploy = new Transaction(
-                funder,
-                BlockchainConfig.CONTRACT_ADDRESS_PREFIX + contractId,
-                amount);
-        deploy.setLockingScript(lockingScript);
-
+        Transaction deploy = buildDeploy(funder, lockingScript, amount);
         return addTransaction(deploy) ? deploy : null;
+    }
+
+    /**
+     * The (unsigned) transaction that deploys a contract (Sprint 22b): to
+     * {@code CONTRACT_ADDRESS_PREFIX + id}, carrying the locking script. The
+     * id hashes the deploy parameters and the time, so it is unique and every
+     * node derives the same id from the transaction. The funder signs it.
+     */
+    public static Transaction buildDeploy(String funder, String lockingScript, double amount) {
+        String contractId = HashUtil.applySha256(funder + lockingScript + amount + System.currentTimeMillis());
+        Transaction deploy = new Transaction(funder, BlockchainConfig.CONTRACT_ADDRESS_PREFIX + contractId, amount);
+        deploy.setLockingScript(lockingScript);
+        return deploy;
     }
 
     /**
