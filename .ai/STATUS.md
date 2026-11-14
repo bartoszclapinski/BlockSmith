@@ -9,9 +9,9 @@
 | Field | Value |
 |-------|-------|
 | **Phase** | 4 - Production Features - ✅ COMPLETE (all 4 phases done) |
-| **Current Sprint** | 24 (Encrypted Browser Keystore, hardening) - Planned |
-| **Current Milestone** | 23c Complete (Two signers, two browsers) |
-| **Status** | Sprint 23 complete (23a-23c): multisig members keep their keys and sign in their own browsers; the node only coordinates. Next: see the candidates in the notes |
+| **Current Sprint** | 24 (Encrypted Browser Keystore, hardening) - Complete |
+| **Current Milestone** | 24c Complete (Every signing flow under encryption) |
+| **Status** | Sprint 24 complete (24a-24c): browser keys stored only encrypted under a passphrase (PBKDF2 + AES-GCM), unlock on demand, encrypted backups. Next: see the candidates in the notes |
 
 ---
 
@@ -63,7 +63,7 @@ Hardening (after the roadmap)
 ├── Sprint 21: Fork Choice   ✅ COMPLETE (21a ✅, 21b ✅, 21c ✅)
 ├── Sprint 22: Signatures    ✅ COMPLETE (22a ✅, 22b ✅, 22c ✅)
 ├── Sprint 23: Multisig keys ✅ COMPLETE (23a ✅, 23b ✅, 23c ✅)
-└── Sprint 24: Keystore      📋 PLANNED (24a ⬜, 24b ⬜, 24c ⬜)
+└── Sprint 24: Keystore      ✅ COMPLETE (24a ✅, 24b ✅, 24c ✅)
 ```
 
 ---
@@ -134,7 +134,9 @@ Hardening (after the roadmap)
 | SignatureRuleTest | 8 | ✅ |
 | ApiSigningTest | 6 | ✅ |
 | WebCryptoInteropTest | 4 | ✅ |
-| **Total** | **428** | ✅ |
+| DashboardKeystoreTest | 4 | ✅ |
+| KeystoreInteropTest | 3 | ✅ |
+| **Total** | **435** | ✅ |
 
 Last test run: `mvn test` - All passing
 
@@ -212,7 +214,7 @@ Last test run: `mvn test` - All passing
 | File | Status | Notes |
 |------|--------|-------|
 | index.html | ✅ Complete | Single-screen "command deck": top bar, chain-of-blocks hero, activity feed / actions / balance + contracts grid, footer; `data-tour` anchors (redesign, PR #157/#158) |
-| app.js | ✅ Complete | Vanilla JS, no build step: 4s polling, client-side activity feed (diff of polls), command palette (Ctrl/⌘+K), side drawers (send, create wallet, deploy hashlock/multisig, claim, multisig member), toasts, theme toggle, 5-step onboarding tour (redesign, PR #157/#158); browser keys (Sprint 22c), multisig member signing (Sprint 23b) |
+| app.js | ✅ Complete | Vanilla JS, no build step: 4s polling, client-side activity feed (diff of polls), command palette (Ctrl/⌘+K), side drawers (send, create wallet, deploy hashlock/multisig, claim, multisig member), toasts, theme toggle, 5-step onboarding tour (redesign, PR #157/#158); browser keys (Sprint 22c), multisig member signing (Sprint 23b), encrypted keystore with unlock / lock / backups (Sprint 24) |
 | style.css | ✅ Complete | CSS-variable themes "Clay dark" + "Clay" (light), `prefers-color-scheme` default, animated background canvas (respects `prefers-reduced-motion`) (redesign, PR #157) |
 
 Design handoff (prototype + README) lives in `.ai/design/UIUX redesign project/`.
@@ -331,6 +333,9 @@ Design handoff (prototype + README) lives in `.ai/design/UIUX redesign project/`
 - [x] Only the sender can spend: signature required and bound to the sender's address (Sprint 22a)
 - [x] Prepare / sign elsewhere / submit API for transfers, deploys and bumps (Sprint 22b)
 - [x] Browser keys and signing (Web Crypto) in the dashboard (Sprint 22c)
+- [x] Browser keys stored only encrypted under a passphrase; unlock on demand, auto-lock (Sprint 24a)
+- [x] Encrypted backups, change passphrase; a browser backup opens in Java (Sprint 24b)
+- [x] Every signing flow verified live under encryption (Sprint 24c)
 
 ---
 
@@ -339,7 +344,7 @@ Design handoff (prototype + README) lives in `.ai/design/UIUX redesign project/`
 | Item | Value |
 |------|-------|
 | **Current Branch** | `master` |
-| **Last Commit** | Sprint 23 complete (PR #349, #350, #351) |
+| **Last Commit** | Sprint 24 complete (PR #360, #361, #362) |
 | **Tag** | `v1.0.0` (Phase 1) |
 | **Main Branch** | `master` |
 
@@ -451,11 +456,24 @@ Design handoff (prototype + README) lives in `.ai/design/UIUX redesign project/`
    - **Multisig contracts from before Sprint 23 cannot be claimed: start a
      fresh data directory**
 
-10. **Next candidates** (no sprint planned yet):
+10. **Sprint 24 COMPLETE** - Encrypted Browser Keystore (2026-11-14)
+   - Probe: a script that only read the browser profile's files found
+     Alice's private key and spent 40 of her coins
+   - 24a (PR #360): PBKDF2 + AES-GCM keystore, unlock / lock / auto-lock,
+     migration of plaintext keys, encrypted export / import
+   - 24b (PR #361): whole-keystore backup, change passphrase, a browser
+     backup opens in Java (recovery path)
+   - 24c (PR #362): every signing flow live under encryption; measured that
+     pre-Sprint 24 plaintext stays in the profile files after migration
+   - **Keys that were ever stored in plain text (before Sprint 24) should be
+     treated as exposed if an old profile copy may exist: move the funds**
+
+11. **Next candidates** (no sprint planned yet):
    - Persistent `nodeId` + auto-connect to discovered peers (network)
+   - "Move funds to a new key" helper (closes the old-plaintext gap)
    - A bonus feature from `roadmap.md` (SPV light client, explorer app)
 
-11. **Deferred / future work**
+12. **Deferred / future work**
    - Gossip auto-connect to DISCOVERED peers (needs MAX_PEERS guarding)
    - Self-identification filtering in peer lists
    - Mempool request is sent on outbound connect only; inbound side does not
@@ -476,4 +494,4 @@ Design handoff (prototype + README) lives in `.ai/design/UIUX redesign project/`
 
 ---
 
-*Last updated: 2026-11-14 | Sprint 23 Complete (Client-side Multisig) - roadmap done, hardening in progress*
+*Last updated: 2026-11-14 | Sprint 24 Complete (Encrypted Browser Keystore) - roadmap done, hardening in progress*

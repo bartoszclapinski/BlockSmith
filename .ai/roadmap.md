@@ -161,6 +161,7 @@ POST /api/multisig/claim       # Assemble + submit a multisig claim
 | 21 | Fork Choice | Most-work chain rule, reorganisation, block-locator sync ✅ Complete |
 | 22 | Required Signatures | Sender must sign (key bound to address), prepare/sign/submit API, browser keys ✅ Complete |
 | 23 | Client-side Multisig | Members keep their keys and sign in their browsers; the node only coordinates ✅ Complete |
+| 24 | Encrypted Browser Keystore | Keys stored only under a passphrase (PBKDF2 + AES-GCM), unlock on demand, encrypted backups ✅ Complete |
 
 ---
 

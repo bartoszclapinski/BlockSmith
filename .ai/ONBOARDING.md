@@ -39,9 +39,9 @@
 | **Test Framework** | JUnit 5 |
 | **Serialization** | Gson 2.10.1 |
 | **Current Phase** | Phase 4: Production Features — ✅ Complete (all 4 phases done) |
-| **Current Sprint** | Sprint 23 (Client-side Multisig, hardening) — Complete |
-| **Current Milestone** | 23c Complete; next: see candidates in STATUS.md |
-| **Total Tests** | 428 (all passing) |
+| **Current Sprint** | Sprint 24 (Encrypted Browser Keystore, hardening) — Complete |
+| **Current Milestone** | 24c Complete; next: see candidates in STATUS.md |
+| **Total Tests** | 435 (all passing) |
 | **Main Branch** | `master` |
 
 ---
@@ -132,7 +132,7 @@ BlockSmith/
 │   └── BlockSmithNode.java           # ✅ Complete (runnable node: P2P + API + dashboard, Sprint 13a)
 │
 ├── src/main/resources/public/        # Web dashboard (Sprint 13-15, redesigned PR #157/#158): index.html, app.js, style.css
-├── src/test/java/com/blocksmith/     # 428 unit tests
+├── src/test/java/com/blocksmith/     # 435 unit tests
 ├── pom.xml                           # Maven configuration (Gson, JUnit, Javalin)
 └── README.md                         # Public documentation
 ```
@@ -192,12 +192,14 @@ BlockSmith/
 
 **Sprint 23: Client-side Multisig** — a probe showed anyone could claim any multisig: the node made the member keys and signed claims for whoever asked. 23a: `POST /api/multisig/create` takes member PUBLIC keys; `/api/multisig/claim/prepare` returns the claim sighash (binds contract, claimer, amount) and the members in script order; `/api/multisig/claim` takes {publicKey, signature} pairs, the node orders them (`CHECKMULTISIG` matches left to right) and the VM decides; `MultiSigWallet.fromLockingScript`. 23b: dashboard member keys, claim drawer collects M signatures, "Multisig member" drawer checks a request against its own node before signing. 23c: a claim signed in two browser profiles; `WebCryptoInteropTest` runs it through `CHECKMULTISIG`.
 
+**Sprint 24: Encrypted Browser Keystore** — a probe showed that reading the browser profile's files was enough to spend: keys were plain JWKs in `localStorage`. 24a: `bs_keystore` v1 — PBKDF2-SHA256 (600 000 rounds, salt) -> AES-256-GCM per key with the address as additional data, a check value for the passphrase; unlock on demand into non-extractable `CryptoKey`s, Lock button, auto-lock after 15 min idle; plaintext `bs_keys` migrated and removed. 24b: whole-keystore / one-key encrypted backups, change passphrase (new salt, one write); `KeystoreInteropTest` opens a browser backup with `javax.crypto` (the recovery path). 24c: every signing flow live under encryption; measured that pre-Sprint 24 plaintext stays in LevelDB after migration (treat such keys as exposed).
+
 ---
 
 ## What's NOT Implemented Yet
 
 ### Roadmap complete, hardening in progress
-- All planned sprints (0-19) are done; Sprints 20 (thread safety), 21 (fork choice), 22 (required signatures) and 23 (client-side multisig) too. Next candidates: persistent nodeId + peer auto-connect, or a bonus feature (SPV, explorer)
+- All planned sprints (0-19) are done; Sprints 20 (thread safety), 21 (fork choice), 22 (required signatures) 23 (client-side multisig) and 24 (encrypted browser keystore) too. Next candidates: persistent nodeId + peer auto-connect, a "move funds to a new key" helper, or a bonus feature (SPV, explorer)
 
 ### Deferred / known follow-ups
 - Mempool request is sent on outbound connect only; inbound side does not yet pull the peer's mempool
@@ -322,7 +324,9 @@ mvn exec:java -Dexec.mainClass=com.blocksmith.BlockSmithDemo
 | SignatureRuleTest | 8 | Unsigned / other key refused, owner accepted, peer blocks, signed deploy script, bump, restore (Sprint 22a) |
 | ApiSigningTest | 6 | Prepare/sign/submit, wrong key, tampered, expiry, deploy, signed bump at the minimum (Sprint 22b) |
 | WebCryptoInteropTest | 4 | Addresses and signatures from a real browser verify in Java (Sprint 22c); a claim signed in two browsers passes CHECKMULTISIG (Sprint 23c) |
-| **Total** | **428** | All passing ✅ |
+| DashboardKeystoreTest | 4 | Served dashboard: keys stored encrypted only, unlock before signing, atomic passphrase change, every signature through the keystore (Sprint 24) |
+| KeystoreInteropTest | 3 | A browser keystore backup opens in Java; wrong passphrase / moved entry fail (Sprint 24b) |
+| **Total** | **435** | All passing ✅ |
 
 ---
 
@@ -333,7 +337,7 @@ mvn exec:java -Dexec.mainClass=com.blocksmith.BlockSmithDemo
 - **Doc branches**: `docs/{description}` (e.g., `docs/sprint11-complete`)
 - **Commits**: One per issue, format: `feat(scope): description #NN` — never add `Co-Authored-By`
 - **PRs**: created with `gh`, include `Closes #NN` lines; merged with a **regular merge commit** (`gh pr merge N --merge`, not squash) so the one-commit-per-issue history stays on master (decided 2026-11-11; #130-#278 were squash-merged); then ff-only pull to sync local master
-- **Latest**: Sprint 23 complete (Client-side Multisig, PR #349, #350, #351); roadmap done, hardening in progress
+- **Latest**: Sprint 24 complete (Encrypted Browser Keystore, PR #360, #361, #362); roadmap done, hardening in progress
 - **Maven path**: run `mvn` from `F:\Repos\Java\BlockSmith` (capital J); from a lowercase path Jetty 404s static files and 3 dashboard tests fail
 
 ---
@@ -346,9 +350,9 @@ mvn exec:java -Dexec.mainClass=com.blocksmith.BlockSmithDemo
 | `CONVENTIONS.md` | Need full code style rules, THEORY comment format, test conventions |
 | `STATUS.md` | Need exact current status, implementation table, feature checklist |
 | `roadmap.md` | Need full project phases and timeline |
-| `sprints/sprint23/sprint-plan.md` | Most recent sprint's milestones, issues, acceptance criteria |
-| `sprints/sprint23/sprint-log.md` | What was completed in the latest sprint |
+| `sprints/sprint24/sprint-plan.md` | Most recent sprint's milestones, issues, acceptance criteria |
+| `sprints/sprint24/sprint-log.md` | What was completed in the latest sprint |
 
 ---
 
-*Last updated: 2026-11-14 | Sprint 23 Complete (Client-side Multisig) — roadmap done, hardening in progress*
+*Last updated: 2026-11-14 | Sprint 24 Complete (Encrypted Browser Keystore) — roadmap done, hardening in progress*
