@@ -153,6 +153,15 @@ POST /api/multisig/claim       # Assemble + submit a multisig claim
 
 ---
 
+## 🛡️ Hardening (after the roadmap)
+
+| Sprint | Title | Key Deliverables |
+|--------|-------|------------------|
+| 20 | Thread Safety | `Blockchain` monitor, mining outside the lock, consistent API snapshots ✅ Complete |
+| 21 | Fork Choice (proposed) | Most-work chain rule, reorganisation, mempool return of undone txs |
+
+---
+
 ## 🌟 Bonus Features (Optional)
 
 | Feature | Description | Complexity |
