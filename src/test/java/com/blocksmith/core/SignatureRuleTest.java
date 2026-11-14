@@ -145,10 +145,8 @@ class SignatureRuleTest {
         c.minePendingTransactions(funder.getAddress());
         assertNull(c.deployContract(funder.getAddress(), hashlock, 15), "Unsigned deploy refused");
 
-        String contractId = "c0ffee";
-        Transaction deploy = new Transaction(funder.getAddress(),
-                BlockchainConfig.CONTRACT_ADDRESS_PREFIX + contractId, 15);
-        deploy.setLockingScript(hashlock);
+        Transaction deploy = Blockchain.buildDeploy(funder.getAddress(), hashlock, 15);
+        String contractId = deploy.getRecipient().substring(BlockchainConfig.CONTRACT_ADDRESS_PREFIX.length());
         funder.signTransaction(deploy);
 
         // A relay swaps the lock for its own: the signature no longer matches.

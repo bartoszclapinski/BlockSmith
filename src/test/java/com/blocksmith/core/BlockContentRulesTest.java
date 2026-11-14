@@ -159,17 +159,17 @@ class BlockContentRulesTest {
     void invalidClaimInPeerBlock_rejected() {
         String secret = "open-sesame";
         Blockchain c = aliceHas50();
-        Transaction deploy = new Transaction(ALICE, "CONTRACT:c1", 15);
-        deploy.setLockingScript("SHA256 PUSH " + HashUtil.applySha256(secret) + " EQUAL");
+        Transaction deploy = Blockchain.buildDeploy(ALICE, "SHA256 PUSH " + HashUtil.applySha256(secret) + " EQUAL", 15);
+        String address = deploy.getRecipient();
         assertTrue(c.addBlock(blockOn(c, List.of(coinbase(MALLORY, REWARD), deploy))));
 
-        Transaction wrong = new Transaction("CONTRACT:c1", MALLORY, 15);
+        Transaction wrong = new Transaction(address, MALLORY, 15);
         wrong.setUnlockingScript("PUSH not-the-secret");
         assertFalse(c.addBlock(blockOn(c, List.of(coinbase(MALLORY, REWARD), wrong))));
 
-        Transaction right = new Transaction("CONTRACT:c1", BOB, 15);
+        Transaction right = new Transaction(address, BOB, 15);
         right.setUnlockingScript("PUSH " + secret);
-        Transaction again = new Transaction("CONTRACT:c1", MALLORY, 15);
+        Transaction again = new Transaction(address, MALLORY, 15);
         again.setUnlockingScript("PUSH " + secret);
         assertFalse(c.addBlock(blockOn(c, List.of(coinbase(MALLORY, REWARD), right, again))),
                 "One contract cannot be claimed twice in a block");

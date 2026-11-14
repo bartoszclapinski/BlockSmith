@@ -729,6 +729,8 @@ public class Blockchain {
                 && (tx.getLockingScript() == null || tx.getLockingScript().isBlank())) {
             return "a contract deploy without a locking script";
         }
+        String foreignId = deployIdViolation(tx);
+        if (foreignId != null) return foreignId;
         if (tx.getSender().startsWith(BlockchainConfig.CONTRACT_ADDRESS_PREFIX)) {
             if (check.claimedContracts.contains(contractIdOf(tx.getSender()))) {
                 return "the contract is already claimed in this block";
@@ -1241,6 +1243,8 @@ public class Blockchain {
                     || transaction.getLockingScript().isBlank())) {
             return "a contract deploy requires a locking script";
         }
+        String foreignId = deployIdViolation(transaction);
+        if (foreignId != null) return foreignId;
         if (transaction.getSender().startsWith(BlockchainConfig.CONTRACT_ADDRESS_PREFIX)
                 && !isValidClaim(transaction)) {
             return "the contract claim is not valid";
@@ -1847,24 +1851,63 @@ public class Blockchain {
             return null;
         }
 
-        // The contract id seeds the contract's address; hashing the deploy
-        // parameters keeps it unique and lets every node derive the same id
-        // from the transaction once it arrives in a block.
+        // The contract id is bound to this deploy (Sprint 25a): every node
+        // recomputes it from the transaction and refuses any other.
         Transaction deploy = buildDeploy(funder, lockingScript, amount);
         return addTransaction(deploy) ? deploy : null;
     }
 
     /**
      * The (unsigned) transaction that deploys a contract (Sprint 22b): to
-     * {@code CONTRACT_ADDRESS_PREFIX + id}, carrying the locking script. The
-     * id hashes the deploy parameters and the time, so it is unique and every
-     * node derives the same id from the transaction. The funder signs it.
+     * {@code CONTRACT_ADDRESS_PREFIX + id}, carrying the locking script, with
+     * a random sequence that seeds the id (Sprint 25a). The funder signs it.
      */
     public static Transaction buildDeploy(String funder, String lockingScript, double amount) {
-        String contractId = HashUtil.applySha256(funder + lockingScript + amount + System.currentTimeMillis());
-        Transaction deploy = new Transaction(funder, BlockchainConfig.CONTRACT_ADDRESS_PREFIX + contractId, amount);
+        long sequence = Transaction.randomSequence();
+        Transaction deploy = new Transaction(funder, BlockchainConfig.CONTRACT_ADDRESS_PREFIX
+                + contractIdFor(funder, lockingScript, amount, sequence), amount, 0, sequence);
         deploy.setLockingScript(lockingScript);
         return deploy;
+    }
+
+    /**
+     * The id of the contract a deploy creates (Sprint 25a).
+     *
+     * THEORY: Who may create a contract id
+     *
+     * The id names the address the funds go to ({@code CONTRACT:<id>}), and
+     * the registry keeps the FIRST deploy to an id. Until Sprint 25 the id
+     * was a hash of the parameters and the clock that the client wrote into
+     * the recipient and nobody checked; a probe showed Mallory copying
+     * Alice's pending deploy address from the mempool, deploying 0.1 with an
+     * always-true lock to it first, and Alice's 30 stuck behind Mallory's
+     * contract for good.
+     *
+     * Now every node recomputes the id from the deploy itself:
+     *
+     *   SHA-256(funder | lockingScript | amount | sequence)
+     *
+     * Mallory's deploy has Mallory as the funder, so it hashes to a different
+     * id. Two deploys of the same funder with the same sequence would share
+     * an id, but a (sender, sequence) pair confirms only once (Sprint 19b).
+     * The sequence rather than the timestamp: a fee bump keeps the sequence
+     * (and so the id) and gets a new timestamp. Ethereum derives a contract
+     * address from the creator and its nonce for the same reason.
+     */
+    public static String contractIdFor(String funder, String lockingScript, double amount, long sequence) {
+        return HashUtil.applySha256(funder + "|" + lockingScript + "|" + amount + "|" + sequence);
+    }
+
+    /** Why a contract deploy's address is not its own, or null (Sprint 25a). Not a deploy: null. */
+    static String deployIdViolation(Transaction tx) {
+        if (!tx.getRecipient().startsWith(BlockchainConfig.CONTRACT_ADDRESS_PREFIX)) return null;
+        if (tx.getLockingScript() == null || tx.getLockingScript().isBlank()) return null;  // its own rule
+        if (tx.getSequence() == null) return "a contract deploy needs a sequence (it seeds the contract id)";
+        String own = contractIdFor(tx.getSender(), tx.getLockingScript(), tx.getAmount(), tx.getSequence());
+        if (!tx.getRecipient().equals(BlockchainConfig.CONTRACT_ADDRESS_PREFIX + own)) {
+            return "the contract id is not this deploy's own (SHA-256 of funder, script, amount, sequence)";
+        }
+        return null;
     }
 
     /**
