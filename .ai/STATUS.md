@@ -9,7 +9,7 @@
 | Field | Value |
 |-------|-------|
 | **Phase** | 4 - Production Features - ✅ COMPLETE (all 4 phases done) |
-| **Current Sprint** | 21 (Fork Choice, hardening) - Complete |
+| **Current Sprint** | 22 (Required Signatures, hardening) - Planned |
 | **Current Milestone** | 21c Complete (Fork-aware sync; two mining nodes converge) |
 | **Status** | Sprint 21 complete (21a-21c): chain work, side branches, reorg onto the most-work chain, block-locator sync. Next: require signatures (API accepts unsigned txs for any sender) |
 
@@ -60,7 +60,8 @@ Phase 4: Production Features  [███████████████] 10
 
 Hardening (after the roadmap)
 ├── Sprint 20: Thread Safety ✅ COMPLETE (20a ✅, 20b ✅, 20c ✅)
-└── Sprint 21: Fork Choice   ✅ COMPLETE (21a ✅, 21b ✅, 21c ✅)
+├── Sprint 21: Fork Choice   ✅ COMPLETE (21a ✅, 21b ✅, 21c ✅)
+└── Sprint 22: Signatures    📋 PLANNED (22a ⬜, 22b ⬜, 22c ⬜)
 ```
 
 ---
