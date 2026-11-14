@@ -85,6 +85,9 @@ class SideBranchTest {
         Block a1 = a.minePendingTransactions("A");
         Block a2 = a.minePendingTransactions("A");
         Block a3 = a.minePendingTransactions("A");
+        // B and C are as far along as A, so A's branch never has MORE work:
+        // it stays a side branch (with more work, 21b would switch to it).
+        b.minePendingTransactions("B");
         b.minePendingTransactions("B");
 
         assertFalse(b.addBlock(a1));
@@ -92,13 +95,14 @@ class SideBranchTest {
         assertEquals(2, b.getSideBlockCount(), "a2's parent a1 is a side block");
 
         Blockchain c = chain();
-        c.minePendingTransactions("C");
+        for (int i = 0; i < 3; i++) c.minePendingTransactions("C");
         assertFalse(c.addBlock(a3));
         assertFalse(c.addBlock(a2));
         assertEquals(0, c.getSideBlockCount(), "Parents unknown so far: waiting as orphans");
         assertFalse(c.addBlock(a1));
         assertEquals(3, c.getSideBlockCount(), "a1 arrived: a2 and a3 followed it onto the side branch");
-        assertEquals(2, c.getChainSize(), "Still C's own chain (no switching before 21b)");
+        assertEquals(4, c.getChainSize(), "Still C's own chain: equal work keeps the first seen");
+        assertEquals(0, c.getReorgCount());
     }
 
     @Test
