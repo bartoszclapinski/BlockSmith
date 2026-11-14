@@ -343,8 +343,8 @@ Design handoff (prototype + README) lives in `.ai/design/UIUX redesign project/`
 
 ## ⚠️ Known Issues
 
-- Multisig member keys are held in memory by the API (by design, not persisted):
-  a multisig created via the dashboard cannot be claimed after a node restart.
+- None open. (Sprint 23 removed the last one: the node no longer holds multisig
+  member keys, so a restart cannot strand a multisig.)
 
 ---
 
@@ -450,9 +450,6 @@ Design handoff (prototype + README) lives in `.ai/design/UIUX redesign project/`
      yet pull the peer's mempool
    - Browser keys live in `localStorage` (educational): no passphrase
      encryption, no hardware wallet
-   - Multisig signing is a server-side convenience (the node holds the member
-     keys and signs claims); a production design signs client-side and submits
-     only signatures. Member keys live in memory only (lost on restart)
    - `nodeId` is random per start (not persisted with the chain)
    - Side branches are kept in memory only (re-learned from peers after a
      restart); no headers-first sync
