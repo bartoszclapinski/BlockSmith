@@ -140,6 +140,8 @@ public class ApiServer {
         app.get("/api/transactions/{id}", this::getTransactionById);
         app.post("/api/mine", this::postMine);
         app.get("/api/mempool", this::getMempool);
+        app.post("/api/transactions/{id}/bump", this::postBump);
+        app.get("/api/fees/estimate", ctx -> json(ctx, feeEstimate()));
 
         // Wallet + network endpoints (Milestone 12c).
         app.get("/api/wallet/{address}", this::getWallet);
@@ -196,31 +198,28 @@ public class ApiServer {
 
         // Optional fee (Sprint 18c/18d): paid by the sender on top of the
         // amount, collected by whoever mines the transaction.
-        double fee = 0;
-        if (body.has("fee") && !body.get("fee").isJsonNull()) {
-            try {
-                fee = body.get("fee").getAsDouble();
-            } catch (RuntimeException e) {
-                fee = Double.NaN;
-            }
-            if (!(fee >= 0) || Double.isInfinite(fee)) {
-                ctx.status(400);
-                json(ctx, error("fee must be a non-negative number"));
-                return;
-            }
+        double fee = body.has("fee") && !body.get("fee").isJsonNull() ? parseFee(body.get("fee")) : 0;
+        if (Double.isNaN(fee)) {
+            ctx.status(400);
+            json(ctx, error("fee must be a non-negative number"));
+            return;
         }
 
         // Build the transaction through its constructor so the id and timestamp
         // are computed correctly (Gson would bypass the constructor).
+        // Every API transaction gets a random sequence (Sprint 19d), so it
+        // can be bumped later with POST /api/transactions/{id}/bump.
         Transaction tx = new Transaction(
                 body.get("sender").getAsString(),
                 body.get("recipient").getAsString(),
                 body.get("amount").getAsDouble(),
-                fee);
+                fee,
+                Transaction.randomSequence());
 
-        if (!blockchain.addTransaction(tx)) {
+        String why = blockchain.submitTransaction(tx);
+        if (why != null) {
             ctx.status(400);
-            json(ctx, error("Transaction rejected (invalid or insufficient funds)"));
+            json(ctx, error("Transaction rejected: " + why));
             return;
         }
 
@@ -696,6 +695,11 @@ public class ApiServer {
             JsonObject o = gson.toJsonTree(tx).getAsJsonObject();
             o.addProperty("sizeBytes", tx.sizeBytes());
             o.addProperty("feeRate", tx.feeRate());
+            // Bump info (Sprint 19d): the API can only re-build unsigned ones;
+            // a signed tx must be bumped (re-signed) by its wallet.
+            boolean bumpable = tx.isReplaceable() && tx.getSignature() == null;
+            o.addProperty("replaceable", tx.isReplaceable());
+            if (bumpable) o.addProperty("minBumpFee", blockchain.minimumBumpFee(tx));
             txs.add(o);
             totalFees += tx.getFee();
         }
@@ -704,8 +708,104 @@ public class ApiServer {
         m.put("totalFees", totalFees);
         m.put("maxBlockTransactions", blockchain.getChainParams().maxBlockTransactions());
         m.put("maxBlockBytes", blockchain.getChainParams().maxBlockBytes());
+        // Mempool policy (Sprint 19a/19d)
+        m.put("bytes", blockchain.getPendingBytes());
+        m.put("maxMempoolBytes", blockchain.getMempoolPolicy().maxBytes());
+        m.put("maxMempoolTransactions", blockchain.getMempoolPolicy().maxTransactions());
+        m.put("mempoolMinFeeRate", blockchain.getMempoolMinFeeRate());
         m.put("transactions", txs);
         json(ctx, m);
+    }
+
+    /**
+     * POST /api/transactions/{id}/bump (Sprint 19d): replace a pending
+     * transaction with the same payment at a higher fee. Body: {@code {"fee": x}};
+     * without a fee the smallest allowed bump is used.
+     */
+    private void postBump(Context ctx) {
+        String id = ctx.pathParam("id");
+        Transaction old = blockchain.getPendingTransaction(id);
+        if (old == null) {
+            ctx.status(404);
+            json(ctx, error("No pending transaction " + id));
+            return;
+        }
+        if (!old.isReplaceable()) {
+            ctx.status(400);
+            json(ctx, error("Transaction " + id + " is not replaceable (it has no sequence)"));
+            return;
+        }
+        if (old.getSignature() != null) {
+            ctx.status(400);
+            json(ctx, error("A signed transaction must be bumped (re-signed) by its wallet"));
+            return;
+        }
+
+        double fee;
+        try {
+            String raw = ctx.body();
+            JsonObject body = raw == null || raw.isBlank() ? new JsonObject()
+                    : JsonParser.parseString(raw).getAsJsonObject();
+            fee = body.has("fee") && !body.get("fee").isJsonNull()
+                    ? parseFee(body.get("fee")) : blockchain.minimumBumpFee(old);
+        } catch (JsonSyntaxException | IllegalStateException e) {
+            ctx.status(400);
+            json(ctx, error("Request body must be a JSON object"));
+            return;
+        }
+        if (Double.isNaN(fee)) {
+            ctx.status(400);
+            json(ctx, error("fee must be a non-negative number"));
+            return;
+        }
+
+        Transaction bumped = old.withFee(fee);
+        String why = blockchain.submitTransaction(bumped);
+        if (why != null) {
+            ctx.status(400);
+            json(ctx, error("Bump rejected: " + why));
+            return;
+        }
+        node.broadcastTransaction(bumped);
+        JsonObject o = gson.toJsonTree(bumped).getAsJsonObject();
+        o.addProperty("replaces", id);
+        ctx.status(201);
+        json(ctx, o);
+    }
+
+    /**
+     * GET /api/fees/estimate (Sprint 19d): the fee rate for "next block",
+     * "within 3" and "within 6", and what that costs on a typical dashboard
+     * transaction. The typical size is measured on a real transaction with
+     * 0x addresses, a fee and a sequence, rounded up to 0.0001 BSC.
+     */
+    private Map<String, Object> feeEstimate() {
+        String address = "0x" + "0".repeat(40);
+        int bytes = new Transaction(address, address, 1000.0, 1.2345, Long.MAX_VALUE).sizeBytes();
+        Map<String, Object> m = new LinkedHashMap<>();
+        String[][] targets = {{"fast", "1"}, {"normal", "3"}, {"slow", "6"}};
+        for (String[] t : targets) {
+            int blocks = Integer.parseInt(t[1]);
+            double rate = blockchain.estimateFeeRate(blocks);
+            Map<String, Object> e = new LinkedHashMap<>();
+            e.put("blocks", blocks);
+            e.put("feeRate", rate);
+            e.put("fee", Blockchain.roundUpFee(rate * bytes));
+            m.put(t[0], e);
+        }
+        m.put("typicalTxBytes", bytes);
+        m.put("mempoolMinFeeRate", blockchain.getMempoolMinFeeRate());
+        return m;
+    }
+
+    /** A fee from JSON, or NaN if it is not a non-negative finite number. */
+    private static double parseFee(com.google.gson.JsonElement e) {
+        try {
+            double fee = e.getAsDouble();
+            return fee >= 0 && !Double.isInfinite(fee) ? fee : Double.NaN;
+        } catch (RuntimeException ex) {
+            return Double.NaN;
+        }
     }
 
     private Map<String, String> error(String message) {
