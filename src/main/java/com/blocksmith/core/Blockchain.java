@@ -991,6 +991,20 @@ public class Blockchain {
         return null;
     }
 
+    /**
+     * Runs {@code work} while holding this chain's lock (Sprint 20c), so
+     * several reads see ONE state: no block or transaction can land between
+     * them. Each public method is atomic on its own; this makes a GROUP of
+     * calls atomic, e.g. an API response that reports the height and the
+     * target together. Keep {@code work} short and local: no I/O, no
+     * waiting, and no calls into other components that take their own locks.
+     *
+     * @return what {@code work} returns
+     */
+    public synchronized <T> T atomically(java.util.function.Supplier<T> work) {
+        return work.get();
+    }
+
     // ===== REPLACE-BY-FEE (Sprint 19b) =====
 
     private Transaction pendingWithSequence(SequenceKey key) {
@@ -1257,10 +1271,12 @@ public class Blockchain {
      * Otherwise, they could submit multiple transactions thath together
      * exceed their balance.
      * 
+     * Counts amount + fee (Sprint 18c): both leave the sender's balance.
+     *
      * @param address Ther address to check
-     * @return Total amount being sent in pending transactions
+     * @return Total amount (plus fees) being sent in pending transactions
      */
-    private double getPendingOutgoing(String address) {
+    public synchronized double getPendingOutgoing(String address) {
         double pending = 0;
          for (Transaction tx : pendingTransactions) {
             if (tx.getSender().equals(address)) pending += tx.getTotalCost();

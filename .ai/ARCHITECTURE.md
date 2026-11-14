@@ -398,6 +398,27 @@ confirm. The sequence does not have to be consecutive, so any subset of the memp
 
 ---
 
+## 🧵 Threading (Sprint 20)
+
+| Thread(s) | Touches the chain via |
+|-----------|-----------------------|
+| One listener per peer (`Peer`) | `Node` handlers: `addBlock`, `addTransaction`, `getChain` (GET_BLOCKS), `getPendingTransactions` (GET_MEMPOOL) |
+| Jetty request threads (`ApiServer`) | every endpoint; mining via `POST /api/mine` |
+| Heartbeat (`Node`) | `getChainSize` |
+
+| Piece | Role |
+|-------|------|
+| `Blockchain` monitor | Every public method that touches state is `synchronized` on the instance (one reentrant lock). Only `getChainParams()` / `getMempoolPolicy()` (immutable) are unlocked |
+| Snapshot getters | `getChain()`, `getPendingTransactions()`, `getContracts()` return copies, safe to iterate on any thread |
+| `atomically(Supplier)` | Runs a group of calls under the lock: one consistent state (used by `/api/network/status`, `/api/wallet`, `/api/mempool`, `/api/fees/estimate`, `/api/network/difficulty`, contracts) |
+| Mining | template (locked) -> nonce search (unlocked; `Block.mineBlock(target, stop)` stops when the `volatile tipHash` moves or the caller cancels) -> submit (locked, same tip only; stale work retried, max 100) |
+
+**Rules**: lock order is `Blockchain` -> `ChainStore`; the store never calls back, and `Blockchain` never calls
+`Node` or the API, so there is no cycle. API code reads peer data outside `atomically` (the peer manager has its
+own lock; never hold both). Work passed to `atomically` must be short: no I/O, no waiting.
+
+---
+
 ## 📦 Package: `com.blocksmith.network` (Phase 2, Sprints 8-11)
 
 TCP peer-to-peer layer. Messages are JSON over sockets.
@@ -617,4 +638,4 @@ void methodName_scenario_expectedResult() { ... }
 
 ---
 
-*Last updated: 2026-11-14 (added fee market section, Sprint 19 endpoints)*
+*Last updated: 2026-11-14 (added threading section, Sprint 20)*

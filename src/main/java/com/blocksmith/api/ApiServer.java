@@ -133,15 +133,15 @@ public class ApiServer {
         app.get("/api/blocks/{index}", this::getBlockByIndex);
         app.get("/api/blocks/hash/{hash}", this::getBlockByHash);
         app.get("/api/network/status", ctx -> json(ctx, status()));
-        app.get("/api/network/difficulty", ctx -> json(ctx, difficulty()));
+        app.get("/api/network/difficulty", ctx -> json(ctx, blockchain.atomically(this::difficulty)));
 
         // Transaction + mining endpoints (Milestone 12b).
         app.post("/api/transactions", this::postTransaction);
         app.get("/api/transactions/{id}", this::getTransactionById);
         app.post("/api/mine", this::postMine);
-        app.get("/api/mempool", this::getMempool);
+        app.get("/api/mempool", ctx -> json(ctx, blockchain.atomically(this::mempoolView)));
         app.post("/api/transactions/{id}/bump", this::postBump);
-        app.get("/api/fees/estimate", ctx -> json(ctx, feeEstimate()));
+        app.get("/api/fees/estimate", ctx -> json(ctx, blockchain.atomically(this::feeEstimate)));
 
         // Wallet + network endpoints (Milestone 12c).
         app.get("/api/wallet/{address}", this::getWallet);
@@ -150,7 +150,7 @@ public class ApiServer {
         app.get("/api/network/peers", this::getPeers);
 
         // Contract endpoints (Milestone 14c).
-        app.get("/api/contracts", ctx -> json(ctx, contractsList()));
+        app.get("/api/contracts", ctx -> json(ctx, blockchain.atomically(this::contractsList)));
         app.get("/api/contracts/{id}", this::getContract);
         app.post("/api/contracts", this::postContract);
         app.post("/api/contracts/{id}/claim", this::postContractClaim);
@@ -275,8 +275,14 @@ public class ApiServer {
         String address = ctx.pathParam("address");
         Map<String, Object> m = new LinkedHashMap<>();
         m.put("address", address);
-        m.put("balance", blockchain.getBalance(address));
-        m.put("pendingOutgoing", pendingOutgoing(address));
+        // One snapshot (Sprint 20c): otherwise a block landing between the
+        // two reads could count a payment in both, or in neither.
+        blockchain.atomically(() -> {
+            m.put("balance", blockchain.getBalance(address));
+            // Amount + fee: both leave the balance (was amount only).
+            m.put("pendingOutgoing", blockchain.getPendingOutgoing(address));
+            return null;
+        });
         json(ctx, m);
     }
 
@@ -307,14 +313,6 @@ public class ApiServer {
     }
 
     /** Sum of pending transactions sent by {@code address}. */
-    private double pendingOutgoing(String address) {
-        double sum = 0;
-        for (Transaction tx : blockchain.getPendingTransactions()) {
-            if (address.equals(tx.getSender())) sum += tx.getAmount();
-        }
-        return sum;
-    }
-
     // ===== 14c: CONTRACTS =====
 
     /**
@@ -421,6 +419,12 @@ public class ApiServer {
 
     /** Serializes a contract to a stable JSON shape for the UI. */
     private Map<String, Object> contractInfo(Contract contract) {
+        // A Contract's status changes when a block claims it; read it under
+        // the chain's lock so the fields are seen together (Sprint 20c).
+        return blockchain.atomically(() -> contractFields(contract));
+    }
+
+    private Map<String, Object> contractFields(Contract contract) {
         Map<String, Object> m = new LinkedHashMap<>();
         m.put("contractId", contract.getContractId());
         m.put("funder", contract.getFunder());
@@ -620,21 +624,28 @@ public class ApiServer {
         m.put("nodeId", node.getNodeId());
         m.put("p2pPort", node.getPort());
         m.put("apiPort", port);
-        m.put("chainLength", blockchain.getChainSize());
-        // Live difficulty (Sprint 17d): the target the next block must meet,
-        // shown as its leading-zero equivalent (4.0 = four zeros, 4.25 = 2x harder).
-        java.math.BigInteger next = blockchain.getNextTarget();
-        m.put("difficulty", Target.toDifficulty(next));
-        m.put("target", Target.toHex(next));
-        m.put("targetBlockTimeMs", blockchain.getChainParams().targetBlockTimeMs());
-        m.put("retargetInterval", blockchain.getChainParams().retargetInterval());
-        m.put("blocksUntilRetarget", blockchain.getBlocksUntilRetarget());
-        // Block limits (Sprint 18b/18d)
-        m.put("maxBlockBytes", blockchain.getChainParams().maxBlockBytes());
-        m.put("maxBlockTransactions", blockchain.getChainParams().maxBlockTransactions());
-        Long avg = blockchain.getAverageBlockTimeMs();
-        if (avg != null) m.put("averageBlockTimeMs", avg);
-        m.put("pendingTransactions", blockchain.getPendingTransactions().size());
+        // Chain values from ONE snapshot (Sprint 20c): read one by one, a
+        // block landing in between could pair a new height with the old
+        // target or countdown. Peer data is read outside the chain's lock
+        // (the peer manager has its own; never hold both).
+        blockchain.atomically(() -> {
+            m.put("chainLength", blockchain.getChainSize());
+            // Live difficulty (Sprint 17d): the target the next block must meet,
+            // shown as its leading-zero equivalent (4.0 = four zeros, 4.25 = 2x harder).
+            java.math.BigInteger next = blockchain.getNextTarget();
+            m.put("difficulty", Target.toDifficulty(next));
+            m.put("target", Target.toHex(next));
+            m.put("targetBlockTimeMs", blockchain.getChainParams().targetBlockTimeMs());
+            m.put("retargetInterval", blockchain.getChainParams().retargetInterval());
+            m.put("blocksUntilRetarget", blockchain.getBlocksUntilRetarget());
+            // Block limits (Sprint 18b/18d)
+            m.put("maxBlockBytes", blockchain.getChainParams().maxBlockBytes());
+            m.put("maxBlockTransactions", blockchain.getChainParams().maxBlockTransactions());
+            Long avg = blockchain.getAverageBlockTimeMs();
+            if (avg != null) m.put("averageBlockTimeMs", avg);
+            m.put("pendingTransactions", blockchain.getPendingCount());
+            return null;
+        });
         m.put("connectedPeers", node.getPeerManager().getConnectedPeers().size());
         return m;
     }
@@ -688,7 +699,7 @@ public class ApiServer {
      * GET /api/mempool (Sprint 18d): pending transactions in the order a miner
      * considers them (best fee per byte first), each with its size and fee rate.
      */
-    private void getMempool(Context ctx) {
+    private Map<String, Object> mempoolView() {
         JsonArray txs = new JsonArray();
         double totalFees = 0;
         for (Transaction tx : blockchain.getPendingInMiningOrder()) {
@@ -714,7 +725,7 @@ public class ApiServer {
         m.put("maxMempoolTransactions", blockchain.getMempoolPolicy().maxTransactions());
         m.put("mempoolMinFeeRate", blockchain.getMempoolMinFeeRate());
         m.put("transactions", txs);
-        json(ctx, m);
+        return m;
     }
 
     /**
