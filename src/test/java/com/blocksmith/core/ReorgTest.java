@@ -1,5 +1,7 @@
 package com.blocksmith.core;
 
+import com.blocksmith.TestChains;
+
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
@@ -28,7 +30,7 @@ class ReorgTest {
 
     private static final ChainParams EASY = new ChainParams(Target.fromLeadingZeros(1), 10_000, 1_000_000, 4,
             Target.MAX, ChainParams.DEFAULT_MAX_FUTURE_DRIFT_MS,
-            ChainParams.DEFAULT_MAX_BLOCK_BYTES, ChainParams.DEFAULT_MAX_BLOCK_TRANSACTIONS);
+            ChainParams.DEFAULT_MAX_BLOCK_BYTES, ChainParams.DEFAULT_MAX_BLOCK_TRANSACTIONS).withoutSignatureRule();
 
     @TempDir
     Path dataDir;

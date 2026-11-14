@@ -1,5 +1,7 @@
 package com.blocksmith.network;
 
+import com.blocksmith.TestChains;
+
 import java.lang.reflect.Field;
 import java.util.List;
 import java.util.Map;
@@ -99,7 +101,7 @@ class MempoolSyncTest {
     @Test
     @DisplayName("GET_MEMPOOL handler serves the pending pool")
     void getMempoolHandler_servesPendingPool() throws Exception {
-        node = new Node(getNextPort());
+        node = new Node(getNextPort(), TestChains.unsigned());
         Blockchain chain = node.getBlockchain();
         fund(chain, "Miner1");
         Transaction tx = new Transaction("Miner1", "Alice", 30.0);
@@ -120,7 +122,7 @@ class MempoolSyncTest {
     @Test
     @DisplayName("MEMPOOL handler applies received transactions")
     void mempoolHandler_appliesReceivedTransactions() throws Exception {
-        node = new Node(getNextPort());
+        node = new Node(getNextPort(), TestChains.unsigned());
         Blockchain chain = node.getBlockchain();
         fund(chain, "Miner1"); // fund so the received tx is valid on our chain
         assertEquals(0, chain.getPendingTransactions().size(), "Pool starts empty");

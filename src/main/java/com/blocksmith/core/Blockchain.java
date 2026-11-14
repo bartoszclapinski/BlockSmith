@@ -714,9 +714,8 @@ public class Blockchain {
     private String transactionRuleViolation(Transaction tx, BlockCheck check) {
         if (BlockchainConfig.COINBASE_ADDRESS.equals(tx.getSender())) return "a second coinbase";
         if (!tx.isValid()) return "malformed (amount, sender or recipient)";
-        if ((tx.getSignature() != null || tx.getSenderPublicKey() != null) && !tx.verifySignature()) {
-            return "the signature does not verify";
-        }
+        String unauthorised = senderAuthorisationViolation(tx);
+        if (unauthorised != null) return unauthorised;
         String id = tx.getTransactionId();
         if (check.ids.contains(id) || confirmedTxIds.contains(id)) return "already included";
         // Replace-by-fee (Sprint 19b): two versions of one payment share a
@@ -740,6 +739,27 @@ public class Blockchain {
             return "the sender cannot afford " + tx.getAmount() + " + fee " + tx.getFee();
         }
         return null;
+    }
+
+    /**
+     * Why {@code tx}'s sender has not authorised it, or null (Sprint 22a).
+     *
+     *   - a contract claim: the sender is the contract, and its locking
+     *     script decides (checked separately), so no signature is needed
+     *   - a transaction that carries a key or signature must be signed by
+     *     the SENDER's key, always: someone else's key is never legitimate
+     *   - with {@code requireSignatures} (every real network), a transfer
+     *     without a signature is not allowed at all
+     */
+    private String senderAuthorisationViolation(Transaction tx) {
+        if (tx.getSender().startsWith(BlockchainConfig.CONTRACT_ADDRESS_PREFIX)) return null;
+        boolean carriesSignature = tx.getSignature() != null || tx.getSenderPublicKey() != null;
+        if (carriesSignature) {
+            if (!tx.verifySignature()) return "the signature does not verify";
+            if (!tx.isSignedBySender()) return "signed with a key that does not belong to the sender";
+            return null;
+        }
+        return params.requireSignatures() ? "unsigned: only the sender's signature can authorise a transfer" : null;
     }
 
     private static String shortId(Transaction tx) {
@@ -1228,10 +1248,8 @@ public class Blockchain {
 
         // A signed transaction must verify (Sprint 18a: blocks enforce the
         // same rule, so a bad one would make our own mined block invalid).
-        if ((transaction.getSignature() != null || transaction.getSenderPublicKey() != null)
-                && !transaction.verifySignature()) {
-            return "the signature does not verify";
-        }
+        String unauthorised = senderAuthorisationViolation(transaction);
+        if (unauthorised != null) return unauthorised;
 
         // Reject duplicates already waiting in the pool. This also stops a
         // gossiped transaction from being relayed twice (returns false).

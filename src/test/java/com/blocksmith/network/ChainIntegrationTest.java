@@ -1,5 +1,7 @@
 package com.blocksmith.network;
 
+import com.blocksmith.TestChains;
+
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
@@ -40,7 +42,7 @@ class ChainIntegrationTest {
     @Test
     @DisplayName("Node exposes the injected blockchain")
     void node_exposesBlockchain() {
-        Blockchain chain = new Blockchain();
+        Blockchain chain = TestChains.unsigned();
         node = new Node(getNextPort(), chain);
 
         assertSame(chain, node.getBlockchain(), "getBlockchain() returns the injected chain");
@@ -49,7 +51,7 @@ class ChainIntegrationTest {
     @Test
     @DisplayName("HELLO response carries the node's real chain length")
     void node_helloCarriesChainLength() throws Exception {
-        Blockchain chain = new Blockchain();
+        Blockchain chain = TestChains.unsigned();
         chain.addBlock("block-1");
         chain.addBlock("block-2");
         int expected = chain.getChainSize(); // genesis + 2 = 3

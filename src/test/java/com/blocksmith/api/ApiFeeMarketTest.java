@@ -1,5 +1,7 @@
 package com.blocksmith.api;
 
+import com.blocksmith.TestChains;
+
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -39,7 +41,7 @@ class ApiFeeMarketTest {
     private void start(int maxTxs) {
         int offset = counter++;
         apiPort = API_PORT_BASE + offset;
-        Blockchain chain = new Blockchain(NoOpChainStore.INSTANCE, ChainParams.DEFAULT,
+        Blockchain chain = new Blockchain(NoOpChainStore.INSTANCE, TestChains.PARAMS,
                 new MempoolPolicy(65_536, maxTxs, MempoolPolicy.DEFAULT.incrementalFeeRate()));
         node = new Node(P2P_PORT_BASE + offset, chain);
         api = new ApiServer(node, apiPort);

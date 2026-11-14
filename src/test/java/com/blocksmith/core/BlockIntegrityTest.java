@@ -1,5 +1,7 @@
 package com.blocksmith.core;
 
+import com.blocksmith.TestChains;
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -25,7 +27,7 @@ class BlockIntegrityTest {
 
     /** Peer chain: #1 reward to Alice, #2 hashlock deploy, #3 Bob's claim. */
     private static Blockchain contractChain() {
-        Blockchain peer = new Blockchain();
+        Blockchain peer = TestChains.unsigned();
         peer.minePendingTransactions(ALICE);
         Transaction deploy = peer.deployContract(ALICE, HASHLOCK, 15);
         assertNotNull(deploy);
@@ -76,7 +78,7 @@ class BlockIntegrityTest {
                 "The block hash alone does not see the edit");
         assertFalse(forgedDeploy.hasValidMerkleRoot(), "...but the tx id now does");
 
-        Blockchain us = new Blockchain();
+        Blockchain us = TestChains.unsigned();
         assertTrue(us.addBlock(peer.getBlock(1)));
         assertFalse(us.addBlock(forgedDeploy), "Forged deploy block rejected");
         assertTrue(us.addBlock(peer.getBlock(2)), "Honest block still accepted");
@@ -90,7 +92,7 @@ class BlockIntegrityTest {
 
         assertFalse(forgedClaim.hasValidMerkleRoot());
 
-        Blockchain us = new Blockchain();
+        Blockchain us = TestChains.unsigned();
         assertTrue(us.addBlock(peer.getBlock(1)));
         assertTrue(us.addBlock(peer.getBlock(2)));
         assertFalse(us.addBlock(forgedClaim));
@@ -102,7 +104,7 @@ class BlockIntegrityTest {
 
     /** A peer chain: reward to Alice, then a block with Alice -> Bob 10 BSC. */
     private static Blockchain peerChain() {
-        Blockchain peer = new Blockchain();
+        Blockchain peer = TestChains.unsigned();
         peer.minePendingTransactions(ALICE);
         assertTrue(peer.addTransaction(new Transaction(ALICE, BOB, 10)));
         peer.minePendingTransactions(ALICE);
@@ -141,7 +143,7 @@ class BlockIntegrityTest {
     @DisplayName("A forged block from a peer is rejected; the honest one is accepted")
     void forgedBlockFromPeer_rejected() {
         Blockchain peer = peerChain();
-        Blockchain us = new Blockchain();
+        Blockchain us = TestChains.unsigned();
         assertTrue(us.addBlock(peer.getBlock(1)));
 
         assertFalse(us.addBlock(withEditedAmount(peer.getBlock(2))), "Forged block rejected");

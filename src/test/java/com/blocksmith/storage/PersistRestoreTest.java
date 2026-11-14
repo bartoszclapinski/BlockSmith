@@ -1,5 +1,7 @@
 package com.blocksmith.storage;
 
+import com.blocksmith.TestChains;
+
 import java.nio.file.Path;
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -42,7 +44,7 @@ class PersistRestoreTest {
 
     private Restarted restart() {
         H2ChainStore store = H2ChainStore.openFile(dataDir);
-        Blockchain chain = new Blockchain(store);
+        Blockchain chain = new Blockchain(store, TestChains.PARAMS);
         return new Restarted(chain, chain.restoreFromStore(), store);
     }
 
@@ -58,7 +60,7 @@ class PersistRestoreTest {
         String tipHash;
         String contractId;
         try (H2ChainStore store = H2ChainStore.openFile(dataDir)) {
-            Blockchain chain = new Blockchain(store);
+            Blockchain chain = new Blockchain(store, TestChains.PARAMS);
             chain.minePendingTransactions(ALICE);                           // Alice 50
             assertTrue(chain.addTransaction(new Transaction(ALICE, BOB, 10)));
             Transaction deploy = chain.deployContract(ALICE, HASHLOCK, 15);
@@ -97,7 +99,7 @@ class PersistRestoreTest {
     void restart_restoresMempool() {
         Transaction pending = new Transaction(ALICE, BOB, 5);
         try (H2ChainStore store = H2ChainStore.openFile(dataDir)) {
-            Blockchain chain = new Blockchain(store);
+            Blockchain chain = new Blockchain(store, TestChains.PARAMS);
             chain.minePendingTransactions(ALICE);
             assertTrue(chain.addTransaction(pending));
         }
@@ -125,7 +127,7 @@ class PersistRestoreTest {
     @DisplayName("A block edited on disk is rejected; replay stops there")
     void restore_tamperedBlock_rejectedAndStops() throws Exception {
         try (H2ChainStore store = H2ChainStore.openFile(dataDir)) {
-            Blockchain chain = new Blockchain(store);
+            Blockchain chain = new Blockchain(store, TestChains.PARAMS);
             chain.minePendingTransactions(ALICE);                             // #1
             assertTrue(chain.addTransaction(new Transaction(ALICE, BOB, 10)));
             chain.minePendingTransactions(ALICE);                             // #2
@@ -172,7 +174,7 @@ class PersistRestoreTest {
     @DisplayName("Blocks from peers, including attached orphans, are persisted")
     void externalAndOrphanBlocks_arePersisted() {
         // A peer mines three blocks...
-        Blockchain peer = new Blockchain();
+        Blockchain peer = TestChains.unsigned();
         peer.minePendingTransactions(ALICE);
         peer.minePendingTransactions(ALICE);
         peer.minePendingTransactions(ALICE);
@@ -180,7 +182,7 @@ class PersistRestoreTest {
 
         // ...and they reach us out of order: #3, #2 (orphans), then #1.
         try (H2ChainStore store = H2ChainStore.openFile(dataDir)) {
-            Blockchain us = new Blockchain(store);
+            Blockchain us = new Blockchain(store, TestChains.PARAMS);
             assertFalse(us.addBlock(peerChain.get(3)));
             assertFalse(us.addBlock(peerChain.get(2)));
             assertTrue(us.addBlock(peerChain.get(1)));
@@ -201,7 +203,7 @@ class PersistRestoreTest {
     void restore_confirmedButStillStoredPending_notReadded() {
         Transaction tx = new Transaction(ALICE, BOB, 5);
         try (H2ChainStore store = H2ChainStore.openFile(dataDir)) {
-            Blockchain chain = new Blockchain(store);
+            Blockchain chain = new Blockchain(store, TestChains.PARAMS);
             chain.minePendingTransactions(ALICE);
             assertTrue(chain.addTransaction(tx));
             chain.minePendingTransactions(ALICE);

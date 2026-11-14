@@ -1,5 +1,7 @@
 package com.blocksmith.network;
 
+import com.blocksmith.TestChains;
+
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.lang.reflect.Field;
@@ -79,7 +81,7 @@ class TransactionBroadcastTest {
     @Test
     @DisplayName("NEW_TRANSACTION handler adds a valid transaction")
     void newTransactionHandler_addsValidTransaction() throws Exception {
-        node = new Node(getNextPort());
+        node = new Node(getNextPort(), TestChains.unsigned());
         Blockchain chain = node.getBlockchain();
         fund(chain, "Miner1");
         Transaction tx = new Transaction("Miner1", "Alice", 30.0);
@@ -94,7 +96,7 @@ class TransactionBroadcastTest {
     @Test
     @DisplayName("NEW_TRANSACTION handler ignores a duplicate transaction")
     void newTransactionHandler_ignoresDuplicate() throws Exception {
-        node = new Node(getNextPort());
+        node = new Node(getNextPort(), TestChains.unsigned());
         Blockchain chain = node.getBlockchain();
         fund(chain, "Miner1");
         Transaction tx = new Transaction("Miner1", "Alice", 30.0);
@@ -110,7 +112,7 @@ class TransactionBroadcastTest {
     @Test
     @DisplayName("NEW_TRANSACTION handler rejects an invalid transaction")
     void newTransactionHandler_rejectsInvalidTransaction() throws Exception {
-        node = new Node(getNextPort());
+        node = new Node(getNextPort(), TestChains.unsigned());
         Blockchain chain = node.getBlockchain();
         // "Nobody" has no balance, so the transfer has insufficient funds.
         Transaction tx = new Transaction("Nobody", "Alice", 100.0);
@@ -125,7 +127,7 @@ class TransactionBroadcastTest {
     @Test
     @DisplayName("A gossiped bump replaces the pending version; the late old version is ignored (Sprint 19b)")
     void newTransactionHandler_appliesReplacement() throws Exception {
-        node = new Node(getNextPort());
+        node = new Node(getNextPort(), TestChains.unsigned());
         Blockchain chain = node.getBlockchain();
         fund(chain, "Miner1");
         Transaction v1 = new Transaction("Miner1", "Alice", 30.0, 0.5, 42L);

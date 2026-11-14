@@ -1,5 +1,7 @@
 package com.blocksmith.storage;
 
+import com.blocksmith.TestChains;
+
 import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -38,7 +40,7 @@ class BackupRestoreTest {
 
     /** Opens {@code dir} as a node would at startup and replays it. */
     private static Blockchain startNode(H2ChainStore store) {
-        Blockchain chain = new Blockchain(store);
+        Blockchain chain = new Blockchain(store, TestChains.PARAMS);
         chain.restoreFromStore();
         return chain;
     }
@@ -51,7 +53,7 @@ class BackupRestoreTest {
         Path zip = tmp.resolve("backups/chain.zip");
         String tip;
         try (H2ChainStore store = H2ChainStore.openFile(tmp.resolve("nodeA"))) {
-            Blockchain chain = new Blockchain(store);
+            Blockchain chain = new Blockchain(store, TestChains.PARAMS);
             tip = buildChain(chain);
             chain.backupTo(zip);
         }
@@ -74,7 +76,7 @@ class BackupRestoreTest {
         Path zip = tmp.resolve("snap.zip");
         String tipAtBackup;
         try (H2ChainStore store = H2ChainStore.openFile(tmp.resolve("live"))) {
-            Blockchain chain = new Blockchain(store);
+            Blockchain chain = new Blockchain(store, TestChains.PARAMS);
             tipAtBackup = buildChain(chain);
             chain.backupTo(zip);
             chain.minePendingTransactions(ALICE);       // the node carries on after the backup
@@ -95,13 +97,13 @@ class BackupRestoreTest {
     void restore_keepsPreviousDatabaseAside() throws Exception {
         Path zip = tmp.resolve("b.zip");
         try (H2ChainStore store = H2ChainStore.openFile(tmp.resolve("source"))) {
-            Blockchain chain = new Blockchain(store);
+            Blockchain chain = new Blockchain(store, TestChains.PARAMS);
             buildChain(chain);
             chain.backupTo(zip);
         }
         Path target = tmp.resolve("target");
         try (H2ChainStore store = H2ChainStore.openFile(target)) {
-            new Blockchain(store).minePendingTransactions(BOB);    // some other history
+            new Blockchain(store, TestChains.PARAMS).minePendingTransactions(BOB);    // some other history
         }
         byte[] before = Files.readAllBytes(target.resolve(H2ChainStore.DB_FILE));
 
@@ -129,7 +131,7 @@ class BackupRestoreTest {
     void restore_corruptZip_clearError_dataUntouched() throws Exception {
         Path node = tmp.resolve("node");
         try (H2ChainStore store = H2ChainStore.openFile(node)) {
-            buildChain(new Blockchain(store));
+            buildChain(new Blockchain(store, TestChains.PARAMS));
         }
         byte[] before = Files.readAllBytes(node.resolve(H2ChainStore.DB_FILE));
         Path junk = tmp.resolve("junk.zip");
@@ -150,7 +152,7 @@ class BackupRestoreTest {
     void restore_damagedDatabaseInsideZip_clearError() throws Exception {
         Path node = tmp.resolve("node");
         try (H2ChainStore store = H2ChainStore.openFile(node)) {
-            buildChain(new Blockchain(store));
+            buildChain(new Blockchain(store, TestChains.PARAMS));
         }
         Path bad = tmp.resolve("bad.zip");
         writeZip(bad, H2ChainStore.DB_FILE, "garbage, not an H2 database".getBytes());
@@ -179,7 +181,7 @@ class BackupRestoreTest {
     @DisplayName("An in-memory chain cannot be backed up")
     void backup_inMemory_unsupportedOrFails() {
         assertThrows(UnsupportedOperationException.class,
-                () -> new Blockchain().backupTo(tmp.resolve("x.zip")));
+                () -> TestChains.unsigned().backupTo(tmp.resolve("x.zip")));
         try (H2ChainStore mem = H2ChainStore.openInMemory("mem-" + UUID.randomUUID())) {
             assertThrows(StorageException.class, () -> mem.backup(tmp.resolve("y.zip")),
                     "An H2 in-memory database has no file to back up");

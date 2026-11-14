@@ -1,5 +1,7 @@
 package com.blocksmith.core;
 
+import com.blocksmith.TestChains;
+
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
@@ -33,7 +35,7 @@ class MempoolLimitTest {
 
     /** A chain where Alice (and Carol) have 50 each. */
     private static Blockchain chain(MempoolPolicy policy) {
-        Blockchain c = new Blockchain(NoOpChainStore.INSTANCE, ChainParams.DEFAULT, policy);
+        Blockchain c = new Blockchain(NoOpChainStore.INSTANCE, TestChains.PARAMS, policy);
         c.minePendingTransactions(ALICE);
         c.minePendingTransactions(CAROL);
         return c;
@@ -147,7 +149,7 @@ class MempoolLimitTest {
     void restore_trimsOversizeMempool() {
         List<Transaction> sent = new ArrayList<>();
         try (H2ChainStore store = H2ChainStore.openFile(dataDir)) {
-            Blockchain c = new Blockchain(store, ChainParams.DEFAULT, maxTxs(10));
+            Blockchain c = new Blockchain(store, TestChains.PARAMS, maxTxs(10));
             c.minePendingTransactions(ALICE);
             for (int i = 0; i < 5; i++) {
                 Transaction t = tx(ALICE, 1 + i * 0.01, i * 0.1);   // fees 0, 0.1 .. 0.4
@@ -157,7 +159,7 @@ class MempoolLimitTest {
         }
 
         try (H2ChainStore store = H2ChainStore.openFile(dataDir)) {
-            Blockchain c = new Blockchain(store, ChainParams.DEFAULT, maxTxs(3));
+            Blockchain c = new Blockchain(store, TestChains.PARAMS, maxTxs(3));
             assertEquals(3, c.restoreFromStore().pendingRestored());
             assertEquals(List.of(sent.get(2).getTransactionId(), sent.get(3).getTransactionId(),
                     sent.get(4).getTransactionId()), pendingIds(c));
@@ -168,8 +170,8 @@ class MempoolLimitTest {
     @Test
     @DisplayName("The policy never rejects a block, even one bigger than our whole mempool")
     void policy_neverRejectsBlocks() {
-        Blockchain miner = new Blockchain();                        // default policy
-        Blockchain small = new Blockchain(NoOpChainStore.INSTANCE, ChainParams.DEFAULT, maxTxs(2));
+        Blockchain miner = TestChains.unsigned();                        // default policy
+        Blockchain small = new Blockchain(NoOpChainStore.INSTANCE, TestChains.PARAMS, maxTxs(2));
         Block first = miner.minePendingTransactions(ALICE);
         assertTrue(small.addBlock(first));
 

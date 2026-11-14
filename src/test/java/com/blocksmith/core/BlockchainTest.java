@@ -1,5 +1,7 @@
 package com.blocksmith.core;
 
+import com.blocksmith.TestChains;
+
 import com.blocksmith.util.BlockchainConfig;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -23,7 +25,7 @@ public class BlockchainTest {
 
     @BeforeEach
     void setUp() {
-        blockchain = new Blockchain();
+        blockchain = TestChains.unsigned();
     }
 
     // ==================== GENESIS BLOCK TESTS ====================
@@ -59,8 +61,8 @@ public class BlockchainTest {
     @Test
     @DisplayName("Independent chains share an identical genesis block")
     void genesisIsDeterministicAcrossInstances() {
-        Block genesisA = new Blockchain().getBlock(0);
-        Block genesisB = new Blockchain().getBlock(0);
+        Block genesisA = TestChains.unsigned().getBlock(0);
+        Block genesisB = TestChains.unsigned().getBlock(0);
 
         assertEquals(BlockchainConfig.GENESIS_TIMESTAMP, genesisA.getTimestamp(),
                 "Genesis uses the fixed timestamp, not wall-clock time");
@@ -184,7 +186,7 @@ public class BlockchainTest {
     @Test
     @DisplayName("addTransaction should accept valid transaction")
     void addTransactionShouldAcceptValidTransaction() {
-        Blockchain blockchain = new Blockchain();
+        Blockchain blockchain = TestChains.unsigned();
         blockchain.minePendingTransactions("Miner1");
         Transaction tx = new Transaction("Miner1", "Alice", 30.0);
         
@@ -211,7 +213,7 @@ public class BlockchainTest {
     @Test
     @DisplayName("minePendingTransactions should create block with transactions")
     void minePendingTransactionsShouldCreateBlock() {        
-        Blockchain blockchain = new Blockchain();
+        Blockchain blockchain = TestChains.unsigned();
         blockchain.minePendingTransactions("Miner1");
         blockchain.addTransaction(new Transaction("Miner1", "Bob", 20.0));
         blockchain.addTransaction(new Transaction("Miner1", "Charlie", 15.0));
@@ -268,7 +270,7 @@ public class BlockchainTest {
     @Test
     @DisplayName("Should reject transaction when sender has insufficient funds")
     void shouldRejectTransactionWhenSenderHasInsufficientFunds() {
-        Blockchain blockchain = new Blockchain();
+        Blockchain blockchain = TestChains.unsigned();
         Transaction tx = new Transaction("Alice", "Bob", 100.0);
         boolean result = blockchain.addTransaction(tx);
 
@@ -279,7 +281,7 @@ public class BlockchainTest {
     @Test
     @DisplayName("Should accept transaction when sender has sufficient funds")
     void shouldAcceptTransactionWhenSenderHasSufficientFunds() {
-        Blockchain blockchain = new Blockchain();
+        Blockchain blockchain = TestChains.unsigned();
         blockchain.minePendingTransactions("Miner1");
         Transaction tx = new Transaction("Miner1", "Alice", 30.0);
         boolean result = blockchain.addTransaction(tx);
@@ -291,7 +293,7 @@ public class BlockchainTest {
     @Test
     @DisplayName("Should reject transaction when amount exceeds balance")
     void shouldRejectTransactionWhenAmountExceedsBalance() {
-        Blockchain blockchain = new Blockchain();
+        Blockchain blockchain = TestChains.unsigned();
         blockchain.minePendingTransactions("Miner1");
         Transaction tx = new Transaction("Miner1", "Alice", 60.0);
         boolean result = blockchain.addTransaction(tx);
@@ -302,7 +304,7 @@ public class BlockchainTest {
     @Test
     @DisplayName("Should reject COINBASE transaction from user")
     void shouldRejectCOINBASETransactionFromUser() {
-        Blockchain blockchain = new Blockchain();
+        Blockchain blockchain = TestChains.unsigned();
         Transaction fakeCoinbase = new Transaction("COINBASE", "Hacker", 1000.0);
         boolean result = blockchain.addTransaction(fakeCoinbase);
 
@@ -312,7 +314,7 @@ public class BlockchainTest {
     @Test
     @DisplayName("Should consider pending transactions when checking balance")
     void shouldConsiderPendingTransactionsWhenCheckingBalance() {
-        Blockchain blockchain = new Blockchain();
+        Blockchain blockchain = TestChains.unsigned();
         blockchain.minePendingTransactions("Miner1");
 
         Transaction tx1 = new Transaction("Miner1", "Alice", 30.0);
@@ -327,7 +329,7 @@ public class BlockchainTest {
     @Test
     @DisplayName("Should allow multiple transactions within balance")
     void shouldAllowMultipleTransactionsWithinBalance() {
-        Blockchain blockchain = new Blockchain();
+        Blockchain blockchain = TestChains.unsigned();
         blockchain.minePendingTransactions("Miner1");
 
         Transaction tx1 = new Transaction("Miner1", "Alice", 20.0);

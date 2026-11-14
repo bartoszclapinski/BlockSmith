@@ -1,5 +1,7 @@
 package com.blocksmith.network;
 
+import com.blocksmith.TestChains;
+
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -64,7 +66,7 @@ class PeerTest {
         int port = getNextPort();
         
         // Start a node
-        node = new Node(port);
+        node = new Node(port, TestChains.unsigned());
         node.start();
         Thread.sleep(100); // Wait for node to start listening
         
@@ -81,7 +83,7 @@ class PeerTest {
         int port = getNextPort();
         
         // Start a node
-        node = new Node(port);
+        node = new Node(port, TestChains.unsigned());
         node.start();
         Thread.sleep(100);
         
@@ -99,7 +101,7 @@ class PeerTest {
     void peer_connectTwice_shouldThrowException() throws IOException, InterruptedException {
         int port = getNextPort();
         
-        node = new Node(port);
+        node = new Node(port, TestChains.unsigned());
         node.start();
         Thread.sleep(100);
         
@@ -118,7 +120,7 @@ class PeerTest {
         int port = getNextPort();
         
         // Start a node
-        node = new Node(port);
+        node = new Node(port, TestChains.unsigned());
         node.start();
         Thread.sleep(100);
         

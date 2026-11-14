@@ -1,5 +1,7 @@
 package com.blocksmith.api;
 
+import com.blocksmith.TestChains;
+
 import java.math.BigInteger;
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -48,7 +50,7 @@ class ForkSyncTest {
     /** Easy PoW, no retarget: forks are cheap to make and every block weighs the same. */
     private static final ChainParams EASY = new ChainParams(Target.fromLeadingZeros(1), 10_000, 1_000_000, 4,
             Target.MAX, ChainParams.DEFAULT_MAX_FUTURE_DRIFT_MS,
-            ChainParams.DEFAULT_MAX_BLOCK_BYTES, ChainParams.DEFAULT_MAX_BLOCK_TRANSACTIONS);
+            ChainParams.DEFAULT_MAX_BLOCK_BYTES, ChainParams.DEFAULT_MAX_BLOCK_TRANSACTIONS).withoutSignatureRule();
 
     private final List<Node> nodes = new ArrayList<>();
     private final List<ApiServer> apis = new ArrayList<>();

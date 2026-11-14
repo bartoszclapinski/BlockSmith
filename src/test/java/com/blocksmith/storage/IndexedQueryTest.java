@@ -1,5 +1,7 @@
 package com.blocksmith.storage;
 
+import com.blocksmith.TestChains;
+
 import java.nio.file.Path;
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -45,7 +47,7 @@ class IndexedQueryTest {
     @BeforeEach
     void setUp() {
         store = H2ChainStore.openInMemory("query-" + UUID.randomUUID());
-        chain = new Blockchain(store);
+        chain = new Blockchain(store, TestChains.PARAMS);
 
         chain.minePendingTransactions(ALICE);                              // #1 Alice +50
         aliceToBob = new Transaction(ALICE, BOB, 10);
@@ -154,7 +156,7 @@ class IndexedQueryTest {
     @DisplayName("Without a database (scan) the answers are identical to the indexed ones")
     void fallbackWithoutDatabase_givesSameAnswers() {
         // A plain in-memory node holding the very same blocks and mempool.
-        Blockchain scan = new Blockchain();
+        Blockchain scan = TestChains.unsigned();
         for (int i = 1; i < chain.getChainSize(); i++) assertTrue(scan.addBlock(chain.getBlock(i)));
         assertTrue(scan.addTransaction(pendingAliceToCarol));
 
@@ -183,7 +185,7 @@ class IndexedQueryTest {
     void staleIndexRows_fromRejectedBlock_areIgnored(@TempDir Path dir) throws Exception {
         String bobTxId;
         try (H2ChainStore fileStore = H2ChainStore.openFile(dir)) {
-            Blockchain c = new Blockchain(fileStore);
+            Blockchain c = new Blockchain(fileStore, TestChains.PARAMS);
             c.minePendingTransactions(ALICE);                              // #1
             Transaction t = new Transaction(ALICE, BOB, 10);
             assertTrue(c.addTransaction(t));
@@ -198,7 +200,7 @@ class IndexedQueryTest {
         }
 
         try (H2ChainStore fileStore = H2ChainStore.openFile(dir)) {
-            Blockchain c = new Blockchain(fileStore);
+            Blockchain c = new Blockchain(fileStore, TestChains.PARAMS);
             assertEquals(1, c.restoreFromStore().blocksRestored(), "Only #1 survives");
             assertTrue(fileStore.findTransactionBlockIndex(bobTxId).isPresent(),
                     "Precondition: the stale index row is still in the table");
@@ -213,7 +215,7 @@ class IndexedQueryTest {
     void emptyIndex_isRebuiltOnRestore(@TempDir Path dir) throws Exception {
         String bobTxId;
         try (H2ChainStore fileStore = H2ChainStore.openFile(dir)) {
-            Blockchain c = new Blockchain(fileStore);
+            Blockchain c = new Blockchain(fileStore, TestChains.PARAMS);
             c.minePendingTransactions(ALICE);
             Transaction t = new Transaction(ALICE, BOB, 10);
             assertTrue(c.addTransaction(t));
@@ -226,7 +228,7 @@ class IndexedQueryTest {
         }
 
         try (H2ChainStore fileStore = H2ChainStore.openFile(dir)) {
-            Blockchain c = new Blockchain(fileStore);
+            Blockchain c = new Blockchain(fileStore, TestChains.PARAMS);
             c.restoreFromStore();
             assertEquals(2, c.findTransaction(bobTxId).blockIndex());
             assertEquals(List.of(bobTxId), ids(c.getTransactionHistory(BOB)));

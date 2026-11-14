@@ -1,5 +1,7 @@
 package com.blocksmith.core;
 
+import com.blocksmith.TestChains;
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -22,7 +24,7 @@ class FeeEstimationTest {
     /** Easy PoW; {@code maxTxs} per block, coinbase included. */
     private static ChainParams params(int maxTxs) {
         return new ChainParams(Target.fromLeadingZeros(1), 10_000, 10, 4, Target.MAX,
-                ChainParams.DEFAULT_MAX_FUTURE_DRIFT_MS, ChainParams.DEFAULT_MAX_BLOCK_BYTES, maxTxs);
+                ChainParams.DEFAULT_MAX_FUTURE_DRIFT_MS, ChainParams.DEFAULT_MAX_BLOCK_BYTES, maxTxs).withoutSignatureRule();
     }
 
     /** Alice has 100. */

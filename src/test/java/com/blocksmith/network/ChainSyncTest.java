@@ -1,5 +1,7 @@
 package com.blocksmith.network;
 
+import com.blocksmith.TestChains;
+
 import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.List;
@@ -102,7 +104,7 @@ class ChainSyncTest {
     @Test
     @DisplayName("BlocksMessage round-trips through MessageParser")
     void blocksMessage_roundTrips() {
-        Blockchain chain = new Blockchain();
+        Blockchain chain = TestChains.unsigned();
         List<Block> range = mineRange(chain.getLatestBlock(), 2);
         String json = new BlocksMessage("node-1", range).toJson();
 
@@ -118,7 +120,7 @@ class ChainSyncTest {
     @Test
     @DisplayName("GET_BLOCKS handler serves the range from the requested index")
     void getBlocksHandler_servesRangeFromIndex() throws Exception {
-        node = new Node(getNextPort());
+        node = new Node(getNextPort(), TestChains.unsigned());
         Blockchain chain = node.getBlockchain();
         for (Block b : mineRange(chain.getLatestBlock(), 3)) {
             assertTrue(chain.addBlock(b), "Setup block should append");
@@ -140,7 +142,7 @@ class ChainSyncTest {
     @Test
     @DisplayName("BLOCKS handler appends the received range in order")
     void blocksHandler_appendsRangeInOrder() throws Exception {
-        node = new Node(getNextPort()); // behind: only genesis
+        node = new Node(getNextPort(), TestChains.unsigned()); // behind: only genesis
         assertEquals(1, node.getBlockchain().getChainSize(), "Behind node starts at genesis");
 
         // Range extends the behind node's own genesis (peers share a genesis).
@@ -158,7 +160,7 @@ class ChainSyncTest {
     @Test
     @DisplayName("BLOCKS handler rejects an invalid block within the range")
     void sync_rejectsInvalidBlockInRange() throws Exception {
-        node = new Node(getNextPort());
+        node = new Node(getNextPort(), TestChains.unsigned());
 
         List<Block> range = mineRange(node.getBlockchain().getLatestBlock(), 3);
         // Corrupt the middle block: wrong previousHash breaks the link at index 2.

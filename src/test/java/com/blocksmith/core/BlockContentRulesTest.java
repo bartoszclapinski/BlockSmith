@@ -30,7 +30,7 @@ class BlockContentRulesTest {
     private static final double REWARD = BlockchainConfig.MINING_REWARD;
 
     /** Easy target (1 zero) so building forged blocks is instant. */
-    private static final ChainParams EASY = new ChainParams(Target.fromLeadingZeros(1), 10_000, 10, 4, Target.MAX);
+    private static final ChainParams EASY = new ChainParams(Target.fromLeadingZeros(1), 10_000, 10, 4, Target.MAX).withoutSignatureRule();
 
     private static Blockchain chain() {
         return new Blockchain(NoOpChainStore.INSTANCE, EASY);

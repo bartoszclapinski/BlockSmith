@@ -1,5 +1,7 @@
 package com.blocksmith.contract;
 
+import com.blocksmith.TestChains;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -31,7 +33,7 @@ class ChainContractTest {
 
     @BeforeEach
     void setUp() {
-        blockchain = new Blockchain();
+        blockchain = TestChains.unsigned();
         // Fund the funder with a mining reward (50 BSC).
         blockchain.minePendingTransactions(FUNDER);
     }
@@ -166,7 +168,7 @@ class ChainContractTest {
     @DisplayName("External blocks build the same contract state (network convergence)")
     void externalBlocks_buildSameContractState() {
         // Node A mines the full lifecycle; node B replays A's blocks.
-        Blockchain nodeB = new Blockchain();
+        Blockchain nodeB = TestChains.unsigned();
 
         Transaction deploy = blockchain.deployContract(FUNDER, HASHLOCK, 20);
         blockchain.minePendingTransactions(MINER);

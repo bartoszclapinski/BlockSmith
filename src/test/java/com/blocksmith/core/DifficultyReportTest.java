@@ -20,7 +20,7 @@ class DifficultyReportTest {
 
     private static final long T0 = 1_750_000_000_000L;
     private static final BigInteger EASY = Target.fromLeadingZeros(1);
-    private static final ChainParams PARAMS = new ChainParams(EASY, 1_000, 4, 4, Target.MAX);
+    private static final ChainParams PARAMS = new ChainParams(EASY, 1_000, 4, 4, Target.MAX).withoutSignatureRule();
 
     private static Blockchain chain() {
         return new Blockchain(NoOpChainStore.INSTANCE, PARAMS);

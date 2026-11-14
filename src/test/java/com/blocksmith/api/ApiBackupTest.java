@@ -1,5 +1,7 @@
 package com.blocksmith.api;
 
+import com.blocksmith.TestChains;
+
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -46,9 +48,9 @@ class ApiBackupTest {
         Blockchain chain;
         if (withBackups) {
             store = H2ChainStore.openFile(tmp.resolve("data"));
-            chain = new Blockchain(store);
+            chain = new Blockchain(store, TestChains.PARAMS);
         } else {
-            chain = new Blockchain();
+            chain = TestChains.unsigned();
         }
         node = new Node(P2P_PORT_BASE + offset, chain);
         api = new ApiServer(node, apiPort);

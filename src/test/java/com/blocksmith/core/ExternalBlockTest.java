@@ -1,5 +1,7 @@
 package com.blocksmith.core;
 
+import com.blocksmith.TestChains;
+
 import java.lang.reflect.Field;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -21,7 +23,7 @@ class ExternalBlockTest {
 
     @BeforeEach
     void setUp() {
-        blockchain = new Blockchain();
+        blockchain = TestChains.unsigned();
     }
 
     /** Builds a valid, mined block that extends the current chain tip. */
