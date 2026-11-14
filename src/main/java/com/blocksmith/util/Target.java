@@ -77,6 +77,19 @@ public final class Target {
      * The leading-zero equivalent of a target, for display: 64 - log16(target + 1).
      * {@code fromLeadingZeros(4)} gives 4.0; half that target gives 4.25.
      */
+    /**
+     * The WORK a block at {@code target} represents (Sprint 21a): the
+     * expected number of hashes needed to find one, 2^256 / (target + 1).
+     * One leading hex zero = 16 hashes, four = 65,536.
+     *
+     * THEORY: Nodes follow the chain with the most cumulative work, not the
+     * most blocks. Ten easy blocks can be less work than one hard one, so
+     * counting blocks would let an attacker win with many cheap blocks.
+     */
+    public static BigInteger work(BigInteger target) {
+        return BigInteger.ONE.shiftLeft(256).divide(target.add(BigInteger.ONE));
+    }
+
     public static double toDifficulty(BigInteger target) {
         double log16 = log(target.add(BigInteger.ONE)) / LN_16;
         double difficulty = HEX_DIGITS - log16;
