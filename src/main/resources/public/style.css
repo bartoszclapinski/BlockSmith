@@ -672,6 +672,10 @@ body {
 }
 .mp-bump:hover { border-color: var(--accent); background: var(--tint); }
 
+/* Browser wallet (Sprint 22c) */
+.export-key { font-size: 11px; font-weight: 500; color: var(--text-mid); }
+.mp-bump:disabled { opacity: .45; cursor: not-allowed; }
+
 /* ===== Toast ===== */
 .toast {
     position: fixed;

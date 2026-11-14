@@ -69,6 +69,111 @@ async function sha256hex(message) {
         .join("");
 }
 
+// ===== browser wallet (Sprint 22c) =====
+//
+// Keys are made and kept HERE, with Web Crypto (ECDSA P-256 = Java's
+// secp256r1). The node never sees a private key: it hands out the exact
+// text to sign (prepare), and gets back a signature and the public key
+// (submit). Keys live in localStorage: fine for learning, not for money.
+
+const KEYSTORE = "bs_keys";
+const EC = { name: "ECDSA", namedCurve: "P-256" };
+const SIGN = { name: "ECDSA", hash: "SHA-256" };
+
+function loadKeys() {
+    try { return JSON.parse(localStorage.getItem(KEYSTORE) || "{}"); } catch (e) { return {}; }
+}
+
+function saveKeys(keys) {
+    try { localStorage.setItem(KEYSTORE, JSON.stringify(keys)); } catch (e) {}
+}
+
+/** True if this browser holds the key for {@code address}. */
+function hasKey(address) {
+    return !!(address && loadKeys()[address]);
+}
+
+function bytesToHex(bytes) {
+    return Array.from(new Uint8Array(bytes)).map(function (b) { return b.toString(16).padStart(2, "0"); }).join("");
+}
+
+function hexToBytes(hex) {
+    const out = new Uint8Array(hex.length / 2);
+    for (let i = 0; i < out.length; i++) out[i] = parseInt(hex.substr(i * 2, 2), 16);
+    return out;
+}
+
+/** Same as Java's Wallet.addressOf: "0x" + last 40 hex of SHA-256(hex of the X.509/SPKI key). */
+async function addressOfPublicKeyHex(spkiHex) {
+    return "0x" + (await sha256hex(spkiHex)).slice(-40);
+}
+
+async function createBrowserWallet() {
+    const pair = await crypto.subtle.generateKey(EC, true, ["sign", "verify"]);
+    const entry = {
+        publicKey: bytesToHex(await crypto.subtle.exportKey("spki", pair.publicKey)),
+        privateKey: await crypto.subtle.exportKey("jwk", pair.privateKey),
+    };
+    const address = await addressOfPublicKeyHex(entry.publicKey);
+    const keys = loadKeys();
+    keys[address] = entry;
+    saveKeys(keys);
+    return address;
+}
+
+/** Imports an exported key ({publicKey, privateKey}) after checking the two belong together. */
+async function importBrowserWallet(text) {
+    let entry;
+    try { entry = JSON.parse(text); } catch (e) { throw new Error("Paste the exported JSON"); }
+    if (!entry || !entry.publicKey || !entry.privateKey) throw new Error("Expected {publicKey, privateKey}");
+    const priv = await crypto.subtle.importKey("jwk", entry.privateKey, EC, true, ["sign"]);
+    const pub = await crypto.subtle.importKey("spki", hexToBytes(entry.publicKey), EC, true, ["verify"]);
+    const probe = new TextEncoder().encode("blocksmith key check");
+    const sig = await crypto.subtle.sign(SIGN, priv, probe);
+    if (!(await crypto.subtle.verify(SIGN, pub, sig, probe))) throw new Error("The private key does not match the public key");
+    const address = await addressOfPublicKeyHex(entry.publicKey);
+    const keys = loadKeys();
+    keys[address] = entry;
+    saveKeys(keys);
+    return address;
+}
+
+/**
+ * Web Crypto signs as r||s (2 x 32 bytes, "IEEE P1363"); Java's
+ * SHA256withECDSA verifies DER: SEQUENCE { INTEGER r, INTEGER s }. Each
+ * INTEGER drops leading zero bytes, and gets one 0x00 back if its first
+ * byte has the top bit set (DER integers are signed).
+ */
+function p1363ToDer(sig) {
+    function integer(bytes) {
+        let i = 0;
+        while (i < bytes.length - 1 && bytes[i] === 0) i++;
+        let body = Array.from(bytes.slice(i));
+        if (body[0] & 0x80) body = [0].concat(body);
+        return [0x02, body.length].concat(body);
+    }
+    const half = sig.length / 2;
+    const seq = integer(sig.slice(0, half)).concat(integer(sig.slice(half)));
+    return new Uint8Array([0x30, seq.length].concat(seq));
+}
+
+/** Signs {@code text} with {@code address}'s key: {signature (hex DER), publicKey (hex SPKI)}. */
+async function signText(address, text) {
+    const entry = loadKeys()[address];
+    if (!entry) throw new Error("No key for " + shortHash(address) + " in this browser (read-only address)");
+    const key = await crypto.subtle.importKey("jwk", entry.privateKey, EC, false, ["sign"]);
+    const sig = new Uint8Array(await crypto.subtle.sign(SIGN, key, new TextEncoder().encode(text)));
+    return { signature: bytesToHex(p1363ToDer(sig)), publicKey: entry.publicKey };
+}
+
+/** Step 2 + 3 of prepare / sign / submit (Sprint 22b): sign the node's exact text, send it back. */
+async function signAndSubmit(template, address) {
+    const signed = await signText(address, template.signatureData);
+    return postJson("/api/transactions", {
+        templateId: template.templateId, signature: signed.signature, publicKey: signed.publicKey
+    });
+}
+
 function randomHex(n) {
     const bytes = new Uint8Array(n);
     crypto.getRandomValues(bytes);
@@ -341,7 +446,8 @@ function renderBalance(balanceInfo) {
     if (balanceInfo) {
         amount.textContent = Number(balanceInfo.balance).toFixed(1);
         const pending = balanceInfo.pendingOutgoing;
-        addr.textContent = state.activeAddress + (pending ? "  (−" + formatAmount(pending) + " pending)" : "");
+        addr.textContent = state.activeAddress + (pending ? "  (−" + formatAmount(pending) + " pending)" : "")
+            + (hasKey(state.activeAddress) ? "" : "  · read-only (no key in this browser)");
     } else {
         amount.textContent = "—";
         addr.textContent = state.activeAddress;
@@ -518,6 +624,11 @@ function openSendDrawer() {
             drawer.appendChild(el("p", "note", "Create or select a wallet first — it becomes the sender."));
             return;
         }
+        if (!hasKey(state.activeAddress)) {
+            drawer.appendChild(el("p", "note", "This browser has no key for " + shortHash(state.activeAddress)
+                + ", so it cannot sign for it. Create a wallet here, or import its key (Wallet panel)."));
+            return;
+        }
         const form = el("div", "drawer-form");
         const recip = field("Recipient address", "0x…");
         const amount = field("Amount (BSC)", "0.00");
@@ -557,8 +668,10 @@ function openSendDrawer() {
             if (!a || a <= 0) return err.show("Enter a valid amount.");
             if (!(f >= 0)) return err.show("The fee must be zero or more.");
             runDrawer(err, function () {
-                return postJson("/api/transactions", { sender: state.activeAddress, recipient: r, amount: a, fee: f })
-                    .then(function (tx) { return "Submitted tx " + shortHash(tx.transactionId); });
+                // Prepare (node builds the exact text), sign here, submit.
+                return postJson("/api/transactions/prepare", { sender: state.activeAddress, recipient: r, amount: a, fee: f })
+                    .then(function (template) { return signAndSubmit(template, state.activeAddress); })
+                    .then(function (tx) { return "Signed and submitted tx " + shortHash(tx.transactionId); });
             });
         }));
         drawer.appendChild(form);
@@ -596,10 +709,14 @@ function openMempoolDrawer() {
                 if (typeof tx.minBumpFee === "number") {
                     const bump = el("button", "mp-bump", "Bump → " + formatAmount(tx.minBumpFee));
                     bump.type = "button";
-                    bump.title = "Replace it with the same payment at the smallest higher fee allowed";
+                    const mine = hasKey(tx.sender);
+                    bump.disabled = !mine;
+                    bump.title = mine ? "Replace it with the same payment at the smallest higher fee allowed (signed here)"
+                        : "Only the sender can bump it: this browser has no key for " + shortHash(tx.sender);
                     bump.addEventListener("click", function () {
                         err.hide();
-                        postJson("/api/transactions/" + encodeURIComponent(tx.transactionId) + "/bump", { fee: tx.minBumpFee })
+                        postJson("/api/transactions/" + encodeURIComponent(tx.transactionId) + "/bump/prepare", { fee: tx.minBumpFee })
+                            .then(function (template) { return signAndSubmit(template, tx.sender); })
                             .then(function (b) {
                                 openMempoolDrawer();   // before the toast: redrawing clears the overlay
                                 toast("Bumped to fee " + formatAmount(b.fee) + " · " + shortHash(b.transactionId));
@@ -621,27 +738,55 @@ function formatRate(perByte) {
 }
 
 function openWalletDrawer() {
-    drawerShell("Create wallet", function (drawer) {
+    drawerShell("Wallet", function (drawer) {
         const form = el("div", "drawer-form");
-        form.appendChild(el("p", "note", "Generates a new key pair on the node and sets it as your active wallet. The private key stays on the node (never sent over the API)."));
+        form.appendChild(el("p", "note", "Creates a key pair in this browser (Web Crypto, P-256). The private key never "
+            + "leaves it: the node only ever receives signatures. It is kept in this browser's local storage, which is "
+            + "fine for learning but not for real money: export it to keep a copy."));
         const readout = el("div", "readout");
-        readout.appendChild(el("div", "readout-label", "New address"));
-        const value = el("div", "readout-value", "—");
+        readout.appendChild(el("div", "readout-label", "Address"));
+        const value = el("div", "readout-value", state.activeAddress && hasKey(state.activeAddress) ? state.activeAddress : "—");
         readout.appendChild(value);
         const err = errorBox();
         form.appendChild(readout);
         form.appendChild(err.node);
+
+        function activate(address, what) {
+            value.textContent = address;
+            setActiveAddress(address);
+            pushFeed("dot-green", what, shortHash(address));
+            toast(what + " · set as active");
+            renderFeed();
+            refresh();
+        }
         form.appendChild(submitButton("Create wallet", function () {
             err.hide();
-            postJson("/api/wallet/create").then(function (wallet) {
-                value.textContent = wallet.address;
-                setActiveAddress(wallet.address);
-                pushFeed("dot-green", "Wallet created", shortHash(wallet.address));
-                toast("Wallet created · set as active");
-                renderFeed();
-                setTimeout(closeOverlay, 900);
-            }).catch(function (e) { err.show(e.message); });
+            createBrowserWallet().then(function (address) { activate(address, "Wallet created"); })
+                .catch(function (e) { err.show(e.message); });
         }));
+
+        const imp = field("Import a key (exported JSON)", "{\"publicKey\": …, \"privateKey\": …}");
+        form.appendChild(imp.wrap);
+        const importBtn = el("button", "seg-btn", "Import key");
+        importBtn.type = "button";
+        importBtn.addEventListener("click", function () {
+            err.hide();
+            importBrowserWallet(imp.input.value.trim()).then(function (address) { activate(address, "Key imported"); })
+                .catch(function (e) { err.show(e.message); });
+        });
+        form.appendChild(importBtn);
+
+        if (hasKey(state.activeAddress)) {
+            const exportBtn = el("button", "seg-btn", "Export the active key");
+            exportBtn.type = "button";
+            exportBtn.addEventListener("click", function () {
+                const out = el("div", "readout");
+                out.appendChild(el("div", "readout-label", "Keep this secret: whoever has it can spend from " + shortHash(state.activeAddress)));
+                out.appendChild(el("div", "readout-value export-key", JSON.stringify(loadKeys()[state.activeAddress])));
+                exportBtn.replaceWith(out);
+            });
+            form.appendChild(exportBtn);
+        }
         drawer.appendChild(form);
     });
 }
@@ -695,11 +840,12 @@ async function deployHashlock(amount, err) {
     try {
         const secret = randomHex(6);
         const hash = await sha256hex(secret);
-        const contract = await postJson("/api/contracts", {
+        const contract = await postJson("/api/contracts/prepare", {
             funder: state.activeAddress,
             amount: amount,
             lockingScript: "SHA256 PUSH " + hash + " EQUAL"
         });
+        await signAndSubmit(contract, state.activeAddress);          // the funder signs the deploy
         closeOverlay();
         toast("Hashlock deployed · secret: " + secret);
         pushFeed("dot-amber", "Hashlock secret", secret + " → " + shortHash(contract.contractId));
@@ -711,11 +857,12 @@ async function deployHashlock(amount, err) {
 async function deployMultisig(amount, err) {
     try {
         const wallet = await postJson("/api/multisig/create", { members: 3, threshold: 2 });
-        const contract = await postJson("/api/contracts", {
+        const contract = await postJson("/api/contracts/prepare", {
             funder: state.activeAddress,
             amount: amount,
             lockingScript: wallet.lockingScript
         });
+        await signAndSubmit(contract, state.activeAddress);          // the funder signs the deploy
         closeOverlay();
         toast("Multisig 2-of-3 deployed · " + shortHash(contract.contractId));
         refresh();
@@ -803,7 +950,7 @@ const TOUR = [
     { sel: "palette", title: "Command palette", body: "Run any action from one place — press ⌘K (Ctrl+K) or click this bar, then type and pick." },
     { sel: "chain", title: "The chain", body: "A live view of the block chain. “Mine block” sequences the pending transactions into a new block." },
     { sel: "feed", title: "Activity feed", body: "Events as they happen: blocks mined, transactions submitted, contracts deployed, and peers joining." },
-    { sel: "actions", title: "Quick actions", body: "Send a transaction, create a wallet, or deploy a contract — each opens a side panel." },
+    { sel: "actions", title: "Quick actions", body: "Send a transaction, create a wallet (its key stays in this browser), or deploy a contract — each opens a side panel; anything you spend is signed here." },
     { sel: "side", title: "Balance & contracts", body: "Your active-wallet balance and the open contracts (2-of-3 multisig / hashlock). Click a contract to claim it." },
 ];
 

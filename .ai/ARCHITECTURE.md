@@ -398,6 +398,23 @@ confirm. The sequence does not have to be consecutive, so any subset of the memp
 
 ---
 
+## ✍️ Signatures (Sprint 22)
+
+| Piece | Role |
+|-------|------|
+| `Wallet.addressOf(PublicKey)` | `0x` + last 40 hex of SHA-256(hex X.509 key): one derivation for wallets, the node and the dashboard (JS does the same on the SPKI hex) |
+| `Transaction.isSignedBySender()` | The signature verifies with the attached key **and** that key's address is the sender (P2PKH: hash the key, compare, then check the signature) |
+| Authorisation rule | Always: a tx carrying a key must carry the sender's key. With `ChainParams.requireSignatures` (DEFAULT): every transfer must be signed. Exempt: coinbase, contract claims (their script decides). Checked in the mempool and the block rules |
+| Signed data | sender, recipient, amount, timestamp, fee (if any), sequence (if any), contract scripts (if any) |
+| Prepare / sign / submit | `POST .../prepare` returns `templateId` + exact `signatureData`; the owner signs it; `POST /api/transactions` {templateId, signature (hex DER), publicKey (hex X.509)}; templates bounded (1000), 5 min, used once |
+| Dashboard keys | Web Crypto ECDSA P-256 in the browser, `localStorage` keystore (`bs_keys`, export/import), r\|\|s -> DER before submit; `/api/wallet/create` is retired (410) |
+
+**Rules**: the node never holds a user's private key; it builds the text, the owner signs. Tests of other
+rules run on `ChainParams.withoutSignatureRule()` through `TestChains`; `WebCryptoInteropTest` pins the
+browser and Java to the same addresses and signature encoding with vectors from a real browser.
+
+---
+
 ## 🔀 Fork choice (Sprint 21)
 
 | Piece | Role |
@@ -485,12 +502,13 @@ Writes (tx, mined block) are broadcast to peers.
 |--------|------|---------|
 | GET | `/api/blocks`, `/api/blocks/latest`, `/api/blocks/{index}`, `/api/blocks/hash/{hash}` | Read the chain (by hash: Sprint 16c); each block adds `sizeBytes` and `totalFees` (Sprint 18d) |
 | GET | `/api/network/status`, `/api/network/peers`, `/api/network/difficulty` | Node stats (live `difficulty`, `target`, `blocksUntilRetarget`, `maxBlockBytes`, `maxBlockTransactions`...), peer list, difficulty epochs (Sprint 17d) |
-| POST / GET | `/api/transactions`, `/api/transactions/{id}` | Submit (unsigned, educational, optional `fee`, random `sequence`; 400 says why) / look up a tx (+ `status`, `blockIndex`, `confirmations`) |
+| POST | `/api/transactions/prepare`, `/api/contracts/prepare`, `/api/transactions/{id}/bump/prepare` | Build a transfer / deploy / bump to sign: `templateId`, `signatureData`, the tx (Sprint 22b) |
+| POST / GET | `/api/transactions`, `/api/transactions/{id}` | Submit a signed template {templateId, signature, publicKey} (or, on an unsigned test network, a plain transfer); 400 says why / look up a tx (+ `status`, `blockIndex`, `confirmations`) |
 | POST | `/api/transactions/{id}/bump` | Same payment at a higher `fee` (default: smallest allowed bump); 404 not pending, 400 not replaceable / signed / too small (Sprint 19d) |
 | GET | `/api/fees/estimate` | `fast` / `normal` / `slow` (1 / 3 / 6 blocks): `feeRate` and `fee` for a typical tx, `typicalTxBytes`, `mempoolMinFeeRate` (Sprint 19d) |
 | GET | `/api/mempool` | Pending txs in mining order with `sizeBytes`, `feeRate`, `replaceable`, `minBumpFee`; count, total fees, block limits, mempool `bytes` / limits / `mempoolMinFeeRate` (Sprint 18d, 19d) |
 | POST | `/api/mine` | Mine pending txs (or an empty block) for `minerAddress` |
-| GET / POST | `/api/wallet/{address}`, `/api/wallet/{address}/transactions`, `/api/wallet/create` | Balance + pending outgoing / history (Sprint 16c) / new wallet |
+| GET / POST | `/api/wallet/{address}`, `/api/wallet/{address}/transactions`, `/api/wallet/create` | Balance + pending outgoing (amount + fee) / history (Sprint 16c) / retired: 410 (Sprint 22c, keys are made by their owner) |
 | GET / POST | `/api/contracts`, `/api/contracts/{id}`, `/api/contracts/{id}/claim` | Deploy, inspect, claim contracts |
 | POST | `/api/multisig/create`, `/api/multisig/claim` | M-of-N multisig with server-held member keys |
 | POST | `/api/admin/backup` | Online database backup; localhost only, 503 if disabled (Sprint 16d) |
@@ -656,4 +674,4 @@ void methodName_scenario_expectedResult() { ... }
 
 ---
 
-*Last updated: 2026-11-14 (added fork choice section, Sprint 21)*
+*Last updated: 2026-11-14 (added signatures section, Sprint 22)*
