@@ -69,28 +69,72 @@ async function sha256hex(message) {
         .join("");
 }
 
-// ===== browser wallet (Sprint 22c) =====
+// ===== browser keystore (Sprint 22c; encrypted since Sprint 24a) =====
 //
 // Keys are made and kept HERE, with Web Crypto (ECDSA P-256 = Java's
 // secp256r1). The node never sees a private key: it hands out the exact
 // text to sign (prepare), and gets back a signature and the public key
-// (submit). Keys live in localStorage: fine for learning, not for money.
+// (submit).
+//
+// THEORY: a passphrase protects the keys at rest (Sprint 24a)
+//
+//   passphrase --PBKDF2(SHA-256, 600 000 rounds, salt)--> AES-256 key   (never stored)
+//   private JWK --AES-GCM(key, iv, additional data = address)--> ciphertext
+//
+// localStorage holds ciphertext plus what is public anyway (address, public
+// key, label), so balances and member lists work while locked. Unlocking
+// decrypts each key into a NON-extractable CryptoKey kept in memory until
+// Lock, 15 minutes idle, or a reload. A wrong passphrase fails on the check
+// value; a ciphertext moved under another address fails AES-GCM's tag.
+// A copy of the browser profile no longer gives anyone a key.
+//
+//   bs_keystore = { version: 1, kdf: {name, hash, iterations, salt},
+//                   check: {iv, ciphertext},
+//                   keys: {<address>: {publicKey, label, iv, ciphertext}} }
 
-const KEYSTORE = "bs_keys";
+const KEYSTORE = "bs_keystore";
+const LEGACY_KEYSTORE = "bs_keys";            // Sprints 22-23: plaintext JWKs; encrypted, then removed
 const EC = { name: "ECDSA", namedCurve: "P-256" };
 const SIGN = { name: "ECDSA", hash: "SHA-256" };
+const KDF_ITERATIONS = 600000;                // OWASP 2023 for PBKDF2-HMAC-SHA256
+const MIN_PASSPHRASE = 10;
+const AUTO_LOCK_MS = 15 * 60 * 1000;
+const CHECK_TEXT = "BlockSmith keystore v1";
 
+/** The unlocked state: memory only, gone on Lock, idle timeout or reload. */
+const vault = { aes: null, keys: {}, timer: null };
+
+function readJson(name) {
+    try { return JSON.parse(localStorage.getItem(name) || "null"); } catch (e) { return null; }
+}
+
+function loadStore() { return readJson(KEYSTORE); }
+
+/** Throws if storage is unavailable: better than losing a new key silently. */
+function saveStore(store) { localStorage.setItem(KEYSTORE, JSON.stringify(store)); }
+
+function loadLegacy() { return readJson(LEGACY_KEYSTORE) || {}; }
+
+/** Public view of every key here: {address: {publicKey, label}}. Never a secret. */
 function loadKeys() {
-    try { return JSON.parse(localStorage.getItem(KEYSTORE) || "{}"); } catch (e) { return {}; }
+    const out = {};
+    const legacy = loadLegacy();
+    Object.keys(legacy).forEach(function (a) { out[a] = { publicKey: legacy[a].publicKey, label: legacy[a].label }; });
+    const store = loadStore();
+    if (store) Object.keys(store.keys).forEach(function (a) { out[a] = { publicKey: store.keys[a].publicKey, label: store.keys[a].label }; });
+    return out;
 }
 
-function saveKeys(keys) {
-    try { localStorage.setItem(KEYSTORE, JSON.stringify(keys)); } catch (e) {}
-}
-
-/** True if this browser holds the key for {@code address}. */
+/** True if this browser holds the key for {@code address} (locked or not). */
 function hasKey(address) {
     return !!(address && loadKeys()[address]);
+}
+
+/** "none" (no keys yet), "legacy" (plaintext keys waiting for a passphrase), "locked", "unlocked". */
+function keystoreState() {
+    if (Object.keys(loadLegacy()).length) return "legacy";
+    if (!loadStore()) return "none";
+    return vault.aes ? "unlocked" : "locked";
 }
 
 function bytesToHex(bytes) {
@@ -108,18 +152,216 @@ async function addressOfPublicKeyHex(spkiHex) {
     return "0x" + (await sha256hex(spkiHex)).slice(-40);
 }
 
+/** passphrase -> AES-256-GCM key; non-extractable, never stored. */
+async function deriveAesKey(passphrase, kdf) {
+    const material = await crypto.subtle.importKey("raw", new TextEncoder().encode(passphrase), "PBKDF2", false, ["deriveKey"]);
+    return crypto.subtle.deriveKey({ name: "PBKDF2", hash: "SHA-256", salt: hexToBytes(kdf.salt), iterations: kdf.iterations },
+        material, { name: "AES-GCM", length: 256 }, false, ["encrypt", "decrypt"]);
+}
+
+/** AES-GCM with a fresh 12-byte iv; {@code aad} (additional data) is authenticated, not encrypted. */
+async function seal(aes, text, aad) {
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+    const ct = await crypto.subtle.encrypt({ name: "AES-GCM", iv: iv, additionalData: new TextEncoder().encode(aad) },
+        aes, new TextEncoder().encode(text));
+    return { iv: bytesToHex(iv), ciphertext: bytesToHex(ct) };
+}
+
+/** Throws (OperationError) on a wrong key, a changed byte or a different {@code aad}. */
+async function unseal(aes, box, aad) {
+    const pt = await crypto.subtle.decrypt({ name: "AES-GCM", iv: hexToBytes(box.iv), additionalData: new TextEncoder().encode(aad) },
+        aes, hexToBytes(box.ciphertext));
+    return new TextDecoder().decode(pt);
+}
+
+/** Restarts the 15-minute idle timer (any click or key press while unlocked). */
+function touchVault() {
+    if (!vault.aes) return;
+    clearTimeout(vault.timer);
+    vault.timer = setTimeout(function () {
+        lockKeystore();
+        toast("Keys locked after 15 minutes idle");
+    }, AUTO_LOCK_MS);
+}
+
+function lockKeystore() {
+    clearTimeout(vault.timer);
+    vault.aes = null;
+    vault.keys = {};
+    vault.timer = null;
+    renderLock();
+}
+
+/** First passphrase: a new keystore, then the plaintext keys (if any) move into it. */
+async function createKeystore(passphrase) {
+    const kdf = { name: "PBKDF2", hash: "SHA-256", iterations: KDF_ITERATIONS, salt: randomHex(16) };
+    const aes = await deriveAesKey(passphrase, kdf);
+    saveStore({ version: 1, kdf: kdf, check: await seal(aes, CHECK_TEXT, "check"), keys: {} });
+    vault.aes = aes;
+    vault.keys = {};
+    await migrateLegacy();
+    touchVault();
+}
+
+async function unlockKeystore(passphrase) {
+    const store = loadStore();
+    const aes = await deriveAesKey(passphrase, store.kdf);
+    try {
+        if (await unseal(aes, store.check, "check") !== CHECK_TEXT) throw new Error("check");
+    } catch (e) { throw new Error("Wrong passphrase"); }
+    const keys = {};
+    for (const address of Object.keys(store.keys)) {
+        let jwk;
+        try { jwk = JSON.parse(await unseal(aes, store.keys[address], address)); }
+        catch (e) { throw new Error("The stored key for " + shortHash(address) + " does not decrypt (moved or damaged)"); }
+        keys[address] = await crypto.subtle.importKey("jwk", jwk, EC, false, ["sign"]);
+    }
+    vault.aes = aes;
+    vault.keys = keys;
+    await migrateLegacy();
+    touchVault();
+}
+
+/** Encrypts a private JWK into the keystore; memory keeps a non-extractable copy. */
+async function storeKey(address, publicKey, jwk, label) {
+    if (!vault.aes) throw new Error("Unlock your keys first");
+    const box = await seal(vault.aes, JSON.stringify(jwk), address);
+    const store = loadStore();
+    store.keys[address] = { publicKey: publicKey, label: label, iv: box.iv, ciphertext: box.ciphertext };
+    saveStore(store);
+    vault.keys[address] = await crypto.subtle.importKey("jwk", jwk, EC, false, ["sign"]);
+}
+
+/** Sprint 22-23 plaintext keys -> the encrypted keystore; the plaintext entry is removed. */
+async function migrateLegacy() {
+    const legacy = loadLegacy();
+    const addresses = Object.keys(legacy);
+    if (!addresses.length) return;
+    for (const address of addresses) {
+        const e = legacy[address];
+        if (!loadStore().keys[address]) await storeKey(address, e.publicKey, e.privateKey, e.label);
+    }
+    localStorage.removeItem(LEGACY_KEYSTORE);
+    toast("Encrypted " + addresses.length + " key" + (addresses.length === 1 ? "" : "s") + " that were stored in plain text");
+}
+
+function removeKeys(addresses) {
+    const store = loadStore();
+    if (!store) return;
+    addresses.forEach(function (a) { delete store.keys[a]; delete vault.keys[a]; });
+    saveStore(store);
+}
+
+/** Resolves once keys can sign or be added; asks for the passphrase (or a first one) if needed. */
+async function ensureUnlocked() {
+    if (vault.aes) {
+        await migrateLegacy();
+        touchVault();
+        return;
+    }
+    await askPassphrase();
+}
+
+let passphrasePrompt = null;      // one prompt at a time; later callers wait on it
+
+/** The passphrase dialog: "Protect your keys" the first time, "Unlock" after. Rejects on Cancel. */
+function askPassphrase() {
+    if (passphrasePrompt) return passphrasePrompt;
+    passphrasePrompt = new Promise(function (resolve, reject) {
+        const creating = !loadStore();
+        const plain = Object.keys(loadLegacy()).length;
+        const root = el("div", "unlock-root");
+        const back = el("div", "backdrop");
+        const box = el("div", "unlock-box");
+        box.setAttribute("role", "dialog");
+        box.appendChild(el("div", "drawer-title", creating ? "Protect your keys" : "Unlock your keys"));
+        box.appendChild(el("p", "note", creating
+            ? (plain ? "This browser keeps " + plain + " key" + (plain === 1 ? "" : "s") + " in plain text: anyone with a copy "
+                + "of the browser's files can spend with them. " : "")
+              + "Choose a passphrase: keys are stored only encrypted with it. It cannot be recovered; without it the keys "
+              + "are lost, so keep an exported backup and the passphrase apart."
+            : "Enter your passphrase to sign. Keys stay unlocked in this tab until you lock them, reload, or after 15 minutes idle."));
+        const pass = passwordField("Passphrase", creating ? "new-password" : "current-password");
+        const again = creating ? passwordField("Passphrase again", "new-password") : null;
+        const err = errorBox();
+        const label = creating ? "Encrypt and unlock" : "Unlock";
+        const ok = submitButton(label, go);
+        const cancel = el("button", "seg-btn", "Cancel");
+        cancel.type = "button";
+        cancel.addEventListener("click", function () { finish(new Error("Keys are locked: nothing was signed")); });
+        box.appendChild(pass.wrap);
+        if (again) box.appendChild(again.wrap);
+        box.appendChild(err.node);
+        box.appendChild(ok);
+        box.appendChild(cancel);
+        root.appendChild(back);
+        root.appendChild(box);
+        root.addEventListener("keydown", function (e) {
+            e.stopPropagation();                         // not the palette / drawer shortcuts
+            if (e.key === "Enter") go();
+            if (e.key === "Escape") cancel.click();
+        });
+
+        function finish(error) {
+            root.remove();
+            passphrasePrompt = null;
+            renderLock();
+            if (error) reject(error); else resolve();
+        }
+
+        async function go() {
+            const p = pass.input.value;
+            if (creating) {
+                if (p.length < MIN_PASSPHRASE) return err.show("At least " + MIN_PASSPHRASE + " characters.");
+                if (p !== again.input.value) return err.show("The two passphrases differ.");
+            }
+            err.hide();
+            ok.disabled = true;
+            ok.textContent = creating ? "Encrypting…" : "Unlocking…";
+            try {
+                if (creating) await createKeystore(p); else await unlockKeystore(p);
+                finish(null);
+            } catch (e) {
+                ok.disabled = false;
+                ok.textContent = label;
+                err.show(e.message);
+            }
+        }
+
+        document.body.appendChild(root);
+        setTimeout(function () { pass.input.focus(); }, 30);
+    });
+    return passphrasePrompt;
+}
+
+/** The top-bar key button: Locked / Unlocked / plaintext warning; hidden without keys. */
+function renderLock() {
+    const btn = document.getElementById("lock-btn");
+    if (!btn) return;
+    const st = keystoreState();
+    btn.hidden = st === "none";
+    btn.className = "lock-btn " + st;
+    btn.textContent = st === "unlocked" ? "🔓 Unlocked" : st === "legacy" ? "⚠ Encrypt keys" : "🔒 Locked";
+    btn.title = st === "unlocked" ? "Lock your keys now" : st === "legacy" ? "Keys are in plain text: set a passphrase"
+        : "Unlock your keys to sign";
+}
+
+function onLockButton() {
+    if (keystoreState() === "unlocked") {
+        lockKeystore();
+        toast("Keys locked");
+    } else {
+        askPassphrase().catch(function () {});
+    }
+}
+
 /** Makes a key pair here; {@code label} names keys that are not wallets (multisig members). */
 async function createBrowserWallet(label) {
+    await ensureUnlocked();
     const pair = await crypto.subtle.generateKey(EC, true, ["sign", "verify"]);
-    const entry = {
-        publicKey: bytesToHex(await crypto.subtle.exportKey("spki", pair.publicKey)),
-        privateKey: await crypto.subtle.exportKey("jwk", pair.privateKey),
-    };
-    if (label) entry.label = label;
-    const address = await addressOfPublicKeyHex(entry.publicKey);
-    const keys = loadKeys();
-    keys[address] = entry;
-    saveKeys(keys);
+    const publicKey = bytesToHex(await crypto.subtle.exportKey("spki", pair.publicKey));
+    const address = await addressOfPublicKeyHex(publicKey);
+    await storeKey(address, publicKey, await crypto.subtle.exportKey("jwk", pair.privateKey), label);
     return address;
 }
 
@@ -133,12 +375,12 @@ function keyForPublicKey(publicKeyHex) {
     return null;
 }
 
-/** Names a key; the label travels with it (export / import). */
+/** Names a key (public, stored next to the ciphertext); travels with a backup. */
 function labelKey(address, label) {
-    const keys = loadKeys();
-    if (!keys[address]) return;
-    keys[address].label = label;
-    saveKeys(keys);
+    const store = loadStore();
+    if (!store || !store.keys[address]) return;
+    store.keys[address].label = label;
+    saveStore(store);
 }
 
 /** SPKI keys share a long common prefix (the curve), so show their tail. */
@@ -146,20 +388,46 @@ function keyTail(publicKeyHex) {
     return "…" + String(publicKeyHex || "").slice(-12);
 }
 
-/** Imports an exported key ({publicKey, privateKey}) after checking the two belong together. */
-async function importBrowserWallet(text) {
+/**
+ * An encrypted backup of one key: the stored ciphertext plus the keystore's
+ * KDF parameters, so it opens with the passphrase it was made under (and
+ * with standard tools, see ARCHITECTURE). No unlocking needed: nothing is
+ * decrypted to make it.
+ */
+function keyBackup(address) {
+    const store = loadStore();
+    const e = store && store.keys[address];
+    if (!e) return null;
+    return JSON.stringify({ blocksmith: "key-backup", version: 1, kdf: store.kdf, address: address,
+        publicKey: e.publicKey, label: e.label, iv: e.iv, ciphertext: e.ciphertext });
+}
+
+/**
+ * Imports a key: an encrypted backup (needs ITS passphrase) or an old
+ * plaintext export ({publicKey, privateKey}, Sprint 22-23). Either way the
+ * pair is checked, then stored encrypted under this keystore.
+ */
+async function importBrowserWallet(text, backupPassphrase) {
     let entry;
     try { entry = JSON.parse(text); } catch (e) { throw new Error("Paste the exported JSON"); }
-    if (!entry || !entry.publicKey || !entry.privateKey) throw new Error("Expected {publicKey, privateKey}");
-    const priv = await crypto.subtle.importKey("jwk", entry.privateKey, EC, true, ["sign"]);
+    if (!entry || !entry.publicKey) throw new Error("Expected a key backup or {publicKey, privateKey}");
+    let jwk = entry.privateKey;
+    if (entry.blocksmith === "key-backup") {
+        if (!backupPassphrase) throw new Error("This backup is encrypted: enter the passphrase it was made with");
+        try {
+            jwk = JSON.parse(await unseal(await deriveAesKey(backupPassphrase, entry.kdf), entry, entry.address));
+        } catch (e) { throw new Error("The backup does not open: wrong passphrase, or the backup was changed"); }
+    }
+    if (!jwk) throw new Error("Expected a key backup or {publicKey, privateKey}");
+    const priv = await crypto.subtle.importKey("jwk", jwk, EC, true, ["sign"]);
     const pub = await crypto.subtle.importKey("spki", hexToBytes(entry.publicKey), EC, true, ["verify"]);
     const probe = new TextEncoder().encode("blocksmith key check");
     const sig = await crypto.subtle.sign(SIGN, priv, probe);
     if (!(await crypto.subtle.verify(SIGN, pub, sig, probe))) throw new Error("The private key does not match the public key");
     const address = await addressOfPublicKeyHex(entry.publicKey);
-    const keys = loadKeys();
-    keys[address] = entry;
-    saveKeys(keys);
+    if (entry.address && entry.address !== address) throw new Error("The backup's address does not match its key");
+    await ensureUnlocked();
+    await storeKey(address, entry.publicKey, jwk, entry.label);
     return address;
 }
 
@@ -182,11 +450,13 @@ function p1363ToDer(sig) {
     return new Uint8Array([0x30, seq.length].concat(seq));
 }
 
-/** Signs {@code text} with {@code address}'s key: {signature (hex DER), publicKey (hex SPKI)}. */
+/** Signs {@code text} with {@code address}'s key (unlocking first if needed): {signature (hex DER), publicKey (hex SPKI)}. */
 async function signText(address, text) {
     const entry = loadKeys()[address];
     if (!entry) throw new Error("No key for " + shortHash(address) + " in this browser (read-only address)");
-    const key = await crypto.subtle.importKey("jwk", entry.privateKey, EC, false, ["sign"]);
+    await ensureUnlocked();
+    const key = vault.keys[address];
+    if (!key) throw new Error("No key for " + shortHash(address) + " in this browser (read-only address)");
     const sig = new Uint8Array(await crypto.subtle.sign(SIGN, key, new TextEncoder().encode(text)));
     return { signature: bytesToHex(p1363ToDer(sig)), publicKey: entry.publicKey };
 }
@@ -647,6 +917,13 @@ function copyButton(label, text, className) {
     return btn;
 }
 
+function passwordField(labelText, autocomplete) {
+    const f = field(labelText, "");
+    f.input.type = "password";
+    f.input.autocomplete = autocomplete || "current-password";
+    return f;
+}
+
 function errorBox() {
     const box = el("div", "form-error");
     box.style.display = "none";
@@ -795,8 +1072,8 @@ function openWalletDrawer() {
     drawerShell("Wallet", function (drawer) {
         const form = el("div", "drawer-form");
         form.appendChild(el("p", "note", "Creates a key pair in this browser (Web Crypto, P-256). The private key never "
-            + "leaves it: the node only ever receives signatures. It is kept in this browser's local storage, which is "
-            + "fine for learning but not for real money: export it to keep a copy."));
+            + "leaves it: the node only ever receives signatures. It is stored encrypted under your passphrase (asked "
+            + "the first time); export an encrypted backup to keep a copy."));
         const readout = el("div", "readout");
         readout.appendChild(el("div", "readout-label", "Address"));
         const value = el("div", "readout-value", state.activeAddress && hasKey(state.activeAddress) ? state.activeAddress : "—");
@@ -819,25 +1096,32 @@ function openWalletDrawer() {
                 .catch(function (e) { err.show(e.message); });
         }));
 
-        const imp = field("Import a key (exported JSON)", "{\"publicKey\": …, \"privateKey\": …}");
+        const imp = field("Import a key (backup JSON)", "{\"blocksmith\": \"key-backup\", …}");
+        const impPass = passwordField("Backup passphrase (encrypted backups)", "off");
         form.appendChild(imp.wrap);
+        form.appendChild(impPass.wrap);
         const importBtn = el("button", "seg-btn", "Import key");
         importBtn.type = "button";
         importBtn.addEventListener("click", function () {
             err.hide();
-            importBrowserWallet(imp.input.value.trim()).then(function (address) { activate(address, "Key imported"); })
+            importBrowserWallet(imp.input.value.trim(), impPass.input.value).then(function (address) { activate(address, "Key imported"); })
                 .catch(function (e) { err.show(e.message); });
         });
         form.appendChild(importBtn);
 
         if (hasKey(state.activeAddress)) {
-            const exportBtn = el("button", "seg-btn", "Export the active key");
+            const exportBtn = el("button", "seg-btn", "Export the active key (encrypted)");
             exportBtn.type = "button";
             exportBtn.addEventListener("click", function () {
-                const out = el("div", "readout");
-                out.appendChild(el("div", "readout-label", "Keep this secret: whoever has it can spend from " + shortHash(state.activeAddress)));
-                out.appendChild(el("div", "readout-value export-key", JSON.stringify(loadKeys()[state.activeAddress])));
-                exportBtn.replaceWith(out);
+                err.hide();
+                (keyBackup(state.activeAddress) ? Promise.resolve() : ensureUnlocked()).then(function () {
+                    const backup = keyBackup(state.activeAddress);
+                    const out = el("div", "readout");
+                    out.appendChild(el("div", "readout-label", "Encrypted with your passphrase: keep both, but not together"));
+                    out.appendChild(el("div", "readout-value export-key", backup));
+                    exportBtn.replaceWith(out);
+                    out.after(copyButton("Copy the backup", backup));
+                }).catch(function (e) { err.show(e.message); });
             });
             form.appendChild(exportBtn);
         }
@@ -995,11 +1279,7 @@ async function deployMultisig(amount, err, memberKeys, threshold) {
         renderFeed();
         refresh();
     } catch (e) {
-        if (!submitted && made.length) {                // keys for a wallet that never came to be
-            const keys = loadKeys();
-            made.forEach(function (address) { delete keys[address]; });
-            saveKeys(keys);
-        }
+        if (!submitted && made.length) removeKeys(made);    // keys for a wallet that never came to be
         err.show(e.message);
     }
 }
@@ -1487,6 +1767,10 @@ function wire() {
     document.getElementById("palette-trigger").addEventListener("click", openPalette);
     document.getElementById("theme-toggle").addEventListener("click", toggleTheme);
     document.getElementById("help-btn").addEventListener("click", startTour);
+    document.getElementById("lock-btn").addEventListener("click", onLockButton);
+    // Any click or key press while unlocked restarts the 15-minute idle timer.
+    document.addEventListener("pointerdown", touchVault, true);
+    document.addEventListener("keydown", touchVault, true);
     document.getElementById("mine-btn").addEventListener("click", doMine);
     // Click the balance address to track any existing address (multi-address node).
     document.getElementById("balance-address").addEventListener("click", function () {
@@ -1523,6 +1807,10 @@ try { state.activeAddress = localStorage.getItem("bs_active_address") || null; }
 initTheme();
 bg.start();
 wire();
+renderLock();
+if (keystoreState() === "legacy") {
+    toast("Your keys are stored in plain text: click ⚠ Encrypt keys to protect them with a passphrase", true);
+}
 refresh();
 setInterval(refresh, REFRESH_MS);
 
