@@ -7,7 +7,7 @@
 | **Sprint** | 21 |
 | **Title** | Fork Choice |
 | **Phase** | Hardening (after the roadmap) |
-| **Status** | 📋 Planned |
+| **Status** | ✅ Complete (2026-11-14) |
 | **Depends On** | Sprint 20 (thread safety), Sprint 17 (targets), Sprint 18-19 (block rules, sequences) |
 
 > **Why:** found while writing the Sprint 20 two-node test. A node only
@@ -40,9 +40,9 @@ end up on the same chain.
 
 | Milestone | Title | Branch | Status |
 |-----------|-------|--------|--------|
-| **21a** | Chain work + side branches | `sprint21a/chain-work` | ⬜ Planned (#320, #321) |
-| **21b** | Reorganisation onto the most-work chain | `sprint21b/reorg` | ⬜ Planned (#322, #323) |
-| **21c** | Fork-aware sync, API + dashboard, two miners converge | `sprint21c/fork-sync` | ⬜ Planned (#324, #325) |
+| **21a** | Chain work + side branches | `sprint21a/chain-work` | ✅ PR #327 (#320, #321) |
+| **21b** | Reorganisation onto the most-work chain | `sprint21b/reorg` | ✅ PR #328 (#322, #323) |
+| **21c** | Fork-aware sync, API + dashboard, two miners converge | `sprint21c/fork-sync` | ✅ PR #329 (#324, #325) |
 
 ---
 
@@ -164,4 +164,4 @@ transaction is; after this sprint that number can also go down.
 
 ---
 
-*Created: 2026-11-14 | Sprint 21 Planning*
+*Created: 2026-11-14 | Sprint 21 Planning | Completed: 2026-11-14*
