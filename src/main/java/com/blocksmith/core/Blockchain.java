@@ -47,6 +47,18 @@ import java.util.Set;
  * When a miner successfully mines a block, they receive a reward.
  * This is implemented as a special "coinbase" transaction from
  * the system to the miner's address. 
+ *
+ * THREADING (Sprint 20):
+ * One node uses one Blockchain from several threads at once: a listener
+ * thread per peer, the API's request threads and the heartbeat. The
+ * Blockchain is a MONITOR: every public method that touches its state is
+ * synchronized on the instance, so only one thread is inside at a time and
+ * each call is atomic (a balance check and the add that follows it cannot
+ * be split by another thread). The lock is reentrant, so public methods may
+ * call each other. Lists handed out are copies taken under the lock, never
+ * live views. The only things read without the lock are the immutable
+ * ChainParams and MempoolPolicy. Lock order is always Blockchain, then
+ * ChainStore (the store never calls back), so the two cannot deadlock.
  */
 public class Blockchain {
 
@@ -227,13 +239,13 @@ public class Blockchain {
     }
 
     /** The target the next block (tip + 1) must meet. */
-    public BigInteger getNextTarget() {
+    public synchronized BigInteger getNextTarget() {
         int height = chain.size();
         return targetAt(height, chain, targets.get(height - 1));
     }
 
     /** The target that was in effect for the block at {@code height}. */
-    public BigInteger getTargetAt(int height) {
+    public synchronized BigInteger getTargetAt(int height) {
         return targets.get(height);
     }
 
@@ -257,7 +269,7 @@ public class Blockchain {
      * future (makes a window look slow), and no backdating beyond the
      * median. The retarget formula is only as honest as these timestamps.
      */
-    public long medianTimePast(int height) {
+    public synchronized long medianTimePast(int height) {
         int from = Math.max(0, height - MEDIAN_TIME_SPAN);
         List<Long> times = new ArrayList<>();
         for (int i = from; i < height; i++) times.add(chain.get(i).getTimestamp());
@@ -366,7 +378,7 @@ public class Blockchain {
      * Every difficulty epoch so far, oldest first, including the one the
      * next block (tip + 1) belongs to.
      */
-    public List<DifficultyEpoch> getDifficultyHistory() {
+    public synchronized List<DifficultyEpoch> getDifficultyHistory() {
         List<DifficultyEpoch> history = new ArrayList<>();
         history.add(new DifficultyEpoch(0, targets.get(0), null, null, null, null));
         int interval = params.retargetInterval();
@@ -384,7 +396,7 @@ public class Blockchain {
      * How many more blocks will be mined at the current next-block target
      * before it changes. Counts the next block itself.
      */
-    public int getBlocksUntilRetarget() {
+    public synchronized int getBlocksUntilRetarget() {
         int next = chain.size();                       // height of the next block
         int interval = params.retargetInterval();
         int boundary = (next / interval + 1) * interval;
@@ -395,7 +407,7 @@ public class Blockchain {
      * Average time between the recent blocks (up to one retarget window,
      * genesis excluded), or null if there are fewer than two such blocks.
      */
-    public Long getAverageBlockTimeMs() {
+    public synchronized Long getAverageBlockTimeMs() {
         int last = chain.size() - 1;
         int first = Math.max(1, last - params.retargetInterval());
         if (last - first < 1) return null;
@@ -435,7 +447,7 @@ public class Blockchain {
      * @return how many blocks and pending transactions were restored
      * @throws IllegalStateException if the chain already has blocks past genesis
      */
-    public RestoreReport restoreFromStore() {
+    public synchronized RestoreReport restoreFromStore() {
         if (chain.size() > 1) {
             throw new IllegalStateException("restoreFromStore() needs a fresh chain");
         }
@@ -681,7 +693,7 @@ public class Blockchain {
      *   
      * @return The latest block added to the chain
      */
-    public Block getLatestBlock() {
+    public synchronized Block getLatestBlock() {
         return chain.get(chain.size() - 1);
     }
 
@@ -691,7 +703,7 @@ public class Blockchain {
      * @param data The data to store in the new block
      * @return The newly created and mined block
      */ 
-    public Block addBlock(String data) {
+    public synchronized Block addBlock(String data) {
         Block latestBlock = getLatestBlock();
         int newIndex = latestBlock.getIndex() + 1;
 
@@ -724,7 +736,7 @@ public class Blockchain {
      * @param block A block mined elsewhere
      * @return true if the block was valid and appended, false otherwise
      */
-    public boolean addBlock(Block block) {
+    public synchronized boolean addBlock(Block block) {
         if (block == null) return false;
 
         Block tip = getLatestBlock();
@@ -825,7 +837,7 @@ public class Blockchain {
     /**
      * @return number of blocks currently held in the orphan buffer
      */
-    public int getOrphanCount() {
+    public synchronized int getOrphanCount() {
         return orphans.size();
     }
 
@@ -850,7 +862,7 @@ public class Blockchain {
      * @param transaction The transaction to add
      * @return true if transaction was added, false if invalid
      */
-    public boolean addTransaction(Transaction transaction) {
+    public synchronized boolean addTransaction(Transaction transaction) {
         String why = submitTransaction(transaction);
         // Duplicates are routine (gossip echoes), so they are not logged.
         if (why != null && !why.equals(ALREADY_PENDING) && !why.equals(ALREADY_CONFIRMED)) {
@@ -872,7 +884,7 @@ public class Blockchain {
      *
      * @return null if the transaction was added, else the reason it was not
      */
-    public String submitTransaction(Transaction transaction) {
+    public synchronized String submitTransaction(Transaction transaction) {
         // Validate the transaction
         if (transaction == null || !transaction.isValid()) {
             return "invalid transaction (amount, fee, sender or recipient)";
@@ -1022,7 +1034,7 @@ public class Blockchain {
      *
      * @throws IllegalStateException if {@code pending} has no sequence
      */
-    public double minimumBumpFee(Transaction pending) {
+    public synchronized double minimumBumpFee(Transaction pending) {
         double needed = pending.feeRate() + mempoolPolicy.incrementalFeeRate();
         double fee = Math.max(roundUpFee(needed * pending.sizeBytes()), roundUpFee(pending.getFee() + 0.0001));
         for (int i = 0; i < 10_000; i++) {
@@ -1040,7 +1052,7 @@ public class Blockchain {
     }
 
     /** The pending transaction with this id, or null (Sprint 19b: what a bump starts from). */
-    public Transaction getPendingTransaction(String transactionId) {
+    public synchronized Transaction getPendingTransaction(String transactionId) {
         for (Transaction tx : pendingTransactions) {
             if (tx.getTransactionId().equals(transactionId)) return tx;
         }
@@ -1107,7 +1119,7 @@ public class Blockchain {
     }
 
     /** Total size of the pending transactions, in bytes of their JSON. */
-    public int getPendingBytes() {
+    public synchronized int getPendingBytes() {
         int bytes = 0;
         for (Transaction tx : pendingTransactions) bytes += tx.sizeBytes();
         return bytes;
@@ -1118,7 +1130,7 @@ public class Blockchain {
      * mempool: 0 while a typical transaction still fits, else the lowest
      * pending rate plus the increment (Bitcoin calls it {@code mempoolminfee}).
      */
-    public double getMempoolMinFeeRate() {
+    public synchronized double getMempoolMinFeeRate() {
         if (fits(pendingTransactions.size(), getPendingBytes(), MempoolPolicy.TYPICAL_TX_BYTES)) {
             return 0;
         }
@@ -1159,7 +1171,7 @@ public class Blockchain {
      *
      * @param targetBlocks within how many blocks, at least 1
      */
-    public double estimateFeeRate(int targetBlocks) {
+    public synchronized double estimateFeeRate(int targetBlocks) {
         if (targetBlocks < 1) throw new IllegalArgumentException("targetBlocks must be at least 1");
         double estimate = Math.max(mempoolFeeRate(targetBlocks), historyFeeRate(targetBlocks));
         return Math.max(estimate, getMempoolMinFeeRate());
@@ -1263,7 +1275,7 @@ public class Blockchain {
      * @param minerAddress Address to receive mining reward
      * @return The newly mined block, or null if no transactions
      */
-    public Block minePendingTransactions(String minerAddress) {
+    public synchronized Block minePendingTransactions(String minerAddress) {
         Block latestBlock = getLatestBlock();
         int newIndex = latestBlock.getIndex() + 1;
 
@@ -1343,7 +1355,7 @@ public class Blockchain {
      * per byte first, ties in arrival order. Limits and stale checks still
      * decide what actually makes it into the next block.
      */
-    public List<Transaction> getPendingInMiningOrder() {
+    public synchronized List<Transaction> getPendingInMiningOrder() {
         return Collections.unmodifiableList(byFeeRate(pendingTransactions));
     }
 
@@ -1368,7 +1380,7 @@ public class Blockchain {
      * @param address The addres to check
      * @return The current balance
      */
-    public double getBalance(String address) {
+    public synchronized double getBalance(String address) {
         double balance = 0;
 
         // Scan all blocks
@@ -1404,7 +1416,7 @@ public class Blockchain {
      * @param amount Amount to lock
      * @return The pending deploy transaction, or null if rejected
      */
-    public Transaction deployContract(String funder, String lockingScript, double amount) {
+    public synchronized Transaction deployContract(String funder, String lockingScript, double amount) {
         if (funder == null || funder.isBlank()
                 || lockingScript == null || lockingScript.isBlank()) {
             System.out.println("Contract rejected: funder and locking script are required");
@@ -1441,7 +1453,7 @@ public class Blockchain {
      *                        for pure timelocks)
      * @return The pending claim transaction, or null if rejected
      */
-    public Transaction claimContract(String contractId, String claimer, String unlockingScript) {
+    public synchronized Transaction claimContract(String contractId, String claimer, String unlockingScript) {
         Contract contract = contracts.get(contractId);
         if (contract == null || claimer == null || claimer.isBlank()) {
             System.out.println("Claim rejected: Unknown contract or missing claimer");
@@ -1528,14 +1540,14 @@ public class Blockchain {
      *
      * @return The contract, or null if no deploy for this id has been mined
      */
-    public Contract getContract(String contractId) {
+    public synchronized Contract getContract(String contractId) {
         return contracts.get(contractId);
     }
 
     /**
      * @return Unmodifiable view of all contracts derived from the chain
      */
-    public List<Contract> getContracts() {
+    public synchronized List<Contract> getContracts() {
         return Collections.unmodifiableList(new ArrayList<>(contracts.values()));
     }
 
@@ -1544,8 +1556,8 @@ public class Blockchain {
      *
      * @return Unmodifiable list of pending transactions
      */
-    public List<Transaction> getPendingTransactions() {
-        return Collections.unmodifiableList(pendingTransactions);
+    public synchronized List<Transaction> getPendingTransactions() {
+        return List.copyOf(pendingTransactions);       // a snapshot: safe to iterate on any thread
     }
 
     /**
@@ -1553,7 +1565,7 @@ public class Blockchain {
      * 
      * @return Number of transactions waiting to be mined
      */
-    public int getPendingCount() {
+    public synchronized int getPendingCount() {
         return pendingTransactions.size();
     }
 
@@ -1564,7 +1576,7 @@ public class Blockchain {
      * @throws UnsupportedOperationException if the store cannot be backed up
      *         (for example the default in-memory chain)
      */
-    public void backupTo(java.nio.file.Path zipFile) {
+    public synchronized void backupTo(java.nio.file.Path zipFile) {
         store.backup(zipFile);
     }
 
@@ -1591,7 +1603,7 @@ public class Blockchain {
      *
      * @return the block, or null if no block on our chain has this hash
      */
-    public Block getBlockByHash(String hash) {
+    public synchronized Block getBlockByHash(String hash) {
         if (store.isIndexed()) {
             OptionalInt idx = store.findBlockIndexByHash(hash);
             if (idx.isEmpty() || idx.getAsInt() >= chain.size()) return null;
@@ -1609,7 +1621,7 @@ public class Blockchain {
      *
      * @return the lookup, or null if the id is unknown
      */
-    public TransactionLookup findTransaction(String transactionId) {
+    public synchronized TransactionLookup findTransaction(String transactionId) {
         for (Transaction tx : pendingTransactions) {
             if (tx.getTransactionId().equals(transactionId)) {
                 return new TransactionLookup(tx, null, 0);
@@ -1640,7 +1652,7 @@ public class Blockchain {
      *
      * @return the address's transactions, newest first
      */
-    public List<TransactionLookup> getTransactionHistory(String address) {
+    public synchronized List<TransactionLookup> getTransactionHistory(String address) {
         List<TransactionLookup> history = new ArrayList<>();
         for (int i = pendingTransactions.size() - 1; i >= 0; i--) {
             Transaction tx = pendingTransactions.get(i);
@@ -1702,7 +1714,7 @@ public class Blockchain {
      * 
      * @return true if chain is valid, false if tampered
      */
-    public boolean isChainValid() {
+    public synchronized boolean isChainValid() {
         // Check Genesis block
         Block genesis = chain.get(0);
         if (genesis.getIndex() != 0) return false;
@@ -1732,8 +1744,8 @@ public class Blockchain {
      * 
      * @return Unmodifiable view of the blockchain
      */
-    public List<Block> getChain() {
-        return Collections.unmodifiableList(chain);
+    public synchronized List<Block> getChain() {
+        return List.copyOf(chain);                     // a snapshot: safe to iterate on any thread
     }
 
     /**
@@ -1741,7 +1753,7 @@ public class Blockchain {
      * 
      * @return Chain length (including Genesis block)
      */
-    public int getChainSize() {
+    public synchronized int getChainSize() {
         return chain.size();
     }
 
@@ -1752,14 +1764,14 @@ public class Blockchain {
      * @return The block at the specified index
      * @throws IndexOutOfBoundsException if index is invalid
      */
-    public Block getBlock(int index) {
+    public synchronized Block getBlock(int index) {
         return chain.get(index);
     }
 
     /**
      * Prints a summary of the entire blockchain.
      */
-    public void printChain() {
+    public synchronized void printChain() {
         System.out.println("\n═══════════════════════════════════════════════════════════");
         System.out.println("                     BLOCKCHAIN STATE                        ");
         System.out.println("═══════════════════════════════════════════════════════════");
@@ -1786,7 +1798,7 @@ public class Blockchain {
     }
 
     @Override
-    public String toString() {
+    public synchronized String toString() {
         return "Blockchain{" +
             "chainSize= " + chain.size() +
             ", pendingTx= " + pendingTransactions.size() +
