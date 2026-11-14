@@ -8,8 +8,8 @@ BlockSmith is a comprehensive blockchain project that goes beyond tutorials - im
 
 [![Java](https://img.shields.io/badge/Java-20+-orange.svg)](https://openjdk.org/)
 [![Maven](https://img.shields.io/badge/Maven-3.9+-blue.svg)](https://maven.apache.org/)
-[![Tests](https://img.shields.io/badge/Tests-342%20passing-brightgreen.svg)](#)
-[![Phase](https://img.shields.io/badge/Phase%204-In%20progress-yellow.svg)](#)
+[![Tests](https://img.shields.io/badge/Tests-370%20passing-brightgreen.svg)](#)
+[![Phase](https://img.shields.io/badge/Phase%204-Complete-brightgreen.svg)](#)
 [![Version](https://img.shields.io/badge/Version-1.0.0-blue.svg)](#)
 
 ---
@@ -69,7 +69,7 @@ BlockSmith is a comprehensive blockchain project that goes beyond tutorials - im
   - ✅ M-of-N multisig contracts, replay-safe claim sighash (Sprint 15b)
   - ✅ Multisig REST endpoints + dashboard panel (Sprint 15c)
 
-### Phase 4: Production Features 🚧 In progress (75%)
+### Phase 4: Production Features ✅ Complete (100%)
 - ✅ Database persistence (Sprint 16)
   - ✅ Embedded H2 store; blocks kept in the same JSON format peers exchange (Sprint 16a)
   - ✅ Every block + pending tx saved; restart restores by replaying through validation (Sprint 16b)
@@ -86,7 +86,11 @@ BlockSmith is a comprehensive blockchain project that goes beyond tutorials - im
   - ✅ Max 16 KB / 50 transactions per block; the rest waits for the next block (Sprint 18b)
   - ✅ Transaction fees; miners fill blocks by fee per byte and collect the fees (Sprint 18c)
   - ✅ Fees, `GET /api/mempool` and block size in the API and dashboard (Sprint 18d)
-- ⬜ Fee market: fee estimation, replace-by-fee, mempool eviction (Sprint 19)
+- ✅ Fee market (Sprint 19)
+  - ✅ Mempool limit (64 KB / 200 txs); when full, the lowest fee per byte is evicted (Sprint 19a)
+  - ✅ Replace-by-fee: bump a stuck transaction; the chain guarantees only one version confirms (Sprint 19b)
+  - ✅ Fee estimation for the next block / ~3 / ~6 blocks (Sprint 19c)
+  - ✅ Suggested fees, fee bumps and a Mempool view in the API and dashboard (Sprint 19d)
 
 ---
 
@@ -223,7 +227,7 @@ Average attempts: ~16^difficulty (~65,536 for difficulty 4)
 mvn clean compile
 ```
 
-### Run all tests (342 tests)
+### Run all tests (370 tests)
 ```bash
 mvn test
 ```
@@ -300,7 +304,7 @@ BlockSmith/
 │   ├── BlockSmithNode.java     # Runnable node (P2P + API + dashboard)
 │   └── BlockSmithDemo.java     # Teaching demo application
 ├── src/main/resources/public/  # Web dashboard (index.html, app.js, style.css)
-├── src/test/java/              # 342 unit tests
+├── src/test/java/              # 370 unit tests
 ├── data/                       # Node databases (H2), one folder per node: data/node-<port>/
 ├── pom.xml                     # Maven configuration
 └── README.md
@@ -331,7 +335,7 @@ BlockSmith/
 | BlockBroadcastTest | 4 | NEW_BLOCK serialization and handler |
 | OrphanBlockTest | 3 | Orphan buffering and attachment |
 | ChainSyncTest | 5 | GET_BLOCKS/BLOCKS sync handlers |
-| TransactionBroadcastTest | 4 | NEW_TRANSACTION serialization and handler |
+| TransactionBroadcastTest | 5 | NEW_TRANSACTION serialization and handler, gossiped fee bump |
 | MempoolPruneTest | 2 | Confirmed-tx pruning on block append |
 | MempoolSyncTest | 4 | GET_MEMPOOL/MEMPOOL sync handlers |
 | ApiReadEndpointsTest | 6 | REST block/status read endpoints |
@@ -361,7 +365,11 @@ BlockSmith/
 | BlockLimitsTest | 6 | Block size and transaction-count limits |
 | FeeTest | 9 | Who pays fees, who collects them, fee-rate priority |
 | ApiFeesTest | 4 | Fees and the mempool over HTTP |
-| **Total** | **342** | All passing ✅ |
+| MempoolLimitTest | 7 | Mempool limit and lowest-fee-rate eviction |
+| ReplaceByFeeTest | 11 | Fee bumps; one version of a payment confirms |
+| FeeEstimationTest | 5 | Fee estimates for 1 / 3 / 6 blocks |
+| ApiFeeMarketTest | 4 | Estimates, bumps and a full mempool over HTTP |
+| **Total** | **370** | All passing ✅ |
 
 ---
 
@@ -423,13 +431,13 @@ BlockSmith/
 | Sprint 14 | Smart Contracts | ✅ Complete (14a, 14b, 14c) |
 | Sprint 15 | Multi-sig Wallets | ✅ Complete (15a, 15b, 15c) |
 
-### Phase 4: Production 🚧 In progress
+### Phase 4: Production ✅ Complete (100%)
 | Sprint | Title | Status |
 |--------|-------|--------|
 | Sprint 16 | Database Persistence | ✅ Complete (16a, 16b, 16c, 16d) |
 | Sprint 17 | Difficulty Adjustment | ✅ Complete (17a, 17b, 17c, 17d) |
 | Sprint 18 | Block Rules, Size & Fees | ✅ Complete (18a, 18b, 18c, 18d) |
-| Sprint 19 | Fee Market | ⬜ Next |
+| Sprint 19 | Fee Market | ✅ Complete (19a, 19b, 19c, 19d) |
 
 ---
 

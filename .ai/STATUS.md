@@ -8,10 +8,10 @@
 
 | Field | Value |
 |-------|-------|
-| **Phase** | 3 - API & Interface - ✅ COMPLETE |
-| **Current Sprint** | 19 (Fee Market) - Planned |
-| **Current Milestone** | 18d Complete (Fees, mempool and block size in API + dashboard) |
-| **Status** | Sprint 18 complete (18a-18d): block content rules, size limits, fees with fee-rate mining, `/api/mempool`. Next: Sprint 19 (Fee Market) |
+| **Phase** | 4 - Production Features - ✅ COMPLETE (all 4 phases done) |
+| **Current Sprint** | 19 (Fee Market) - Complete |
+| **Current Milestone** | 19d Complete (Fee estimates, bumps and the mempool in API + dashboard) |
+| **Status** | Sprint 19 complete (19a-19d): mempool limit + eviction, replace-by-fee, fee estimation, API + dashboard. Roadmap complete; next: deferred items or bonus features |
 
 ---
 
@@ -52,11 +52,11 @@ Phase 3: API & Interface     [███████████████] 100
 ├── Sprint 14: Smart Contracts ✅ COMPLETE (14a ✅, 14b ✅, 14c ✅)
 └── Sprint 15: Multi-sig Wallets ✅ COMPLETE (15a ✅, 15b ✅, 15c ✅)
 
-Phase 4: Production Features  [███████████░░░░] 75% ← IN PROGRESS
+Phase 4: Production Features  [███████████████] 100% ✅ COMPLETE
 ├── Sprint 16: Persistence   ✅ COMPLETE (16a ✅, 16b ✅, 16c ✅, 16d ✅)
 ├── Sprint 17: Difficulty    ✅ COMPLETE (17a ✅, 17b ✅, 17c ✅, 17d ✅)
 ├── Sprint 18: Block Rules   ✅ COMPLETE (18a ✅, 18b ✅, 18c ✅, 18d ✅)
-└── Sprint 19: Fee Market    📋 PLANNED (19a ⬜, 19b ⬜, 19c ⬜, 19d ⬜)
+└── Sprint 19: Fee Market    ✅ COMPLETE (19a ✅, 19b ✅, 19c ✅, 19d ✅)
 ```
 
 ---
@@ -84,7 +84,7 @@ Phase 4: Production Features  [███████████░░░░] 75
 | BlockBroadcastTest | 4 | ✅ |
 | OrphanBlockTest | 3 | ✅ |
 | ChainSyncTest | 5 | ✅ |
-| TransactionBroadcastTest | 4 | ✅ |
+| TransactionBroadcastTest | 5 | ✅ |
 | MempoolPruneTest | 2 | ✅ |
 | MempoolSyncTest | 4 | ✅ |
 | ApiReadEndpointsTest | 6 | ✅ |
@@ -114,7 +114,11 @@ Phase 4: Production Features  [███████████░░░░] 75
 | BlockLimitsTest | 6 | ✅ |
 | FeeTest | 9 | ✅ |
 | ApiFeesTest | 4 | ✅ |
-| **Total** | **342** | ✅ |
+| MempoolLimitTest | 7 | ✅ |
+| ReplaceByFeeTest | 11 | ✅ |
+| FeeEstimationTest | 5 | ✅ |
+| ApiFeeMarketTest | 4 | ✅ |
+| **Total** | **370** | ✅ |
 
 Last test run: `mvn test` - All passing
 
@@ -127,10 +131,11 @@ Last test run: `mvn test` - All passing
 | Class | Status | Lines | Notes |
 |-------|--------|-------|-------|
 | Block.java | ✅ Complete | ~290 | Transactions + Merkle root + `hasValidMerkleRoot()` recomputes it from the txs (Sprint 16b, #260) + `mineBlock(BigInteger target)`, explicit-timestamp constructor (Sprint 17) + `sizeBytes()` (Sprint 18b) |
-| Blockchain.java | ✅ Complete | ~1440 | Pending pool + mining + external append + orphan buffer (Sprint 10) + tx dedupe + mempool prune (Sprint 11) + contract registry (deploy/claim, derived from chain) (Sprint 14b) + optional `ChainStore`, single `appendBlock()`, `restoreFromStore()` replay (Sprint 16b) + `getBlockByHash` / `findTransaction` / `getTransactionHistory` (Sprint 16c) + `backupTo` (Sprint 16d) + `ChainParams`, targets per height, `getNextTarget` / retarget, median-time-past + future limit with injectable `Clock`, difficulty report (Sprint 17) + block content rules (`blockRuleViolation` / `transactionRuleViolation`, `BlockCheck`), `isChainValid()` by replay (Sprint 18a) + block limits, mining fills up to them (18b) + coinbase = reward + fees, fee-rate block assembly, `getPendingInMiningOrder()` (18c/18d) |
-| Transaction.java | ✅ Complete | ~340 | Validation + signing + verification + optional contract locking/unlocking scripts (Sprint 14b) + `hasValidId()` (Sprint 16b, #260); contract scripts are part of the id (#264) + `fee` (in id/signature only when > 0), `getTotalCost()`, `sizeBytes()`, `feeRate()` (Sprint 18c) |
+| Blockchain.java | ✅ Complete | ~1800 | Pending pool + mining + external append + orphan buffer (Sprint 10) + tx dedupe + mempool prune (Sprint 11) + contract registry (deploy/claim, derived from chain) (Sprint 14b) + optional `ChainStore`, single `appendBlock()`, `restoreFromStore()` replay (Sprint 16b) + `getBlockByHash` / `findTransaction` / `getTransactionHistory` (Sprint 16c) + `backupTo` (Sprint 16d) + `ChainParams`, targets per height, `getNextTarget` / retarget, median-time-past + future limit with injectable `Clock`, difficulty report (Sprint 17) + block content rules (`blockRuleViolation` / `transactionRuleViolation`, `BlockCheck`), `isChainValid()` by replay (Sprint 18a) + block limits, mining fills up to them (18b) + coinbase = reward + fees, fee-rate block assembly, `getPendingInMiningOrder()` (18c/18d) + mempool limit / eviction, `getMempoolMinFeeRate()` (19a) + `confirmedSequences`, replacement rules (19b) + `estimateFeeRate()` (19c) + `submitTransaction()` with reasons, `minimumBumpFee()` (19d) |
+| Transaction.java | ✅ Complete | ~410 | Validation + signing + verification + optional contract locking/unlocking scripts (Sprint 14b) + `hasValidId()` (Sprint 16b, #260); contract scripts are part of the id (#264) + `fee` (in id/signature only when > 0), `getTotalCost()`, `sizeBytes()`, `feeRate()` (Sprint 18c) + optional `sequence` (in id/signature only when set), `withFee()`, `randomSequence()` (Sprint 19b) |
 | Wallet.java | ✅ Complete | ~169 | ECDSA keys + signing |
 | ChainParams.java | ✅ Complete | ~100 | Consensus params record: initial target, block time, retarget interval, 4x clamp, powLimit, max future drift (Sprint 17b/17c), max block bytes / transactions (Sprint 18b) |
+| MempoolPolicy.java | ✅ Complete | ~50 | Node policy record (not consensus): max bytes 64 KB, max txs 200, incremental fee rate (Sprint 19a) |
 
 ### Utility Classes (`com.blocksmith.util`)
 
@@ -174,7 +179,7 @@ Last test run: `mvn test` - All passing
 
 | Class | Status | Lines | Notes |
 |-------|--------|-------|-------|
-| ApiServer.java | ✅ Complete | ~780 | Javalin REST API: blocks, transactions, mining, wallet, network, JSON errors (Sprint 12) + static dashboard hosting (Sprint 13a) + contract deploy/claim/inspect endpoints (Sprint 14c) + multisig create/claim endpoints, server-held member keys (Sprint 15c) + `JsonUtil` Gson (#259) + block by hash, address history, tx location (Sprint 16c) + `POST /api/admin/backup`, loopback only (Sprint 16d) + live difficulty in status, `GET /api/network/difficulty` (Sprint 17d) + optional `fee`, `GET /api/mempool`, block `sizeBytes` / `totalFees`, limits in status (Sprint 18d) |
+| ApiServer.java | ✅ Complete | ~880 | Javalin REST API: blocks, transactions, mining, wallet, network, JSON errors (Sprint 12) + static dashboard hosting (Sprint 13a) + contract deploy/claim/inspect endpoints (Sprint 14c) + multisig create/claim endpoints, server-held member keys (Sprint 15c) + `JsonUtil` Gson (#259) + block by hash, address history, tx location (Sprint 16c) + `POST /api/admin/backup`, loopback only (Sprint 16d) + live difficulty in status, `GET /api/network/difficulty` (Sprint 17d) + optional `fee`, `GET /api/mempool`, block `sizeBytes` / `totalFees`, limits in status (Sprint 18d) + `GET /api/fees/estimate`, `POST /api/transactions/{id}/bump`, sequence on new txs, refusal reasons, mempool policy fields (Sprint 19d) |
 
 ### Contract Classes (`com.blocksmith.contract`)
 
@@ -294,6 +299,10 @@ Design handoff (prototype + README) lives in `.ai/design/UIUX redesign project/`
 - [x] Block limits: 16 KB / 50 transactions; mining fills a block and leaves the rest pending (Sprint 18b)
 - [x] Transaction fees: sender pays amount + fee, miner collects them, blocks filled by fee per byte (Sprint 18c)
 - [x] Fees, `/api/mempool` and block size in the API and dashboard (Sprint 18d)
+- [x] Mempool limit (64 KB / 200 txs) with lowest-fee-rate eviction (Sprint 19a)
+- [x] Replace-by-fee, made safe by a consensus rule: a (sender, sequence) pair confirms once (Sprint 19b)
+- [x] Fee estimation for 1 / 3 / 6 blocks from the mempool and recent blocks (Sprint 19c)
+- [x] Suggested fees, fee bumps and a Mempool drawer in the API and dashboard (Sprint 19d)
 
 ---
 
@@ -302,7 +311,7 @@ Design handoff (prototype + README) lives in `.ai/design/UIUX redesign project/`
 | Item | Value |
 |------|-------|
 | **Current Branch** | `master` |
-| **Last Commit** | Sprint 18 complete (PR #290, #291, #292, #293) |
+| **Last Commit** | Sprint 19 complete (PR #304, #305, #306, #307) |
 | **Tag** | `v1.0.0` (Phase 1) |
 | **Main Branch** | `master` |
 
@@ -359,12 +368,21 @@ Design handoff (prototype + README) lives in `.ai/design/UIUX redesign project/`
    - 18d (PR #293): `fee` in `POST /api/transactions`, `GET /api/mempool`,
      block size + fees in the API and dashboard
 
-4. **Phases 1-3 COMPLETE**; Phase 4 at 75% (3 of 4 sprints)
+4. **Sprint 19 COMPLETE** - Fee Market (2026-11-13 to 2026-11-14)
+   - 19a (PR #304): `MempoolPolicy` (policy, not consensus), lowest-fee-rate
+     eviction, `getMempoolMinFeeRate()`, restore trims
+   - 19b (PR #305): optional `Transaction.sequence`; consensus: a
+     (sender, sequence) pair confirms once; BIP125-style replacement rules
+   - 19c (PR #306): `estimateFeeRate(n)` = max(mempool view, history view,
+     mempool minimum)
+   - 19d (PR #307): `/api/fees/estimate`, `/bump`, refusal reasons,
+     suggested fees + Mempool drawer; toast and float-display fixes
+   - Run Maven from `F:\Repos\Java` (capital J): from a lowercase path Jetty
+     404s static files and 3 dashboard tests fail
 
-5. **Next: Sprint 19 (Fee Market)** - not yet planned: fee estimation from
-   recent blocks / the mempool, replace-by-fee, mempool size limit with
-   eviction of the lowest fee rate. Builds on `feeRate()` and
-   `getPendingInMiningOrder()`
+5. **ALL 4 PHASES COMPLETE** (Sprints 0-19). Possible next steps: the
+   deferred list below, or a bonus feature from `roadmap.md` (light clients /
+   SPV, explorer app)
 
 6. **Deferred / future work**
    - Gossip auto-connect to DISCOVERED peers (needs MAX_PEERS guarding)
@@ -386,4 +404,4 @@ Design handoff (prototype + README) lives in `.ai/design/UIUX redesign project/`
 
 ---
 
-*Last updated: 2026-11-13 | Sprint 18 Complete (Block Rules, Size & Fees) - Phase 4 in progress (75%)*
+*Last updated: 2026-11-14 | Sprint 19 Complete (Fee Market) - Phase 4 COMPLETE, roadmap done*

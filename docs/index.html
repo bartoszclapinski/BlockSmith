@@ -6,7 +6,7 @@
 <title>BlockSmith</title>
 <meta name="description" content="BlockSmith: a working blockchain built from scratch in Java. Proof-of-Work, ECDSA wallets, a P2P network, a REST API, a web dashboard, a script VM for smart contracts, and multisig.">
 <meta property="og:title" content="BlockSmith: a blockchain built from scratch in Java">
-<meta property="og:description" content="Proof-of-Work, ECDSA wallets, P2P gossip, REST API, web dashboard, smart contracts, multisig, crash-safe persistence, self-adjusting difficulty and transaction fees. 18 sprints, 342 tests.">
+<meta property="og:description" content="Proof-of-Work, ECDSA wallets, P2P gossip, REST API, web dashboard, smart contracts, multisig, crash-safe persistence, self-adjusting difficulty and a fee market. 19 sprints, 370 tests.">
 <meta property="og:image" content="assets/dashboard-dark.png">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23e0894c'/%3E%3Cpath d='M9 22l7-7m-3-4l4-4 6 6-4 4z' stroke='%2320120a' stroke-width='2.6' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -347,7 +347,7 @@
       <div class="blk tip"><b>#2</b>00009c51…182f<br>tip</div>
     </div>
     <div class="wrap">
-      <span class="eyebrow">Phase 4 in progress · 342 tests passing</span>
+      <span class="eyebrow">All 4 phases complete · 370 tests passing</span>
       <h1>A blockchain, <em>forged</em> from scratch in Java.</h1>
       <p class="lead">
         BlockSmith is a working cryptocurrency built to understand how Bitcoin and Ethereum work under the hood:
@@ -364,9 +364,9 @@
       </div>
 
       <div class="stats">
-        <div class="stat"><b>17</b><span>sprints shipped</span></div>
-        <div class="stat"><b>342</b><span>JUnit tests, all green</span></div>
-        <div class="stat"><b>~7.3k</b><span>lines of Java (+7.7k in tests)</span></div>
+        <div class="stat"><b>19</b><span>sprints shipped</span></div>
+        <div class="stat"><b>370</b><span>JUnit tests, all green</span></div>
+        <div class="stat"><b>~7.8k</b><span>lines of Java (+8.4k in tests)</span></div>
         <div class="stat"><b>0</b><span>blockchain libraries used</span></div>
       </div>
     </div>
@@ -474,7 +474,7 @@
 
       <div class="layers">
         <article class="card layer">
-          <header><h3>Core chain</h3><span class="when">Sprints 0–6, 16–18</span></header>
+          <header><h3>Core chain</h3><span class="when">Sprints 0–6, 16–19</span></header>
           <p>The data structures and rules that make a ledger tamper-evident.</p>
           <ul>
             <li>SHA-256 block hashes with Proof-of-Work mining</li>
@@ -486,6 +486,7 @@
             <li>Self-adjusting difficulty: retargets every 10 blocks toward one block per 10 s, with timestamp rules against fake times</li>
             <li>Every block's contents are checked: no minted coins, no overspending, at most 16 KB and 50 transactions</li>
             <li>Transaction fees: miners fill blocks by fee per byte and collect the fees</li>
+            <li>A fee market: bounded mempool, fee estimates, and replace-by-fee where only one version of a payment can ever confirm</li>
           </ul>
         </article>
         <article class="card layer">
@@ -648,22 +649,22 @@
             <span class="sprint"><i>+</i>Dashboard redesign</span>
           </div>
         </article>
-        <article class="card phase next">
+        <article class="card phase">
           <div>
             <h3>Phase 4 · Production</h3>
-            <div class="meta">Nov 2026 · 342 tests</div>
-            <div class="status"><span class="badge next">in progress</span></div>
+            <div class="meta">Nov 2026 · 370 tests</div>
+            <div class="status"><span class="badge ok">complete</span></div>
           </div>
           <div class="sprints">
             <span class="sprint done"><i>16</i>Database persistence ✓</span>
             <span class="sprint done"><i>17</i>Difficulty adjustment ✓</span>
             <span class="sprint done"><i>18</i>Block rules, size &amp; fees ✓</span>
-            <span class="sprint"><i>19</i>Fee market</span>
+            <span class="sprint done"><i>19</i>Fee market ✓</span>
           </div>
         </article>
       </div>
-      <div class="bar" role="img" aria-label="18 of 19 planned sprints shipped"><span style="width: 95%"></span></div>
-      <p class="caption">18 of 19 planned sprints shipped.</p>
+      <div class="bar" role="img" aria-label="All 19 planned sprints shipped"><span style="width: 100%"></span></div>
+      <p class="caption">All 19 planned sprints shipped.</p>
     </div>
   </section>
 
@@ -684,7 +685,7 @@
         <div class="card">
           <h3>Run the tests and the console demo</h3>
           <p>The demo mines blocks, compares difficulties, moves coins and shows tamper detection in the terminal. Custom ports: <code style="white-space: nowrap">-Dexec.args="&lt;p2p&gt; &lt;api&gt;"</code>.</p>
-<div class="term"><span class="p">$ </span>mvn test   <span class="c"># 342 tests</span>
+<div class="term"><span class="p">$ </span>mvn test   <span class="c"># 370 tests</span>
 <span class="p">$ </span>mvn exec:java \
     -Dexec.mainClass=com.blocksmith.BlockSmithDemo</div>
         </div>
