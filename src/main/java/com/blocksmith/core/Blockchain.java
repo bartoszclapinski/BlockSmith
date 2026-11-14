@@ -642,9 +642,13 @@ public class Blockchain {
      * This is what makes Bitcoin nodes reject a miner who overpays itself,
      * however much hash power stands behind the block.
      *
-     * The coinbase is exempt from "id already on chain": two rewards for the
-     * same miner in the same millisecond have the same id (Bitcoin hit the
-     * same quirk, BIP30/BIP34). In an account model that is harmless.
+     * The coinbase is exempt from "id already on chain": before Sprint 25b two
+     * rewards for the same miner in the same millisecond had the same id
+     * (Bitcoin hit the same quirk: blocks 91,812 and 91,842, BIP30). Since
+     * 25b the miner puts the block height in the coinbase's sequence
+     * (Bitcoin's BIP34), which makes every new coinbase unique; old blocks
+     * without one stay valid, but a coinbase that states a height must state
+     * its own.
      */
     private String blockRuleViolation(Block block) {
         String tooBig = limitViolation(block);
@@ -669,7 +673,9 @@ public class Blockchain {
                     + BlockchainConfig.MINING_REWARD + " + fees " + fees;
         }
         if (coinbase.getFee() != 0) return "the coinbase carries a fee";
-        if (coinbase.getSequence() != null) return "the coinbase carries a sequence";
+        if (coinbase.getSequence() != null && coinbase.getSequence() != block.getIndex()) {
+            return "the coinbase states height " + coinbase.getSequence() + " in block #" + block.getIndex();
+        }
         if (coinbase.getLockingScript() != null || coinbase.getUnlockingScript() != null) {
             return "the coinbase carries a contract script";
         }
@@ -1546,8 +1552,8 @@ public class Blockchain {
     private double mempoolFeeRate(int targetBlocks) {
         List<Transaction> waiting = byFeeRate(pendingTransactions);
         Block latest = getLatestBlock();
-        Transaction placeholder = new Transaction(
-                BlockchainConfig.COINBASE_ADDRESS, "fee-estimate", BlockchainConfig.MINING_REWARD);
+        Transaction placeholder = new Transaction(BlockchainConfig.COINBASE_ADDRESS, "fee-estimate",
+                BlockchainConfig.MINING_REWARD, 0, (long) (latest.getIndex() + 1));
         int emptyBlockBytes = new Block(latest.getIndex() + 1, List.of(placeholder), latest.getHash(), 0L)
                 .sizeBytes() + NONCE_DIGITS_MARGIN + COINBASE_AMOUNT_MARGIN;
 
@@ -1710,8 +1716,8 @@ public class Blockchain {
         // against a reward-only placeholder, and the real coinbase is built
         // afterwards. The placeholder pays less, so anything valid with it is
         // still valid with the real one.
-        Transaction placeholder = new Transaction(
-                BlockchainConfig.COINBASE_ADDRESS, minerAddress, BlockchainConfig.MINING_REWARD);
+        Transaction placeholder = new Transaction(BlockchainConfig.COINBASE_ADDRESS, minerAddress,
+                BlockchainConfig.MINING_REWARD, 0, (long) newIndex);
         BlockCheck check = new BlockCheck(newIndex);
         check.apply(placeholder);
         List<Transaction> selected = new ArrayList<>();
@@ -1748,8 +1754,10 @@ public class Blockchain {
         // The miner collects the block reward plus every fee in the block.
         double fees = 0;
         for (Transaction tx : selected) fees += tx.getFee();
-        Transaction rewardTx = new Transaction(
-                BlockchainConfig.COINBASE_ADDRESS, minerAddress, BlockchainConfig.MINING_REWARD + fees);
+        // The block height in the coinbase (Sprint 25b, Bitcoin's BIP34): no two
+        // coinbases are alike, even for one miner in one millisecond.
+        Transaction rewardTx = new Transaction(BlockchainConfig.COINBASE_ADDRESS, minerAddress,
+                BlockchainConfig.MINING_REWARD + fees, 0, (long) newIndex);
         List<Transaction> blockTransactions = new ArrayList<>();
         blockTransactions.add(rewardTx);
         blockTransactions.addAll(selected);
