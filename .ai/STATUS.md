@@ -9,7 +9,7 @@
 | Field | Value |
 |-------|-------|
 | **Phase** | 4 - Production Features - ✅ COMPLETE (all 4 phases done) |
-| **Current Sprint** | 23 (Client-side Multisig, hardening) - Complete |
+| **Current Sprint** | 24 (Encrypted Browser Keystore, hardening) - Planned |
 | **Current Milestone** | 23c Complete (Two signers, two browsers) |
 | **Status** | Sprint 23 complete (23a-23c): multisig members keep their keys and sign in their own browsers; the node only coordinates. Next: see the candidates in the notes |
 
@@ -62,7 +62,8 @@ Hardening (after the roadmap)
 ├── Sprint 20: Thread Safety ✅ COMPLETE (20a ✅, 20b ✅, 20c ✅)
 ├── Sprint 21: Fork Choice   ✅ COMPLETE (21a ✅, 21b ✅, 21c ✅)
 ├── Sprint 22: Signatures    ✅ COMPLETE (22a ✅, 22b ✅, 22c ✅)
-└── Sprint 23: Multisig keys ✅ COMPLETE (23a ✅, 23b ✅, 23c ✅)
+├── Sprint 23: Multisig keys ✅ COMPLETE (23a ✅, 23b ✅, 23c ✅)
+└── Sprint 24: Keystore      📋 PLANNED (24a ⬜, 24b ⬜, 24c ⬜)
 ```
 
 ---
