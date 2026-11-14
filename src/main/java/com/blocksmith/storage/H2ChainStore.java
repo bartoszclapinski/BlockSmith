@@ -38,8 +38,13 @@ import com.blocksmith.util.JsonUtil;
  *
  * Lookups (Sprint 16c) get their own table, filled whenever a block is saved:
  *
- *   tx_index: tx_id (PK) | block_idx | pos | sender | recipient | amount
- *             indexes on sender, recipient and block_idx
+ *   tx_index: block_idx + pos (PK) | tx_id | sender | recipient | amount
+ *             indexes on tx_id, sender, recipient and block_idx
+ *
+ * Keyed by POSITION, not by id (Sprint 25b): two coinbases made before 25b
+ * for one miner in one millisecond share an id, and with the id as the key
+ * the second row overwrote the first (the history lost a reward). A
+ * position is unique by construction; a lookup by id returns the earliest.
  *
  * THEORY: Why an index makes "history of an address" fast
  *
@@ -75,14 +80,16 @@ public class H2ChainStore implements ChainStore {
 
     private static final String CREATE_TX_INDEX =
             "CREATE TABLE IF NOT EXISTS tx_index ("
-            + " tx_id VARCHAR(128) PRIMARY KEY,"
             + " block_idx INT NOT NULL,"
             + " pos INT NOT NULL,"
+            + " tx_id VARCHAR(128) NOT NULL,"
             + " sender VARCHAR(256) NOT NULL,"
             + " recipient VARCHAR(256) NOT NULL,"
-            + " amount DOUBLE NOT NULL)";
+            + " amount DOUBLE NOT NULL,"
+            + " PRIMARY KEY (block_idx, pos))";
 
     private static final String[] CREATE_TX_INDEXES = {
+            "CREATE INDEX IF NOT EXISTS idx_tx_id ON tx_index (tx_id)",
             "CREATE INDEX IF NOT EXISTS idx_tx_sender ON tx_index (sender)",
             "CREATE INDEX IF NOT EXISTS idx_tx_recipient ON tx_index (recipient)",
             "CREATE INDEX IF NOT EXISTS idx_tx_block ON tx_index (block_idx)"
@@ -90,7 +97,7 @@ public class H2ChainStore implements ChainStore {
 
     private static final String MERGE_TX_INDEX =
             "MERGE INTO tx_index (tx_id, block_idx, pos, sender, recipient, amount)"
-            + " KEY (tx_id) VALUES (?, ?, ?, ?, ?, ?)";
+            + " KEY (block_idx, pos) VALUES (?, ?, ?, ?, ?, ?)";
 
     // Sent OR received, newest first. Two indexed halves joined with UNION ALL
     // (each half can use its own index); the second half skips self-transfers
@@ -123,12 +130,32 @@ public class H2ChainStore implements ChainStore {
             try (Statement st = connection.createStatement()) {
                 st.execute(CREATE_BLOCKS);
                 st.execute(CREATE_PENDING);
+                if (txIndexKeyedById()) {
+                    // Before Sprint 25b. The index is only a hint: restore re-saves
+                    // every replayed block, which fills the new table again.
+                    st.execute("DROP TABLE tx_index");
+                    System.out.println("tx_index was keyed by transaction id: rebuilt by position on restore");
+                }
                 st.execute(CREATE_TX_INDEX);
                 for (String sql : CREATE_TX_INDEXES) st.execute(sql);
             }
         } catch (SQLException e) {
             throw new StorageException("Cannot open chain database at " + jdbcUrl, e);
         }
+    }
+
+    /** True if tx_index exists with the pre-25b primary key (tx_id alone). */
+    private boolean txIndexKeyedById() throws SQLException {
+        List<String> key = new ArrayList<>();
+        try (Statement st = connection.createStatement();
+             ResultSet rs = st.executeQuery("SELECT k.COLUMN_NAME"
+                     + " FROM INFORMATION_SCHEMA.TABLE_CONSTRAINTS c"
+                     + " JOIN INFORMATION_SCHEMA.KEY_COLUMN_USAGE k"
+                     + "   ON k.CONSTRAINT_SCHEMA = c.CONSTRAINT_SCHEMA AND k.CONSTRAINT_NAME = c.CONSTRAINT_NAME"
+                     + " WHERE c.TABLE_NAME = 'TX_INDEX' AND c.CONSTRAINT_TYPE = 'PRIMARY KEY'")) {
+            while (rs.next()) key.add(rs.getString(1));
+        }
+        return key.equals(List.of("TX_ID"));
     }
 
     /**
@@ -305,7 +332,8 @@ public class H2ChainStore implements ChainStore {
 
     @Override
     public synchronized OptionalInt findTransactionBlockIndex(String transactionId) {
-        return queryInt("SELECT block_idx FROM tx_index WHERE tx_id = ?", transactionId);
+        // An id can occur twice (pre-25b coinbases): the earliest is the answer.
+        return queryInt("SELECT block_idx FROM tx_index WHERE tx_id = ? ORDER BY block_idx, pos LIMIT 1", transactionId);
     }
 
     @Override
