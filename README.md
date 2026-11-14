@@ -8,7 +8,7 @@ BlockSmith is a comprehensive blockchain project that goes beyond tutorials - im
 
 [![Java](https://img.shields.io/badge/Java-20+-orange.svg)](https://openjdk.org/)
 [![Maven](https://img.shields.io/badge/Maven-3.9+-blue.svg)](https://maven.apache.org/)
-[![Tests](https://img.shields.io/badge/Tests-370%20passing-brightgreen.svg)](#)
+[![Tests](https://img.shields.io/badge/Tests-384%20passing-brightgreen.svg)](#)
 [![Phase](https://img.shields.io/badge/Phase%204-Complete-brightgreen.svg)](#)
 [![Version](https://img.shields.io/badge/Version-1.0.0-blue.svg)](#)
 
@@ -91,6 +91,13 @@ BlockSmith is a comprehensive blockchain project that goes beyond tutorials - im
   - ✅ Replace-by-fee: bump a stuck transaction; the chain guarantees only one version confirms (Sprint 19b)
   - ✅ Fee estimation for the next block / ~3 / ~6 blocks (Sprint 19c)
   - ✅ Suggested fees, fee bumps and a Mempool view in the API and dashboard (Sprint 19d)
+
+### Hardening
+- ✅ Thread safety (Sprint 20)
+  - ✅ The chain is one monitor; readers get snapshots (Sprint 20a)
+  - ✅ Mining runs outside the lock, so the API and peers never wait for it (Sprint 20b)
+  - ✅ Consistent API responses; a two-node TCP test under parallel traffic (Sprint 20c)
+- ⬜ Fork choice: most-work chain with reorganisation (next)
 
 ---
 
@@ -227,7 +234,7 @@ Average attempts: ~16^difficulty (~65,536 for difficulty 4)
 mvn clean compile
 ```
 
-### Run all tests (370 tests)
+### Run all tests (384 tests)
 ```bash
 mvn test
 ```
@@ -304,7 +311,7 @@ BlockSmith/
 │   ├── BlockSmithNode.java     # Runnable node (P2P + API + dashboard)
 │   └── BlockSmithDemo.java     # Teaching demo application
 ├── src/main/resources/public/  # Web dashboard (index.html, app.js, style.css)
-├── src/test/java/              # 370 unit tests
+├── src/test/java/              # 384 unit tests
 ├── data/                       # Node databases (H2), one folder per node: data/node-<port>/
 ├── pom.xml                     # Maven configuration
 └── README.md
@@ -369,7 +376,10 @@ BlockSmith/
 | ReplaceByFeeTest | 11 | Fee bumps; one version of a payment confirms |
 | FeeEstimationTest | 5 | Fee estimates for 1 / 3 / 6 blocks |
 | ApiFeeMarketTest | 4 | Estimates, bumps and a full mempool over HTTP |
-| **Total** | **370** | All passing ✅ |
+| ConcurrencyTest | 5 | Chain stays valid under concurrent reads, mines and spends |
+| MiningOutsideLockTest | 6 | Mining does not block; stale work is redone |
+| NodeConcurrencyTest | 3 | Consistent API snapshots; two nodes over TCP converge |
+| **Total** | **384** | All passing ✅ |
 
 ---
 
@@ -438,6 +448,12 @@ BlockSmith/
 | Sprint 17 | Difficulty Adjustment | ✅ Complete (17a, 17b, 17c, 17d) |
 | Sprint 18 | Block Rules, Size & Fees | ✅ Complete (18a, 18b, 18c, 18d) |
 | Sprint 19 | Fee Market | ✅ Complete (19a, 19b, 19c, 19d) |
+
+### Hardening
+| Sprint | Title | Status |
+|--------|-------|--------|
+| Sprint 20 | Thread Safety | ✅ Complete (20a, 20b, 20c) |
+| Sprint 21 | Fork Choice | ⬜ Next |
 
 ---
 

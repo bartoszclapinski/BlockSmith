@@ -39,9 +39,9 @@
 | **Test Framework** | JUnit 5 |
 | **Serialization** | Gson 2.10.1 |
 | **Current Phase** | Phase 4: Production Features — ✅ Complete (all 4 phases done) |
-| **Current Sprint** | Sprint 19 (Fee Market) — Complete |
-| **Current Milestone** | 19d Complete; roadmap done (next: deferred items / bonus features) |
-| **Total Tests** | 370 (all passing) |
+| **Current Sprint** | Sprint 20 (Thread Safety, hardening) — Complete |
+| **Current Milestone** | 20c Complete; next: fork choice (most-work chain + reorg) |
+| **Total Tests** | 384 (all passing) |
 | **Main Branch** | `master` |
 
 ---
@@ -132,7 +132,7 @@ BlockSmith/
 │   └── BlockSmithNode.java           # ✅ Complete (runnable node: P2P + API + dashboard, Sprint 13a)
 │
 ├── src/main/resources/public/        # Web dashboard (Sprint 13-15, redesigned PR #157/#158): index.html, app.js, style.css
-├── src/test/java/com/blocksmith/     # 370 unit tests
+├── src/test/java/com/blocksmith/     # 384 unit tests
 ├── pom.xml                           # Maven configuration (Gson, JUnit, Javalin)
 └── README.md                         # Public documentation
 ```
@@ -182,12 +182,16 @@ BlockSmith/
 
 **Sprint 19: Fee Market** — 19a: `MempoolPolicy` (node policy, not consensus: 64 KB / 200 txs / incremental fee rate); a full mempool evicts the lowest fee rate (newest first on ties) only for a tx that beats every victim by the increment; `getMempoolMinFeeRate()`. 19b: replace-by-fee. In an account model a replacement with a new id is just a second payment, so `Transaction.sequence` (optional, in id/signature only when set) plus a consensus rule: a `(sender, sequence)` pair confirms at most once (`confirmedSequences`). Mempool rules after BIP125: only the fee changes, higher fee and rate + increment, same key for signed txs. 19c: `estimateFeeRate(n)` = max(mempool view: simulate n blocks like mining; history view: cheapest rate of recent full blocks; mempool minimum). 19d: `GET /api/fees/estimate`, `POST /api/transactions/{id}/bump`, `submitTransaction()` reasons in 400s, dashboard suggested fees + Mempool drawer with Bump.
 
+### Hardening (after the roadmap)
+
+**Sprint 20: Thread Safety** — peer listener threads, Jetty threads and the heartbeat share one `Blockchain`. A probe showed a CME on reads, a corrupted chain from concurrent mining and overdrawn mempools. 20a: `Blockchain` is a monitor (all state-touching public methods `synchronized`, getters return copies). 20b: mining = template (locked) -> nonce search (unlocked; `Block.mineBlock(target, stop)` stops when the `volatile tipHash` moves) -> submit on the same tip (stale work retried); cancellable. 20c: `atomically(Supplier)` for multi-value API responses, `pendingOutgoing` with fees, first two-node TCP test. Found: **no fork choice** (two miners at one height diverge for good).
+
 ---
 
 ## What's NOT Implemented Yet
 
-### Roadmap complete
-- All planned sprints (0-19) are done. Next candidates: the deferred list below, or a bonus feature (light clients / SPV, explorer app)
+### Roadmap complete, hardening in progress
+- All planned sprints (0-19) are done; Sprint 20 (thread safety) too. Next: fork choice (most-work chain + reorg), then the deferred list below or a bonus feature (SPV, explorer)
 
 ### Deferred / known follow-ups
 - Mempool request is sent on outbound connect only; inbound side does not yet pull the peer's mempool
@@ -303,7 +307,10 @@ mvn exec:java -Dexec.mainClass=com.blocksmith.BlockSmithDemo
 | ReplaceByFeeTest | 11 | Bump rules, same key, full pool, one version per sequence, conflicts dropped, restore (Sprint 19b) |
 | FeeEstimationTest | 5 | Floor, mempool cut-off, 1 >= 3 >= 6, history after full blocks, min fee rate (Sprint 19c) |
 | ApiFeeMarketTest | 4 | Estimate shape, bump end to end, bump refused, full mempool 400 (Sprint 19d) |
-| **Total** | **370** | All passing ✅ |
+| ConcurrencyTest | 5 | Reads during appends, concurrent mining, overspend, same block twice, snapshots (Sprint 20a) |
+| MiningOutsideLockTest | 6 | Stop condition, unblocked reads, stale template, cancel, concurrent mines (Sprint 20b) |
+| NodeConcurrencyTest | 3 | `atomically`, consistent status/wallet under load, two nodes over TCP converge (Sprint 20c) |
+| **Total** | **384** | All passing ✅ |
 
 ---
 
@@ -314,7 +321,7 @@ mvn exec:java -Dexec.mainClass=com.blocksmith.BlockSmithDemo
 - **Doc branches**: `docs/{description}` (e.g., `docs/sprint11-complete`)
 - **Commits**: One per issue, format: `feat(scope): description #NN` — never add `Co-Authored-By`
 - **PRs**: created with `gh`, include `Closes #NN` lines; merged with a **regular merge commit** (`gh pr merge N --merge`, not squash) so the one-commit-per-issue history stays on master (decided 2026-11-11; #130-#278 were squash-merged); then ff-only pull to sync local master
-- **Latest**: Sprint 19 complete (Fee Market, PR #304, #305, #306, #307); Phase 4 complete, roadmap done
+- **Latest**: Sprint 20 complete (Thread Safety, PR #316, #317, #318); roadmap done, hardening in progress
 - **Maven path**: run `mvn` from `F:\Repos\Java\BlockSmith` (capital J); from a lowercase path Jetty 404s static files and 3 dashboard tests fail
 
 ---
@@ -327,9 +334,9 @@ mvn exec:java -Dexec.mainClass=com.blocksmith.BlockSmithDemo
 | `CONVENTIONS.md` | Need full code style rules, THEORY comment format, test conventions |
 | `STATUS.md` | Need exact current status, implementation table, feature checklist |
 | `roadmap.md` | Need full project phases and timeline |
-| `sprints/sprint19/sprint-plan.md` | Most recent sprint's milestones, issues, acceptance criteria |
-| `sprints/sprint19/sprint-log.md` | What was completed in the latest sprint |
+| `sprints/sprint20/sprint-plan.md` | Most recent sprint's milestones, issues, acceptance criteria |
+| `sprints/sprint20/sprint-log.md` | What was completed in the latest sprint |
 
 ---
 
-*Last updated: 2026-11-14 | Sprint 19 Complete (Fee Market) — Phase 4 complete, roadmap done*
+*Last updated: 2026-11-14 | Sprint 20 Complete (Thread Safety) — roadmap done, hardening in progress*

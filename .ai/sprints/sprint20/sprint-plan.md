@@ -7,7 +7,7 @@
 | **Sprint** | 20 |
 | **Title** | Thread Safety |
 | **Phase** | Hardening (after the roadmap; first item of the deferred list) |
-| **Status** | 📋 Planned |
+| **Status** | ✅ Complete (2026-11-14) |
 | **Depends On** | Sprints 0-19 complete |
 
 > **Why now:** `Blockchain` has no synchronization, but three kinds of thread
@@ -39,9 +39,9 @@ seconds) does not block the API or the network while it searches for a nonce.
 
 | Milestone | Title | Branch | Status |
 |-----------|-------|--------|--------|
-| **20a** | `Blockchain` as a monitor + snapshot getters | `sprint20a/blockchain-monitor` | ⬜ Planned (#309, #310) |
-| **20b** | Mining outside the lock (template, work, submit) | `sprint20b/mining-outside-lock` | ⬜ Planned (#311, #312) |
-| **20c** | Consistent API / node views + end-to-end concurrency test | `sprint20c/concurrent-node` | ⬜ Planned (#313, #314) |
+| **20a** | `Blockchain` as a monitor + snapshot getters | `sprint20a/blockchain-monitor` | ✅ PR #316 (#309, #310) |
+| **20b** | Mining outside the lock (template, work, submit) | `sprint20b/mining-outside-lock` | ✅ PR #317 (#311, #312) |
+| **20c** | Consistent API / node views + end-to-end concurrency test | `sprint20c/concurrent-node` | ✅ PR #318 (#313, #314) |
 
 ---
 
@@ -140,4 +140,4 @@ why 20b moves it out.
 
 ---
 
-*Created: 2026-11-14 | Sprint 20 Planning*
+*Created: 2026-11-14 | Sprint 20 Planning | Completed: 2026-11-14*
