@@ -415,6 +415,37 @@ browser and Java to the same addresses and signature encoding with vectors from 
 
 ---
 
+## 🔐 Multisig: the node coordinates, the members sign (Sprint 23)
+
+```
+ lock (on chain):  PUSH M  PUSH <key1> ... PUSH <keyN>  PUSH N CHECKMULTISIG
+ claim message:    claimSighash = SHA-256(contractId + claimer + amount)
+ unlock (claim):   PUSH <sig by key i> PUSH <sig by key j> ...   (exactly M, in key order)
+
+ deployer:  member public keys --POST /api/multisig/create--> lock + MS: address --> signed deploy
+ claimer:   POST /api/multisig/claim/prepare -> message, member keys (script order), M
+            signs with the member keys it holds, sends the "claim request" to the others
+ member:    asks ITS node to prepare the same claim, compares the message, signs, sends back
+            {contractId, claimer, publicKey, signature}
+ claimer:   POST /api/multisig/claim {signatures: [{publicKey, signature}]} -> node checks each,
+            orders by member position, builds the unlocking script; the VM decides
+```
+
+| Piece | Role |
+|-------|------|
+| `MultiSigWallet.fromLockingScript` | Reads the members and M back from a lock; only the canonical form counts (anything else: not a multisig) |
+| `/api/multisig/create` | Public keys in, lock + address out; nothing kept (same keys, same wallet). `{members: N}` is refused: the node makes no keys |
+| `/api/multisig/claim` | Per-signature pre-check (member? twice? verifies for THIS claimer?) for a precise 400; the script VM is the real gate |
+| Dashboard | Member keys in `bs_keys` with a label; deploy from "3 new keys here" (learning) or pasted public keys; claim drawer collects M; "Multisig member" drawer checks and signs a request |
+
+**Rules**: the claim message names the claimer, so signatures collected for one claimer are worthless for
+another; `CHECKMULTISIG` matches signatures to keys left to right, which is why the node orders them. A
+member never signs a hash blind: the dashboard recomputes the claim on its own node first. Bitcoin's PSBT
+(BIP174) formalises the same round trip. `WebCryptoInteropTest` holds a claim signed in two real browser
+profiles that passes `CHECKMULTISIG` in Java.
+
+---
+
 ## 🔀 Fork choice (Sprint 21)
 
 | Piece | Role |
@@ -510,7 +541,7 @@ Writes (tx, mined block) are broadcast to peers.
 | POST | `/api/mine` | Mine pending txs (or an empty block) for `minerAddress` |
 | GET / POST | `/api/wallet/{address}`, `/api/wallet/{address}/transactions`, `/api/wallet/create` | Balance + pending outgoing (amount + fee) / history (Sprint 16c) / retired: 410 (Sprint 22c, keys are made by their owner) |
 | GET / POST | `/api/contracts`, `/api/contracts/{id}`, `/api/contracts/{id}/claim` | Deploy, inspect, claim contracts |
-| POST | `/api/multisig/create`, `/api/multisig/claim` | M-of-N multisig with server-held member keys |
+| POST | `/api/multisig/create`, `/api/multisig/claim/prepare`, `/api/multisig/claim` | M-of-N multisig from member public keys; prepare returns the claim message; claim takes the members' {publicKey, signature} pairs (Sprint 23a) |
 | POST | `/api/admin/backup` | Online database backup; localhost only, 503 if disabled (Sprint 16d) |
 
 ---
@@ -541,7 +572,7 @@ Vanilla HTML/JS/CSS, no build step. Redesigned in PR #157/#158 from the handoff 
   contracts (`#contract-list`), footer.
 - **Data**: polls the REST API every 4s; the activity feed is built client-side by diffing polls.
 - **UI**: "Clay" dark/light themes (CSS variables), command palette (Ctrl/⌘+K), side drawers
-  (send, create wallet, deploy hashlock/multisig, claim), toasts, 5-step onboarding tour
+  (send, create wallet, deploy hashlock/multisig, claim, multisig member), toasts, 5-step onboarding tour
   (`data-tour` anchors; opt-out in `localStorage`).
 - **Safety**: renders with `textContent` only (no HTML injection from chain data).
 

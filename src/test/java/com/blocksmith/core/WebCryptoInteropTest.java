@@ -5,6 +5,9 @@ import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+import com.blocksmith.contract.Contract;
+import com.blocksmith.contract.MultiSigWallet;
+import com.blocksmith.contract.ScriptVM;
 import com.blocksmith.util.SignatureUtil;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -19,6 +22,10 @@ import static org.junit.jupiter.api.Assertions.*;
  * The second vector's {@code s} starts with a byte >= 0x80: its DER INTEGER
  * needs a leading 0x00 ("022100..."), the trickiest part of converting Web
  * Crypto's r||s signature to the DER form Java verifies.
+ *
+ * The claim vector (Milestone 23c) comes from a live 2-of-3 claimed with
+ * signatures from two separate browser profiles: member 1 signed in profile
+ * A (the claimer's), member 2 in profile B ("Multisig member" drawer).
  */
 @DisplayName("Web Crypto Interop Tests")
 class WebCryptoInteropTest {
@@ -57,5 +64,55 @@ class WebCryptoInteropTest {
         }
         assertFalse(SignatureUtil.verify(VECTORS.get(0).publicKey(), VECTORS.get(1).signature(), VECTORS.get(1).text()),
                 "Another key's signature");
+    }
+
+    // ===== 23c: a multisig claim signed in two browsers =====
+
+    private static final String CLAIM_CONTRACT = "5d2d788f90aece5da774be930f7263c2ef384e50cebbcc5381b1445df85f5eb3";
+    private static final double CLAIM_AMOUNT = 12.0;
+    private static final String CLAIMER = "frank";
+    private static final String CLAIM_MESSAGE = "1e5715be412c8d2bee702e6b8a8d6bb068c45312cac081bf2a4cb374feefd63d";
+    private static final List<String> MEMBER_KEYS = List.of(
+            "3059301306072a8648ce3d020106082a8648ce3d03010703420004e13c8f37d2af9b7c958fdabd105f4cae9901e04bb7"
+                    + "4fba6a39c60ea43064fd1006f340d7c7c8548d791ede4988c4f8656e1c07a0f8b429d26940d382e436b8d4",
+            "3059301306072a8648ce3d020106082a8648ce3d030107034200048d27e89d06153c6652e5a83d8ee35fa08dfafa65b0"
+                    + "e8710b956c31fa5f1347765244a4b04a67cb4158097ca667f792bdb1eab2b26f1593cbd6316e110cc1ad83",
+            "3059301306072a8648ce3d020106082a8648ce3d03010703420004b2c0b92b3ea38e24ce64da34a160b263d32b2f10fe"
+                    + "6c3a4ba77c82f889e2a1a21fbe44bb38a6d1eb6ef335ccea3d3ce93e87726fe2882cb8715f8e6cd04f07ba");
+    /** Member 1 (profile A) and member 2 (profile B), over CLAIM_MESSAGE. */
+    private static final String SIG_MEMBER_1 = "30440220605b9a30e13149f3443e82cc94946c4e82b766ea435658d42b0c610ad86d7c8c02200ca6fab0200bf621f06c"
+            + "a3bbc0c9b1c7f87357c61f972209dd6eaf52a2a13701";
+    private static final String SIG_MEMBER_2 = "30450221009b3bfa7ab7fcc033f1d0ca38ae2e66f381dfd129c95ef3f2bb39fb9186e3509c0220031556f41350db4b5a"
+            + "93ce49327833e467def638154af6d1c3970b16301c1616";
+
+    private static Contract claimContract() {
+        return new Contract(CLAIM_CONTRACT, "funder", MultiSigWallet.ofHex(MEMBER_KEYS, 2).getLockingScript(), CLAIM_AMOUNT, 0);
+    }
+
+    @Test
+    @DisplayName("Two browsers' claim signatures pass CHECKMULTISIG in the Java VM (in member order only)")
+    void webCryptoClaimSignature_passesCheckMultiSig() {
+        Contract contract = claimContract();
+        assertEquals(CLAIM_MESSAGE, contract.claimSighash(CLAIMER), "Java computes the message the browsers signed");
+        assertTrue(SIG_MEMBER_2.contains("022100"), "Member 2's signature exercises the DER 0x00 padding");
+
+        ScriptVM vm = new ScriptVM();
+        String lock = contract.getLockingScript();
+        assertTrue(vm.execute("PUSH " + SIG_MEMBER_1 + " PUSH " + SIG_MEMBER_2, lock, 1, CLAIM_MESSAGE));
+        assertFalse(vm.execute("PUSH " + SIG_MEMBER_2 + " PUSH " + SIG_MEMBER_1, lock, 1, CLAIM_MESSAGE),
+                "CHECKMULTISIG matches left to right: why the node orders the signatures");
+        assertFalse(vm.execute("PUSH " + SIG_MEMBER_1, lock, 1, CLAIM_MESSAGE), "One signature is not two");
+        assertFalse(vm.execute("PUSH " + SIG_MEMBER_1 + " PUSH " + SIG_MEMBER_1, lock, 1, CLAIM_MESSAGE),
+                "The same member twice is not two members");
+    }
+
+    @Test
+    @DisplayName("The same browser signatures cannot pay another claimer")
+    void webCryptoClaimSignature_otherClaimer_fails() {
+        Contract contract = claimContract();
+        String lock = contract.getLockingScript();
+        String unlock = "PUSH " + SIG_MEMBER_1 + " PUSH " + SIG_MEMBER_2;
+        assertFalse(new ScriptVM().execute(unlock, lock, 1, contract.claimSighash("mallory")));
+        assertFalse(SignatureUtil.verify(MEMBER_KEYS.get(1), SIG_MEMBER_2, contract.claimSighash("mallory")));
     }
 }
