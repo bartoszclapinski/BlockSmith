@@ -1,16 +1,12 @@
 package com.blocksmith.api;
 
-import java.security.KeyPair;
-import java.security.KeyPairGenerator;
-import java.security.PrivateKey;
-import java.security.PublicKey;
-import java.security.spec.ECGenParameterSpec;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
 import com.blocksmith.contract.Contract;
+import com.blocksmith.contract.ContractStatus;
 import com.blocksmith.contract.MultiSigWallet;
 import com.blocksmith.contract.ScriptVM;
 import com.blocksmith.core.Block;
@@ -57,21 +53,6 @@ public class ApiServer {
     // Shared chain-data Gson: blocks may hold signed transactions, whose
     // PublicKey plain Gson cannot serialize (#259).
     private final Gson gson = JsonUtil.GSON;
-
-    /**
-     * Server-held member keys for multisig wallets created via the API, keyed
-     * by locking script.
-     *
-     * EDUCATIONAL CONVENIENCE: a real wallet signs client-side and the node
-     * never sees a private key. For this demo the node generates the member
-     * keys and signs claims on the user's behalf - the same trade-off the
-     * unsigned transaction endpoints already make. The private keys live here
-     * in memory and are NEVER serialized over the API.
-     */
-    private final Map<String, MultiSigSession> multisigSessions = new LinkedHashMap<>();
-
-    /** A multisig wallet plus the member private keys the node holds for it. */
-    private record MultiSigSession(MultiSigWallet wallet, List<PrivateKey> memberKeys) {}
 
     private Javalin app;
 
@@ -160,6 +141,7 @@ public class ApiServer {
 
         // Multisig endpoints (Milestone 15c).
         app.post("/api/multisig/create", this::postMultiSigCreate);
+        app.post("/api/multisig/claim/prepare", this::postMultiSigClaimPrepare);
         app.post("/api/multisig/claim", this::postMultiSigClaim);
 
         // Admin endpoints (Milestone 16d).
@@ -452,49 +434,61 @@ public class ApiServer {
 
     // ===== 15c: MULTISIG =====
 
-    /**
-     * Creates an M-of-N multisig wallet. The node generates the N member key
-     * pairs, keeps the private keys server-side (see {@link #multisigSessions}),
-     * and returns only public data: the wallet address, the member public keys,
-     * and the CHECKMULTISIG locking script to deploy with.
-     */
+    // ===== 15c / 23a: MULTISIG =====
+    //
+    // THEORY: the node coordinates, the members sign (Sprint 23a)
+    //
+    // Sprint 15 had the node make the member keys and sign claims itself, so
+    // anyone who could reach the API could claim any multisig. Now:
+    //   1. create:  from the members' PUBLIC keys -> locking script + address
+    //   2. prepare: the claim message (sighash = SHA-256(contractId + claimer
+    //               + amount)), the members in script order, the threshold
+    //   3. members sign the message wherever their keys are
+    //   4. claim:   {publicKey, signature} pairs; the node orders them by
+    //               member position (CHECKMULTISIG matches left to right),
+    //               builds the unlocking script, and the VM decides
+    // The message names the claimer, so signatures collected for one claimer
+    // are worthless for another. Bitcoin's PSBT (BIP174) is the same round trip.
+
+    /** POST /api/multisig/create {memberPublicKeys: [hex X.509], threshold}. */
     private void postMultiSigCreate(Context ctx) {
-        JsonObject body;
-        try {
-            body = JsonParser.parseString(ctx.body()).getAsJsonObject();
-        } catch (JsonSyntaxException | IllegalStateException e) {
+        JsonObject body = jsonBody(ctx);
+        if (body == null) return;
+        if (body.has("members") && !body.has("memberPublicKeys")) {
             ctx.status(400);
-            json(ctx, error("Request body must be a JSON object"));
+            json(ctx, error("The node no longer makes member keys (Sprint 23): send memberPublicKeys (hex) and threshold"));
             return;
         }
-
-        if (!body.has("members") || !body.has("threshold")) {
+        if (!body.has("memberPublicKeys") || !body.get("memberPublicKeys").isJsonArray() || !body.has("threshold")) {
             ctx.status(400);
-            json(ctx, error("Multisig requires members (N) and threshold (M)"));
+            json(ctx, error("Multisig requires memberPublicKeys (hex X.509 EC keys) and threshold (M)"));
             return;
         }
-
-        int n = body.get("members").getAsInt();
+        List<String> keys = new ArrayList<>();
+        for (var k : body.getAsJsonArray("memberPublicKeys")) {
+            String hex = k.getAsString().trim().toLowerCase();
+            try {
+                SignatureUtil.hexToPublicKey(hex);
+            } catch (Exception e) {
+                ctx.status(400);
+                json(ctx, error("Not a hex X.509 EC public key: " + shortKey(hex)));
+                return;
+            }
+            if (keys.contains(hex)) {
+                ctx.status(400);
+                json(ctx, error("The same member key twice: " + shortKey(hex)));
+                return;
+            }
+            keys.add(hex);
+        }
         int m = body.get("threshold").getAsInt();
-        if (n < 1 || n > ScriptVM.MAX_KEYS || m < 1 || m > n) {
+        if (keys.isEmpty() || keys.size() > ScriptVM.MAX_KEYS || m < 1 || m > keys.size()) {
             ctx.status(400);
             json(ctx, error("Require 1 <= threshold <= members <= " + ScriptVM.MAX_KEYS));
             return;
         }
 
-        // Generate the member key pairs; keep privates server-side, publish publics.
-        List<PublicKey> publicKeys = new ArrayList<>();
-        List<PrivateKey> privateKeys = new ArrayList<>();
-        for (int i = 0; i < n; i++) {
-            KeyPair kp = generateKeyPair();
-            publicKeys.add(kp.getPublic());
-            privateKeys.add(kp.getPrivate());
-        }
-
-        MultiSigWallet wallet = MultiSigWallet.ofPublicKeys(publicKeys, m);
-        multisigSessions.put(wallet.getLockingScript(),
-                new MultiSigSession(wallet, privateKeys));
-
+        MultiSigWallet wallet = MultiSigWallet.ofHex(keys, m);
         Map<String, Object> out = new LinkedHashMap<>();
         out.put("address", wallet.getAddress());
         out.put("threshold", wallet.getThreshold());
@@ -505,76 +499,128 @@ public class ApiServer {
         json(ctx, out);
     }
 
-    /**
-     * Assembles and submits a claim against a multisig contract. Given the
-     * contract id and the claimer, the node looks up the member keys it holds
-     * for that contract's lock, signs the claim sighash with the first M of
-     * them, and submits the assembled claim - the signing convenience noted on
-     * {@link #multisigSessions}.
-     */
-    private void postMultiSigClaim(Context ctx) {
-        JsonObject body;
-        try {
-            body = JsonParser.parseString(ctx.body()).getAsJsonObject();
-        } catch (JsonSyntaxException | IllegalStateException e) {
-            ctx.status(400);
-            json(ctx, error("Request body must be a JSON object"));
-            return;
-        }
-
+    /** POST /api/multisig/claim/prepare {contractId, claimer}: what the members must sign. */
+    private void postMultiSigClaimPrepare(Context ctx) {
+        JsonObject body = jsonBody(ctx);
+        if (body == null) return;
         if (!body.has("contractId") || !body.has("claimer")) {
             ctx.status(400);
             json(ctx, error("Multisig claim requires contractId and claimer"));
             return;
         }
-
         String contractId = body.get("contractId").getAsString();
         String claimer = body.get("claimer").getAsString();
+        Map<String, Object> out = blockchain.atomically(() -> {
+            Contract contract = blockchain.getContract(contractId);
+            MultiSigWallet wallet = contract == null ? null : MultiSigWallet.fromLockingScript(contract.getLockingScript());
+            if (wallet == null || contract.getStatus() != ContractStatus.OPEN) return null;
+            Map<String, Object> m = new LinkedHashMap<>();
+            m.put("contractId", contractId);
+            m.put("claimer", claimer);
+            m.put("amount", contract.getAmount());
+            m.put("message", contract.claimSighash(claimer));
+            m.put("threshold", wallet.getThreshold());
+            m.put("memberPublicKeys", wallet.getMemberPublicKeys());
+            return m;
+        });
+        if (out == null) {
+            ctx.status(400);
+            json(ctx, error("Not an open multisig contract (the deploy may not be mined yet, or it is claimed)"));
+            return;
+        }
+        json(ctx, out);
+    }
+
+    /**
+     * POST /api/multisig/claim {contractId, claimer, signatures: [{publicKey, signature}]}:
+     * the node orders the members' signatures, builds the unlocking script
+     * and submits the claim. It signs nothing itself.
+     */
+    private void postMultiSigClaim(Context ctx) {
+        JsonObject body = jsonBody(ctx);
+        if (body == null) return;
+        if (!body.has("contractId") || !body.has("claimer")) {
+            ctx.status(400);
+            json(ctx, error("Multisig claim requires contractId and claimer"));
+            return;
+        }
+        String contractId = body.get("contractId").getAsString();
+        String claimer = body.get("claimer").getAsString();
+        if (!body.has("signatures") || !body.get("signatures").isJsonArray()
+                || body.getAsJsonArray("signatures").isEmpty()) {
+            ctx.status(400);
+            json(ctx, error("signatures required: M member signatures over the claim message"
+                    + " (POST /api/multisig/claim/prepare gives the message)"));
+            return;
+        }
 
         Contract contract = blockchain.getContract(contractId);
-        if (contract == null) {
+        MultiSigWallet wallet = contract == null ? null : MultiSigWallet.fromLockingScript(contract.getLockingScript());
+        if (wallet == null) {
             ctx.status(400);
-            json(ctx, error("Unknown contract (the deploy may not be mined yet)"));
+            json(ctx, error("Not a multisig contract we know (the deploy may not be mined yet)"));
+            return;
+        }
+        String message = contract.claimSighash(claimer);
+        List<String> members = wallet.getMemberPublicKeys();
+
+        // Each signature at its member's position; checked here so the
+        // caller learns WHICH one is wrong (the VM would only say "invalid").
+        String[] byMember = new String[members.size()];
+        int count = 0;
+        for (var item : body.getAsJsonArray("signatures")) {
+            JsonObject pair = item.getAsJsonObject();
+            String key = pair.has("publicKey") ? pair.get("publicKey").getAsString().trim().toLowerCase() : "";
+            String sig = pair.has("signature") ? pair.get("signature").getAsString().trim() : "";
+            int position = members.indexOf(key);
+            if (position < 0) {
+                ctx.status(400);
+                json(ctx, error("Not a member of this multisig: " + shortKey(key)));
+                return;
+            }
+            if (byMember[position] != null) {
+                ctx.status(400);
+                json(ctx, error("Two signatures from member " + (position + 1)));
+                return;
+            }
+            if (!SignatureUtil.verify(key, sig, message)) {
+                ctx.status(400);
+                json(ctx, error("Member " + (position + 1) + "'s signature does not verify for this claim"
+                        + " (made for another claimer or message?)"));
+                return;
+            }
+            byMember[position] = sig;
+            count++;
+        }
+        if (count < wallet.getThreshold()) {
+            ctx.status(400);
+            json(ctx, error("Need " + wallet.getThreshold() + " member signatures, got " + count));
             return;
         }
 
-        MultiSigSession session = multisigSessions.get(contract.getLockingScript());
-        if (session == null) {
-            ctx.status(400);
-            json(ctx, error("No server-held keys for this contract's multisig"));
-            return;
-        }
-
-        // Sign the claim sighash with the first M member keys, in member order.
-        String sighash = contract.claimSighash(claimer);
+        // Exactly M signatures, in member order: CHECKMULTISIG pops M of them.
         StringBuilder unlocking = new StringBuilder();
-        for (int i = 0; i < session.wallet().getThreshold(); i++) {
+        int used = 0;
+        for (String sig : byMember) {
+            if (sig == null || used == wallet.getThreshold()) continue;
             if (unlocking.length() > 0) unlocking.append(' ');
-            unlocking.append("PUSH ").append(
-                    SignatureUtil.sign(session.memberKeys().get(i), sighash));
+            unlocking.append("PUSH ").append(sig);
+            used++;
         }
 
         Transaction claim = blockchain.claimContract(contractId, claimer, unlocking.toString());
         if (claim == null) {
             ctx.status(400);
-            json(ctx, error("Multisig claim rejected (unknown/claimed contract or signatures failed)"));
+            json(ctx, error("Multisig claim rejected (the contract may be claimed already)"));
             return;
         }
-
         node.broadcastTransaction(claim);
         ctx.status(201);
         json(ctx, contractInfo(contract));
     }
 
-    /** Generates a secp256r1 key pair for a server-held multisig member. */
-    private KeyPair generateKeyPair() {
-        try {
-            KeyPairGenerator keyGen = KeyPairGenerator.getInstance("EC");
-            keyGen.initialize(new ECGenParameterSpec("secp256r1"));
-            return keyGen.generateKeyPair();
-        } catch (Exception e) {
-            throw new RuntimeException("Failed to generate key pair", e);
-        }
+    private static String shortKey(String hex) {
+        return hex.length() <= 16 ? hex : hex.substring(0, 8) + "..." + hex.substring(hex.length() - 8);
     }
 
     private void getBlockByIndex(Context ctx) {
