@@ -79,6 +79,35 @@ public class MultiSigWallet {
      * @param memberPublicKeysHex The N member public keys as hex, in order
      * @param threshold           M, the number of signatures required
      */
+    /**
+     * Reads a wallet back from its locking script (Sprint 23a), so the node
+     * can tell the members of an on-chain multisig and the message they must
+     * sign. Only the exact form {@link #getLockingScript()} produces counts:
+     * {@code PUSH M (PUSH key) x N PUSH N CHECKMULTISIG}.
+     *
+     * @return the wallet, or null if the script is not such a multisig
+     */
+    public static MultiSigWallet fromLockingScript(String script) {
+        if (script == null) return null;
+        String[] t = script.trim().split("\\s+");
+        if (t.length < 7 || !"CHECKMULTISIG".equals(t[t.length - 1])) return null;
+        try {
+            int n = Integer.parseInt(t[t.length - 2]);
+            if (n < 1 || t.length != 2 + 2 * n + 3) return null;
+            if (!"PUSH".equals(t[0]) || !"PUSH".equals(t[t.length - 3])) return null;
+            int m = Integer.parseInt(t[1]);
+            List<String> keys = new ArrayList<>();
+            for (int i = 0; i < n; i++) {
+                if (!"PUSH".equals(t[2 + 2 * i])) return null;
+                keys.add(t[3 + 2 * i]);
+            }
+            MultiSigWallet wallet = new MultiSigWallet(keys, m);
+            return wallet.getLockingScript().equals(script.trim()) ? wallet : null;
+        } catch (RuntimeException e) {
+            return null;                                   // bad numbers, bad M/N
+        }
+    }
+
     public static MultiSigWallet ofHex(List<String> memberPublicKeysHex, int threshold) {
         return new MultiSigWallet(memberPublicKeysHex, threshold);
     }
