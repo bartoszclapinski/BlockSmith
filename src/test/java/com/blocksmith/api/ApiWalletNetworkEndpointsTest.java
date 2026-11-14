@@ -84,16 +84,14 @@ class ApiWalletNetworkEndpointsTest {
     }
 
     @Test
-    @DisplayName("POST /api/wallet/create returns a new address")
-    void postWalletCreate_returnsAddress() throws Exception {
+    @DisplayName("POST /api/wallet/create is retired: keys are made where their owner keeps them (Sprint 22c)")
+    void postWalletCreate_retired() throws Exception {
         HttpResponse<String> res = post("/api/wallet/create");
 
-        assertEquals(201, res.statusCode(), "Should return 201");
+        assertEquals(410, res.statusCode(), "Gone");
         JsonObject body = JsonParser.parseString(res.body()).getAsJsonObject();
-        assertTrue(body.has("address"), "Response should include an address");
-        assertTrue(body.get("address").getAsString().startsWith("0x"),
-                "Address should be 0x-prefixed");
-        assertFalse(body.has("privateKey"), "Private key must never be returned");
+        assertTrue(body.get("error").getAsString().contains("never holds private keys"), res.body());
+        assertFalse(body.has("address"));
     }
 
     @Test
