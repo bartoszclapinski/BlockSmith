@@ -108,17 +108,42 @@ async function addressOfPublicKeyHex(spkiHex) {
     return "0x" + (await sha256hex(spkiHex)).slice(-40);
 }
 
-async function createBrowserWallet() {
+/** Makes a key pair here; {@code label} names keys that are not wallets (multisig members). */
+async function createBrowserWallet(label) {
     const pair = await crypto.subtle.generateKey(EC, true, ["sign", "verify"]);
     const entry = {
         publicKey: bytesToHex(await crypto.subtle.exportKey("spki", pair.publicKey)),
         privateKey: await crypto.subtle.exportKey("jwk", pair.privateKey),
     };
+    if (label) entry.label = label;
     const address = await addressOfPublicKeyHex(entry.publicKey);
     const keys = loadKeys();
     keys[address] = entry;
     saveKeys(keys);
     return address;
+}
+
+/** The key this browser holds for a public key (hex SPKI): {address, entry}, or null. */
+function keyForPublicKey(publicKeyHex) {
+    const want = String(publicKeyHex || "").trim().toLowerCase();
+    const keys = loadKeys();
+    for (const address in keys) {
+        if (keys[address].publicKey === want) return { address: address, entry: keys[address] };
+    }
+    return null;
+}
+
+/** Names a key; the label travels with it (export / import). */
+function labelKey(address, label) {
+    const keys = loadKeys();
+    if (!keys[address]) return;
+    keys[address].label = label;
+    saveKeys(keys);
+}
+
+/** SPKI keys share a long common prefix (the curve), so show their tail. */
+function keyTail(publicKeyHex) {
+    return "…" + String(publicKeyHex || "").slice(-12);
 }
 
 /** Imports an exported key ({publicKey, privateKey}) after checking the two belong together. */
@@ -490,7 +515,8 @@ const COMMANDS = [
     { icon: "≡", label: "Mempool", hint: "Pending transactions by fee rate · bump a fee", run: function () { openDrawer("mempool"); } },
     { icon: "＋", label: "Create wallet", hint: "Generate a new key pair", run: function () { openDrawer("wallet"); } },
     { icon: "▤", label: "Deploy contract", hint: "Hashlock or multisig", run: function () { openDrawer("deploy"); } },
-    { icon: "⪉", label: "Multisig wallet", hint: "Deploy a 2-of-3 contract", run: function () { openDrawer("deploy", { deployType: "multi" }); } },
+    { icon: "⪉", label: "Multisig wallet", hint: "Deploy an M-of-N contract from member keys", run: function () { openDrawer("deploy", { deployType: "multi" }); } },
+    { icon: "✎", label: "Multisig member", hint: "Member keys · sign another member's claim", run: function () { openDrawer("member"); } },
 ];
 
 function filteredCommands() {
@@ -594,6 +620,33 @@ function field(labelText, placeholder, value) {
     return { wrap: wrap, input: input };
 }
 
+/** A multi-line field (pasted keys, requests, signatures). */
+function textArea(labelText, placeholder) {
+    const wrap = el("div", "field");
+    wrap.appendChild(el("label", null, labelText));
+    const input = el("textarea");
+    input.rows = 3;
+    input.spellcheck = false;
+    input.placeholder = placeholder || "";
+    wrap.appendChild(input);
+    return { wrap: wrap, input: input };
+}
+
+/** A button that copies {@code text}; says so, or asks to copy by hand where the clipboard is off. */
+function copyButton(label, text, className) {
+    const btn = el("button", className || "seg-btn", label);
+    btn.type = "button";
+    btn.addEventListener("click", function () {
+        function done(msg) {
+            btn.textContent = msg;
+            setTimeout(function () { btn.textContent = label; }, 1500);
+        }
+        if (!navigator.clipboard) return done("Select and copy it");
+        navigator.clipboard.writeText(text).then(function () { done("Copied"); }, function () { done("Select and copy it"); });
+    });
+    return btn;
+}
+
 function errorBox() {
     const box = el("div", "form-error");
     box.style.display = "none";
@@ -615,6 +668,7 @@ function openDrawer(type, opts) {
     if (type === "send") return openSendDrawer();
     if (type === "mempool") return openMempoolDrawer();
     if (type === "wallet") return openWalletDrawer();
+    if (type === "member") return openMemberDrawer();
     if (type === "deploy" || type === "multisig") return openDeployDrawer((opts && opts.deployType) || (type === "multisig" ? "multi" : "hash"));
 }
 
@@ -793,34 +847,77 @@ function openWalletDrawer() {
 
 function openDeployDrawer(deployType) {
     let type = deployType || "hash";
+    let members = "local";               // multisig (Sprint 23b): "local" = 3 new keys here, "paste" = members' public keys
     drawerShell("Deploy contract", function (drawer) {
         if (!state.activeAddress) {
             drawer.appendChild(el("p", "note", "Create or select a wallet first — it funds the contract."));
             return;
         }
         const form = el("div", "drawer-form");
+        const err = errorBox();
 
         const typeField = el("div", "field");
         typeField.appendChild(el("label", null, "Contract type"));
         const seg = el("div", "segmented");
         const hashBtn = el("button", "seg-btn", "Hashlock");
-        const multiBtn = el("button", "seg-btn", "Multisig 2-of-3");
+        const multiBtn = el("button", "seg-btn", "Multisig");
         hashBtn.type = "button"; multiBtn.type = "button";
-        function syncSeg() {
-            hashBtn.classList.toggle("active", type === "hash");
-            multiBtn.classList.toggle("active", type === "multi");
-        }
-        hashBtn.addEventListener("click", function () { type = "hash"; syncSeg(); });
-        multiBtn.addEventListener("click", function () { type = "multi"; syncSeg(); });
-        syncSeg();
+        hashBtn.addEventListener("click", function () { type = "hash"; sync(); });
+        multiBtn.addEventListener("click", function () { type = "multi"; sync(); });
         seg.appendChild(hashBtn); seg.appendChild(multiBtn);
         typeField.appendChild(seg);
 
+        // Who the members are: keys made here, or other people's public keys.
+        const multiBox = el("div", "drawer-form");
+        const memberSeg = el("div", "segmented");
+        const localBtn = el("button", "seg-btn", "3 new keys here (2-of-3)");
+        const pasteBtn = el("button", "seg-btn", "Members' public keys");
+        localBtn.type = "button"; pasteBtn.type = "button";
+        localBtn.addEventListener("click", function () { members = "local"; sync(); });
+        pasteBtn.addEventListener("click", function () { members = "paste"; sync(); });
+        memberSeg.appendChild(localBtn); memberSeg.appendChild(pasteBtn);
+        multiBox.appendChild(memberSeg);
+
+        const pasteBox = el("div", "drawer-form");
+        const keysField = textArea("Member public keys (hex, one per line)", "3059301306072a8648ce3d0201…");
+        keysField.input.rows = 5;
+        const addKey = el("button", "seg-btn", "+ New member key in this browser");
+        addKey.type = "button";
+        addKey.addEventListener("click", function () {
+            err.hide();
+            createBrowserWallet("multisig member key").then(function (address) {
+                const current = keysField.input.value.trim();
+                keysField.input.value = (current ? current + "\n" : "") + loadKeys()[address].publicKey;
+            }).catch(function (e) { err.show(e.message); });
+        });
+        const threshold = field("Signatures needed (M)", "2", "2");
+        pasteBox.appendChild(keysField.wrap);
+        pasteBox.appendChild(addKey);
+        pasteBox.appendChild(threshold.wrap);
+        multiBox.appendChild(pasteBox);
+
         const amount = field("Locked amount (BSC)", "0.00");
-        const note = el("p", "note", "Hashlock: the node reveals a secret you use to claim. Multisig: a 2-of-3 wallet is created and the node signs claims for you.");
-        const err = errorBox();
+        const note = el("p", "note");
+
+        function sync() {
+            hashBtn.classList.toggle("active", type === "hash");
+            multiBtn.classList.toggle("active", type === "multi");
+            localBtn.classList.toggle("active", members === "local");
+            pasteBtn.classList.toggle("active", members === "paste");
+            multiBox.style.display = type === "multi" ? "" : "none";
+            pasteBox.style.display = members === "paste" ? "" : "none";
+            note.textContent = type === "hash"
+                ? "Hashlock: the node reveals a secret you use to claim."
+                : members === "local"
+                    ? "Three member keys are made in this browser and a 2-of-3 wallet locks the amount. A claim needs two "
+                        + "member signatures; here you hold all three, which shows the mechanics but shares no control."
+                    : "Each member makes a key on their own device (Multisig member) and sends you its PUBLIC key. "
+                        + "The node gets public keys only; a claim needs M of the members' signatures.";
+        }
+        sync();
 
         form.appendChild(typeField);
+        form.appendChild(multiBox);
         form.appendChild(amount.wrap);
         form.appendChild(note);
         form.appendChild(err.node);
@@ -828,8 +925,13 @@ function openDeployDrawer(deployType) {
             const a = Number(amount.input.value);
             if (!a || a <= 0) return err.show("Enter an amount to lock.");
             err.hide();
-            if (type === "multi") deployMultisig(a, err);
-            else deployHashlock(a, err);
+            if (type === "hash") return deployHashlock(a, err);
+            if (members === "local") return deployMultisig(a, err, null, 2);
+            const keys = keysField.input.value.split(/[\s,]+/).filter(Boolean);
+            const m = Number(threshold.input.value);
+            if (!keys.length) return err.show("Paste the members' public keys, one per line.");
+            if (!(Number.isInteger(m) && m >= 1 && m <= keys.length)) return err.show("M must be between 1 and the number of members.");
+            deployMultisig(a, err, keys, m);
         }));
         drawer.appendChild(form);
         setTimeout(function () { amount.input.focus(); }, 30);
@@ -854,23 +956,57 @@ async function deployHashlock(amount, err) {
     } catch (e) { err.show(e.message); }
 }
 
-async function deployMultisig(amount, err) {
+/**
+ * Deploys a multisig (Sprint 23b). memberKeys null = make three member keys
+ * here (2-of-3); otherwise the members' public keys. The node only ever
+ * sees public keys: it turns them into the locking script.
+ */
+async function deployMultisig(amount, err, memberKeys, threshold) {
+    const made = [];
+    let submitted = false;
     try {
-        const wallet = await postJson("/api/multisig/create", { members: 3, threshold: 2 });
+        let keys = memberKeys;
+        if (!keys) {
+            for (let i = 1; i <= 3; i++) made.push(await createBrowserWallet("multisig member " + i + " of 3"));
+            keys = made.map(function (address) { return loadKeys()[address].publicKey; });
+        }
+        const wallet = await postJson("/api/multisig/create", { memberPublicKeys: keys, threshold: threshold });
         const contract = await postJson("/api/contracts/prepare", {
             funder: state.activeAddress,
             amount: amount,
             lockingScript: wallet.lockingScript
         });
         await signAndSubmit(contract, state.activeAddress);          // the funder signs the deploy
+        submitted = true;
+
+        const name = wallet.threshold + "-of-" + wallet.memberCount;
+        let held = 0;
+        wallet.memberPublicKeys.forEach(function (pk, i) {
+            const local = keyForPublicKey(pk);
+            if (!local) return;
+            held++;
+            if ((local.entry.label || "").indexOf(" · ") === -1) {   // not yet tied to a contract
+                labelKey(local.address, "member " + (i + 1) + " of " + name + " · " + shortHash(contract.contractId));
+            }
+        });
         closeOverlay();
-        toast("Multisig 2-of-3 deployed · " + shortHash(contract.contractId));
+        toast("Multisig " + name + " deployed · " + shortHash(contract.contractId));
+        pushFeed("dot-amber", "Multisig " + name, held + " member key" + (held === 1 ? "" : "s") + " here → " + shortHash(contract.contractId));
+        renderFeed();
         refresh();
-    } catch (e) { err.show(e.message); }
+    } catch (e) {
+        if (!submitted && made.length) {                // keys for a wallet that never came to be
+            const keys = loadKeys();
+            made.forEach(function (address) { delete keys[address]; });
+            saveKeys(keys);
+        }
+        err.show(e.message);
+    }
 }
 
 function openClaimDrawer(contract) {
     const t = contractType(contract.lockingScript);
+    if (t.kind === "multi") return openMultisigClaimDrawer(contract, t);
     drawerShell("Claim contract", function (drawer) {
         const form = el("div", "drawer-form");
         const readout = el("div", "readout");
@@ -885,8 +1021,6 @@ function openClaimDrawer(contract) {
         if (t.kind === "hash") {
             secret = field("Secret (preimage)", "the hashlock secret");
             form.appendChild(secret.wrap);
-        } else if (t.kind === "multi") {
-            form.appendChild(el("p", "note", "The node signs with the member keys it holds for this wallet (educational convenience)."));
         }
 
         const err = errorBox();
@@ -894,24 +1028,227 @@ function openClaimDrawer(contract) {
         form.appendChild(submitButton("Claim contract", function () {
             const who = claimer.input.value.trim();
             if (!who) return err.show("Enter a claimer address.");
-            if (t.kind === "hash") {
-                const s = secret.input.value.trim();
-                if (!s) return err.show("Enter the hashlock secret.");
-                runDrawer(err, function () {
-                    return postJson("/api/contracts/" + encodeURIComponent(contract.contractId) + "/claim", {
-                        claimer: who, unlockingScript: "PUSH " + s
-                    }).then(function () { return "Claim submitted (mine to settle)"; });
-                });
-            } else if (t.kind === "multi") {
-                runDrawer(err, function () {
-                    return postJson("/api/multisig/claim", { contractId: contract.contractId, claimer: who })
-                        .then(function () { return "Multisig claim submitted (mine to settle)"; });
-                });
-            } else {
-                err.show("This contract type can't be claimed from the dashboard.");
-            }
+            if (t.kind !== "hash") return err.show("This contract type can't be claimed from the dashboard.");
+            const s = secret.input.value.trim();
+            if (!s) return err.show("Enter the hashlock secret.");
+            runDrawer(err, function () {
+                return postJson("/api/contracts/" + encodeURIComponent(contract.contractId) + "/claim", {
+                    claimer: who, unlockingScript: "PUSH " + s
+                }).then(function () { return "Claim submitted (mine to settle)"; });
+            });
         }));
         drawer.appendChild(form);
+    });
+}
+
+/**
+ * Multisig claim (Sprint 23b): prepare -> sign with the member keys held
+ * here -> paste the other members' signatures -> submit when M are in.
+ * The message names the claimer, so a new claimer starts over.
+ */
+function openMultisigClaimDrawer(contract, t) {
+    drawerShell("Claim multisig", function (drawer) {
+        const form = el("div", "drawer-form");
+        const readout = el("div", "readout");
+        readout.appendChild(el("div", "readout-label", t.label + " · " + contract.amount + " BSC"));
+        readout.appendChild(el("div", "readout-value", contract.contractId));
+        form.appendChild(readout);
+
+        const claimer = field("Claimer address", "0x…", state.activeAddress || "");
+        form.appendChild(claimer.wrap);
+        const box = el("div", "drawer-form ms-claim");
+        const err = errorBox();
+        let claim = null;        // the prepared claim: {claimer, amount, message, threshold, memberPublicKeys}
+        let sigs = {};           // member position -> {publicKey, signature}
+
+        const button = submitButton("Prepare & sign", function () {
+            if (!claim) return prepare();
+            const list = Object.keys(sigs).map(function (i) { return sigs[i]; });
+            if (list.length < claim.threshold) return err.show("Need " + claim.threshold + " member signatures, have " + list.length + ".");
+            runDrawer(err, function () {
+                return postJson("/api/multisig/claim", { contractId: contract.contractId, claimer: claim.claimer, signatures: list })
+                    .then(function () { return "Multisig claim submitted (mine to settle)"; });
+            });
+        });
+        claimer.input.addEventListener("input", function () {
+            if (!claim) return;
+            claim = null; sigs = {};
+            box.replaceChildren();
+            button.textContent = "Prepare & sign";
+        });
+
+        async function prepare() {
+            const who = claimer.input.value.trim();
+            if (!who) return err.show("Enter a claimer address.");
+            err.hide();
+            try {
+                const p = await postJson("/api/multisig/claim/prepare", { contractId: contract.contractId, claimer: who });
+                const fresh = {};
+                let signed = 0;
+                for (let i = 0; i < p.memberPublicKeys.length && signed < p.threshold; i++) {
+                    const local = keyForPublicKey(p.memberPublicKeys[i]);
+                    if (!local) continue;
+                    fresh[i] = await signText(local.address, p.message);      // signed here, key stays here
+                    signed++;
+                }
+                if (claimer.input.value.trim() !== who) return;               // changed meanwhile: stale
+                claim = p; sigs = fresh;
+                render();
+            } catch (e) { err.show(e.message); }
+        }
+
+        function addPasted(text) {
+            let s;
+            try { s = JSON.parse(text); } catch (e) { throw new Error("Paste the signature JSON the member copied"); }
+            if (!s || !s.publicKey || !s.signature) throw new Error("Expected {publicKey, signature}");
+            if (s.contractId && s.contractId !== contract.contractId) throw new Error("That signature is for another contract");
+            if (s.claimer && s.claimer !== claim.claimer) {
+                throw new Error("That signature pays " + shortHash(s.claimer) + ", not " + shortHash(claim.claimer));
+            }
+            const i = claim.memberPublicKeys.indexOf(String(s.publicKey).trim().toLowerCase());
+            if (i < 0) throw new Error("Key " + keyTail(s.publicKey) + " is not a member of this multisig");
+            if (sigs[i]) throw new Error("Member " + (i + 1) + " has signed already");
+            sigs[i] = { publicKey: claim.memberPublicKeys[i], signature: String(s.signature).trim() };
+        }
+
+        function render() {
+            box.replaceChildren();
+            const have = Object.keys(sigs).length;
+            const head = el("div", "readout");
+            head.appendChild(el("div", "readout-label", "Pays " + claim.amount + " BSC to " + shortHash(claim.claimer)
+                + " · needs " + claim.threshold + " of " + claim.memberPublicKeys.length));
+            head.appendChild(el("div", "readout-value ms-count", have + " of " + claim.threshold + " signatures"));
+            box.appendChild(head);
+
+            const list = el("div", "mp-list");
+            claim.memberPublicKeys.forEach(function (pk, i) {
+                const here = !!keyForPublicKey(pk);
+                const row = el("div", "mp-row");
+                const main = el("div", "mp-main");
+                main.appendChild(el("div", "mp-title", "Member " + (i + 1)));
+                main.appendChild(el("div", "mp-meta", "key " + keyTail(pk)));
+                row.appendChild(main);
+                const status = sigs[i] ? (here ? "signed here" : "signature pasted") : (here ? "key here" : "key elsewhere");
+                row.appendChild(el("span", "ms-status" + (sigs[i] ? " ok" : ""), status));
+                list.appendChild(row);
+            });
+            box.appendChild(list);
+
+            if (have < claim.threshold) {
+                box.appendChild(el("p", "note", "Send this request to the other members: they open Multisig member in their own "
+                    + "browser, check what it pays, sign, and send you the signature to paste below."));
+                const request = JSON.stringify({ contractId: contract.contractId, claimer: claim.claimer, message: claim.message });
+                const rq = el("div", "readout");
+                rq.appendChild(el("div", "readout-label", "Claim request"));
+                rq.appendChild(el("div", "readout-value export-key ms-request", request));
+                box.appendChild(rq);
+                box.appendChild(copyButton("Copy the request", request));
+                const paste = textArea("A member's signature", "{\"publicKey\": …, \"signature\": …}");
+                box.appendChild(paste.wrap);
+                const add = el("button", "seg-btn", "Add signature");
+                add.type = "button";
+                add.addEventListener("click", function () {
+                    try { addPasted(paste.input.value.trim()); err.hide(); render(); } catch (e) { err.show(e.message); }
+                });
+                box.appendChild(add);
+            }
+            button.textContent = have >= claim.threshold ? "Submit claim" : "Submit claim (" + have + " of " + claim.threshold + ")";
+        }
+
+        form.appendChild(box);
+        form.appendChild(err.node);
+        form.appendChild(button);
+        drawer.appendChild(form);
+    });
+}
+
+/**
+ * Multisig member (Sprint 23b): what a member does on their own device.
+ * Make a member key and hand out its PUBLIC key; sign a claim request
+ * after asking our node what it pays (a member never signs a hash blind).
+ */
+function openMemberDrawer() {
+    drawerShell("Multisig member", function (drawer) {
+        const form = el("div", "drawer-form");
+        const err = errorBox();
+        form.appendChild(el("p", "note", "A member key locks a shared multisig. Give its public key to whoever deploys the "
+            + "wallet. When a claim needs you, paste the request, check what it pays, and send back your signature."));
+
+        const keys = loadKeys();
+        const addresses = Object.keys(keys);
+        form.appendChild(el("div", "readout-label", "Keys in this browser"));
+        const list = el("div", "mp-list");
+        if (!addresses.length) list.appendChild(el("div", "feed-empty", "No keys here yet"));
+        addresses.forEach(function (address) {
+            const entry = keys[address];
+            const row = el("div", "mp-row");
+            const main = el("div", "mp-main");
+            main.appendChild(el("div", "mp-title", entry.label || "wallet " + shortHash(address)));
+            main.appendChild(el("div", "mp-meta", "public key " + keyTail(entry.publicKey)));
+            row.appendChild(main);
+            row.appendChild(copyButton("Copy public key", entry.publicKey, "mp-bump"));
+            list.appendChild(row);
+        });
+        form.appendChild(list);
+        const newKey = el("button", "seg-btn", "New member key");
+        newKey.type = "button";
+        newKey.addEventListener("click", function () {
+            createBrowserWallet("multisig member key").then(function () {
+                openMemberDrawer();                       // before the toast: redrawing clears the overlay
+                toast("Member key created · copy its public key for the deployer");
+            }).catch(function (e) { err.show(e.message); });
+        });
+        form.appendChild(newKey);
+
+        const req = textArea("Claim request (from the claimer)", "{\"contractId\": …, \"claimer\": …, \"message\": …}");
+        form.appendChild(req.wrap);
+        const check = el("button", "seg-btn", "Check the request");
+        check.type = "button";
+        const out = el("div", "drawer-form ms-sign");
+        check.addEventListener("click", function () {
+            err.hide();
+            out.replaceChildren();
+            checkRequest(req.input.value.trim()).catch(function (e) { err.show(e.message); });
+        });
+        form.appendChild(check);
+        form.appendChild(err.node);
+        form.appendChild(out);
+        drawer.appendChild(form);
+
+        async function checkRequest(text) {
+            let r;
+            try { r = JSON.parse(text); } catch (e) { throw new Error("Paste the claim request JSON"); }
+            if (!r || !r.contractId || !r.claimer || !r.message) throw new Error("Expected {contractId, claimer, message}");
+            // Ask our own node what this claim is; sign only if the message is exactly that.
+            const p = await postJson("/api/multisig/claim/prepare", { contractId: r.contractId, claimer: r.claimer });
+            if (p.message !== r.message) throw new Error("The message does not match this claim on our node: do not sign it");
+            const what = el("div", "readout");
+            what.appendChild(el("div", "readout-label", "You would let " + p.threshold + " of " + p.memberPublicKeys.length
+                + " members pay " + p.amount + " BSC from contract " + shortHash(p.contractId) + " to"));
+            what.appendChild(el("div", "readout-value", p.claimer));
+            out.appendChild(what);
+            let mine = 0;
+            p.memberPublicKeys.forEach(function (pk, i) {
+                const local = keyForPublicKey(pk);
+                if (!local) return;
+                mine++;
+                const sign = el("button", "drawer-submit", "Sign as member " + (i + 1));
+                sign.type = "button";
+                sign.addEventListener("click", function () {
+                    err.hide();
+                    signText(local.address, p.message).then(function (s) {
+                        const blob = JSON.stringify({ contractId: p.contractId, claimer: p.claimer, publicKey: s.publicKey, signature: s.signature });
+                        const res = el("div", "readout");
+                        res.appendChild(el("div", "readout-label", "Member " + (i + 1) + "'s signature: send it to the claimer"));
+                        res.appendChild(el("div", "readout-value export-key ms-signature", blob));
+                        sign.replaceWith(res);
+                        res.after(copyButton("Copy the signature", blob));
+                    }).catch(function (e) { err.show(e.message); });
+                });
+                out.appendChild(sign);
+            });
+            if (!mine) throw new Error("This browser holds none of that multisig's member keys");
+        }
     });
 }
 
@@ -951,7 +1288,7 @@ const TOUR = [
     { sel: "chain", title: "The chain", body: "A live view of the block chain. “Mine block” sequences the pending transactions into a new block." },
     { sel: "feed", title: "Activity feed", body: "Events as they happen: blocks mined, transactions submitted, contracts deployed, and peers joining." },
     { sel: "actions", title: "Quick actions", body: "Send a transaction, create a wallet (its key stays in this browser), or deploy a contract — each opens a side panel; anything you spend is signed here." },
-    { sel: "side", title: "Balance & contracts", body: "Your active-wallet balance and the open contracts (2-of-3 multisig / hashlock). Click a contract to claim it." },
+    { sel: "side", title: "Balance & contracts", body: "Your active-wallet balance and the open contracts (multisig / hashlock). Click a contract to claim it: a multisig needs its members' signatures." },
 ];
 
 const tour = { active: false, step: 0, remember: true, root: null, refs: null };

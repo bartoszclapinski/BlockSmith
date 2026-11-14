@@ -5,6 +5,7 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.util.List;
+import java.util.Set;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -72,6 +73,11 @@ class ApiMultiSigTest {
         return JsonParser.parseString(client.send(HttpRequest.newBuilder()
                 .uri(URI.create("http://localhost:" + apiPort + path)).GET().build(),
                 HttpResponse.BodyHandlers.ofString()).body()).getAsJsonObject();
+    }
+
+    private String text(String path) throws Exception {
+        return client.send(HttpRequest.newBuilder().uri(URI.create("http://localhost:" + apiPort + path)).GET().build(),
+                HttpResponse.BodyHandlers.ofString()).body();
     }
 
     private static JsonObject json(HttpResponse<String> res) {
@@ -201,6 +207,48 @@ class ApiMultiSigTest {
         assertEquals(201, claim(contractId, CLAIMER, msg, members[0], members[1]).statusCode());
         post("/api/mine", "{\"minerAddress\":\"miner\"}");
         assertEquals(20.0, get("/api/wallet/" + CLAIMER).get("balance").getAsDouble(), 1e-9);
+    }
+
+    @Test
+    @DisplayName("Dashboard deploy: create from browser keys returns the script and nothing secret; same keys, same wallet")
+    void dashboardMultisig_createFromKeys_returnsScriptOnly() throws Exception {
+        String body = "{\"memberPublicKeys\":" + keys(members) + ",\"threshold\":2}";
+        HttpResponse<String> first = post("/api/multisig/create", body);
+        assertEquals(201, first.statusCode(), first.body());
+        JsonObject w = json(first);
+        assertEquals(Set.of("address", "threshold", "memberCount", "memberPublicKeys", "lockingScript"), w.keySet());
+        assertFalse(first.body().toLowerCase().contains("private"), first.body());
+        for (Wallet m : members) assertTrue(w.get("lockingScript").getAsString().contains(m.getPublicKeyHex()));
+        assertEquals(first.body(), post("/api/multisig/create", body).body(), "A pure function of the keys: nothing kept");
+    }
+
+    @Test
+    @DisplayName("Dashboard claim: one member signs here, another's copied signature is pasted; the member's check matches")
+    void dashboardMultisig_claimWithPastedSignature() throws Exception {
+        String contractId = fundedTwoOfThree();
+        String msg = message(contractId, CLAIMER);
+        assertEquals(msg, message(contractId, CLAIMER), "The member's own prepare gives the same message to check against");
+
+        // member 1 signs in the claimer's browser; member 3 signs elsewhere and sends the blob the dashboard shows
+        String here = "{\"publicKey\":\"" + members[0].getPublicKeyHex() + "\",\"signature\":\"" + members[0].signData(msg) + "\"}";
+        String pasted = "{\"contractId\":\"" + contractId + "\",\"claimer\":\"" + CLAIMER + "\",\"publicKey\":\""
+                + members[2].getPublicKeyHex().toUpperCase() + "\",\"signature\":\"" + members[2].signData(msg) + "\"}";
+        HttpResponse<String> res = post("/api/multisig/claim", "{\"contractId\":\"" + contractId + "\",\"claimer\":\""
+                + CLAIMER + "\",\"signatures\":[" + pasted + "," + here + "]}");
+        assertEquals(201, res.statusCode(), res.body());
+        post("/api/mine", "{\"minerAddress\":\"miner\"}");
+        assertEquals(20.0, get("/api/wallet/" + CLAIMER).get("balance").getAsDouble(), 1e-9);
+    }
+
+    @Test
+    @DisplayName("The served dashboard sends member keys and signatures, not the old node-signs shortcut")
+    void dashboardScript_usesClientSideMultisig() throws Exception {
+        String js = text("/app.js");
+        assertTrue(js.contains("memberPublicKeys"), "Deploys from member public keys");
+        assertTrue(js.contains("/api/multisig/claim/prepare"), "Prepares the claim message");
+        assertTrue(js.contains("signatures: list"), "Submits the collected signatures");
+        assertFalse(js.contains("members: 3"), "The node no longer makes member keys");
+        assertTrue(text("/").contains("data-action=\"member\""), "The Multisig member tool is on the deck");
     }
 
     @Test
