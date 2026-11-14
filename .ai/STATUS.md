@@ -460,8 +460,11 @@ Design handoff (prototype + README) lives in `.ai/design/UIUX redesign project/`
    - Self-identification filtering in peer lists
    - Mempool request is sent on outbound connect only; inbound side does not
      yet pull the peer's mempool
-   - Browser keys live in `localStorage` (educational): no passphrase
-     encryption, no hardware wallet
+   - Browser keys are encrypted under a passphrase (Sprint 24), but a
+     script running while unlocked can still ask them to sign; no hardware
+     wallet. Plaintext keys from before Sprint 24 stay in the browser's
+     files after migration (LevelDB keeps them until compaction): a "move
+     funds to a new key" helper would close that
    - `nodeId` is random per start (not persisted with the chain)
    - Side branches are kept in memory only (re-learned from peers after a
      restart); no headers-first sync

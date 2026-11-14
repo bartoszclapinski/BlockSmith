@@ -407,11 +407,49 @@ confirm. The sequence does not have to be consecutive, so any subset of the memp
 | Authorisation rule | Always: a tx carrying a key must carry the sender's key. With `ChainParams.requireSignatures` (DEFAULT): every transfer must be signed. Exempt: coinbase, contract claims (their script decides). Checked in the mempool and the block rules |
 | Signed data | sender, recipient, amount, timestamp, fee (if any), sequence (if any), contract scripts (if any) |
 | Prepare / sign / submit | `POST .../prepare` returns `templateId` + exact `signatureData`; the owner signs it; `POST /api/transactions` {templateId, signature (hex DER), publicKey (hex X.509)}; templates bounded (1000), 5 min, used once |
-| Dashboard keys | Web Crypto ECDSA P-256 in the browser, `localStorage` keystore (`bs_keys`, export/import), r\|\|s -> DER before submit; `/api/wallet/create` is retired (410) |
+| Dashboard keys | Web Crypto ECDSA P-256 in the browser, encrypted `localStorage` keystore (`bs_keystore`, Sprint 24; see below), r\|\|s -> DER before submit; `/api/wallet/create` is retired (410) |
 
 **Rules**: the node never holds a user's private key; it builds the text, the owner signs. Tests of other
 rules run on `ChainParams.withoutSignatureRule()` through `TestChains`; `WebCryptoInteropTest` pins the
 browser and Java to the same addresses and signature encoding with vectors from a real browser.
+
+---
+
+## 🔑 Browser keystore (Sprint 24)
+
+```
+ passphrase --PBKDF2-HMAC-SHA256(600 000 rounds, 16-byte salt)--> AES-256 key      (never stored)
+ private JWK --AES-256-GCM(12-byte iv, additional data = address, 128-bit tag)--> ciphertext
+
+ bs_keystore = { version: 1,
+                 kdf:   { name: "PBKDF2", hash: "SHA-256", iterations: 600000, salt: <hex> },
+                 check: { iv, ciphertext }                       # "BlockSmith keystore v1", aad "check"
+                 keys:  { <address>: { publicKey, label?, iv, ciphertext } } }
+ backups:  {blocksmith: "keystore-backup", ...the same}  |  {blocksmith: "key-backup", version, kdf, address, publicKey, label?, iv, ciphertext}
+```
+
+| Piece | Role |
+|-------|------|
+| Locked | Only ciphertext + public data (address, public key, label) in storage: balances, read-only marker, member lists work |
+| Unlock | Passphrase -> key -> check value (wrong passphrase stops here) -> every key decrypted into a **non-extractable** `CryptoKey` in memory |
+| Lock | Button, 15 minutes without a click or key press, or a reload: memory cleared |
+| Signing | Every signature goes through `signText` (send, bump, deploys, multisig claim, member signing); locked -> the Unlock dialog, Cancel signs nothing |
+| Migration | Sprint 22-23 plaintext `bs_keys` -> encrypted on the first passphrase, then removed; nothing signs until then |
+| Backups | Encrypted as stored (no unlock needed to export); import checks every pair before storing any, re-encrypts under this keystore |
+| Change passphrase | Current one checked, every key re-encrypted under a new salt, one write (all or nothing) |
+
+**Threat model.** Protects the keys at rest: a copy of the browser profile, a backup, file-reading malware, someone at
+a locked dashboard. Does not protect against a malicious script while unlocked (it can ask the keys to sign, though
+not read them), a keylogger, or a weak passphrase (600 000 PBKDF2 rounds slow guessing; they do not stop it).
+
+**Old plaintext stays on disk.** Measured in 24c: a profile closed with Sprint 23 plaintext keys still had both keys
+in `Local Storage/leveldb/000003.log` after migration, and after one more open/close. Removing a localStorage entry
+writes a deletion marker; LevelDB drops the old record only when it compacts, which the page cannot trigger. If an
+old copy of the profile may exist, treat those keys as exposed: make new ones and move the funds.
+
+**Recovery without the dashboard** (what `KeystoreInteropTest` does with a backup from a real browser): PBKDF2WithHmacSHA256
+(passphrase, salt, iterations, 256 bits) -> AES/GCM/NoPadding with the 12-byte iv and the address (UTF-8) as additional
+data -> the private JWK; `d` (base64url) is the P-256 private scalar.
 
 ---
 

@@ -115,6 +115,26 @@ class DashboardKeystoreTest {
     }
 
     @Test
+    @DisplayName("Every signature in the dashboard goes through the keystore (send, bump, deploys, multisig)")
+    void dashboardScript_everySignatureGoesThroughTheKeystore() throws Exception {
+        String js = get("/app.js");
+        Matcher signs = Pattern.compile("crypto\\.subtle\\.sign\\(").matcher(js);
+        int count = 0;
+        while (signs.find()) {
+            count++;
+            String around = js.substring(Math.max(0, js.lastIndexOf("\nasync function ", signs.start())), signs.start());
+            assertTrue(around.startsWith("\nasync function signText(") || around.startsWith("\nasync function checkKeyPair("),
+                    "A raw signature outside signText / checkKeyPair's pair probe");
+        }
+        assertEquals(2, count, "signText signs; checkKeyPair only probes a key being imported");
+        assertTrue(functionBody(js, "signAndSubmit").contains("await signText(address, template.signatureData)"));
+        // the callers: send, bump, hashlock + multisig deploys, multisig claim, member signing
+        assertEquals(4, js.split("signAndSubmit\\(", -1).length - 2, "send, bump, two deploys");
+        assertEquals(2, js.split("await signText\\(local\\.address|signText\\(local\\.address", -1).length - 1,
+                "claim drawer + member drawer");
+    }
+
+    @Test
     @DisplayName("Change passphrase re-encrypts under a new salt in one write; import checks every key first")
     void dashboardScript_changePassphraseAtomic_importChecksFirst() throws Exception {
         String js = get("/app.js");
