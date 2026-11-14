@@ -998,6 +998,53 @@ public class Blockchain {
         attachOrphans();
     }
 
+    // ===== FORK-AWARE SYNC (Sprint 21c) =====
+
+    /** Most blocks sent in one reply to a locator request (Sprint 21c). */
+    public static final int MAX_BLOCKS_PER_REPLY = 500;
+
+    /**
+     * A BLOCK LOCATOR (Sprint 21c): hashes of our chain from the tip down,
+     * one by one for the last 10 blocks, then with doubling gaps, always
+     * ending at genesis. Sent to a peer that seems to be on another branch,
+     * it lets the peer find the most recent block we have in common with a
+     * short message, however long the chains are (Bitcoin's getblocks works
+     * the same way).
+     */
+    public synchronized List<String> getBlockLocator() {
+        List<String> locator = new ArrayList<>();
+        int step = 1;
+        for (int h = chain.size() - 1; h > 0; h -= step) {
+            locator.add(chain.get(h).getHash());
+            if (locator.size() >= 10) step *= 2;
+        }
+        locator.add(chain.get(0).getHash());
+        return locator;
+    }
+
+    /**
+     * Our blocks after the first locator hash that is on our chain: what a
+     * peer on another branch is missing (Sprint 21c). Nothing in common
+     * means "after genesis" (every node shares genesis). At most {@code max}.
+     */
+    public synchronized List<Block> getBlocksAfter(List<String> locator, int max) {
+        int from = 0;
+        for (String hash : locator) {
+            Integer h = heightByHash.get(hash);
+            if (h != null) {
+                from = h;
+                break;
+            }
+        }
+        int end = Math.min(chain.size(), from + 1 + max);
+        return List.copyOf(chain.subList(from + 1, end));
+    }
+
+    /** True if we hold this block, on our chain or on a side branch (Sprint 21c). */
+    public synchronized boolean isKnownBlock(String hash) {
+        return heightByHash.containsKey(hash) || sideBlocks.containsKey(hash);
+    }
+
     /** How many times this node switched to a branch with more work (Sprint 21b). */
     public synchronized int getReorgCount() {
         return reorgCount;

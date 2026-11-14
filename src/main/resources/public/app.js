@@ -220,6 +220,12 @@ function deriveFeed(next) {
         pushFeed("dot-green", "Dashboard connected", "node " + next.nodeId);
         return;
     }
+    // Chain reorganised (Sprint 21): a branch with more work won.
+    if (next.reorgs > prev.reorgs && next.lastReorg) {
+        const r = next.lastReorg;
+        pushFeed("dot-amber", "Chain reorganised", r.depth + " block(s) replaced from #" + (r.forkHeight + 1)
+            + " · " + r.transactionsBack + " tx back to mempool");
+    }
     // New tip block(s).
     if (next.tipIndex > prev.tipIndex) {
         pushFeed("dot-accent", "Block #" + next.tipIndex + " mined", shortHash(next.tipHash));
@@ -962,6 +968,7 @@ async function refresh() {
         tipIndex: tipIndex, tipHash: tipHash,
         pending: status.pendingTransactions,
         peers: status.connectedPeers,
+        reorgs: status.reorgs || 0, lastReorg: status.lastReorg || null,
         contracts: contracts, contractStatus: contractStatus,
     };
     deriveFeed(snapshot);

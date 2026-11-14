@@ -398,6 +398,24 @@ confirm. The sequence does not have to be consecutive, so any subset of the memp
 
 ---
 
+## 🔀 Fork choice (Sprint 21)
+
+| Piece | Role |
+|-------|------|
+| `Target.work(target)` | 2^256 / (target + 1): expected hashes per block; cumulative work per height kept next to the targets (derived, never stored), `getTotalWork()` |
+| Side branches | A block whose parent is known but which does not extend the tip is kept in `sideBlocks` (bounded, 200) after the cheap checks, if its fork point is within `MAX_REORG_DEPTH` (100) of the tip; orphans waiting on it follow it |
+| `tryReorg` | When a branch reaches our height: replay ours-up-to-fork + branch through `addBlock` on a fresh `Blockchain`; invalid -> branch forgotten from the bad block on; valid and strictly more work -> `adoptChain` (ties keep the first seen) |
+| `adoptChain` | Under the lock: chain-derived state from the candidate, undone blocks become side blocks, store rewritten + `truncateAbove`, mempool rebuilt (undone txs, then old pending, re-submitted); `ReorgEvent`, `getReorgCount()` |
+| Block locator | `getBlockLocator()`: tip, 10 one by one, then doubling gaps, genesis; `GET_BLOCKS` may carry it and the peer replies with `getBlocksAfter(locator, 500)`; `NEW_BLOCK` with an unknown parent triggers it |
+
+**Rules**: there is one validation path: a reorg can never apply a rule differently from normal block
+acceptance, because it IS normal block acceptance on a candidate chain. `addBlock` returns true when the
+block ends up on our chain through a reorg, so it is relayed like any accepted block. API: `totalWork`
+(decimal string), `sideBlocks`, `reorgs`, `lastReorg` in `/api/network/status`; dashboard feed shows
+"Chain reorganised".
+
+---
+
 ## 🧵 Threading (Sprint 20)
 
 | Thread(s) | Touches the chain via |
@@ -638,4 +656,4 @@ void methodName_scenario_expectedResult() { ... }
 
 ---
 
-*Last updated: 2026-11-14 (added threading section, Sprint 20)*
+*Last updated: 2026-11-14 (added fork choice section, Sprint 21)*

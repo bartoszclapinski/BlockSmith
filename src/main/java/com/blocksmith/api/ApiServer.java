@@ -644,6 +644,23 @@ public class ApiServer {
             Long avg = blockchain.getAverageBlockTimeMs();
             if (avg != null) m.put("averageBlockTimeMs", avg);
             m.put("pendingTransactions", blockchain.getPendingCount());
+            // Fork choice (Sprint 21c). Work is a 256-bit number: sent as a
+            // decimal string, since JavaScript numbers would round it.
+            m.put("totalWork", blockchain.getTotalWork().toString());
+            m.put("sideBlocks", blockchain.getSideBlockCount());
+            m.put("reorgs", blockchain.getReorgCount());
+            Blockchain.ReorgEvent r = blockchain.getLastReorg();
+            if (r != null) {
+                Map<String, Object> last = new LinkedHashMap<>();
+                last.put("depth", r.depth());
+                last.put("forkHeight", r.forkHeight());
+                last.put("oldTip", r.oldTip());
+                last.put("newTip", r.newTip());
+                last.put("newHeight", r.newHeight());
+                last.put("transactionsBack", r.transactionsBack());
+                last.put("timestamp", r.timestamp());
+                m.put("lastReorg", last);
+            }
             return null;
         });
         m.put("connectedPeers", node.getPeerManager().getConnectedPeers().size());
