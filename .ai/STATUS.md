@@ -9,7 +9,7 @@
 | Field | Value |
 |-------|-------|
 | **Phase** | 4 - Production Features - ✅ COMPLETE (all 4 phases done) |
-| **Current Sprint** | 20 (Thread Safety, hardening after the roadmap) - Complete |
+| **Current Sprint** | 21 (Fork Choice, hardening) - Planned |
 | **Current Milestone** | 20c Complete (Consistent API snapshots + two-node concurrency test) |
 | **Status** | Sprint 20 complete (20a-20c): Blockchain is a monitor, mining runs outside the lock, consistent API snapshots. Next: fork choice (found in 20c) |
 
@@ -59,7 +59,8 @@ Phase 4: Production Features  [███████████████] 10
 └── Sprint 19: Fee Market    ✅ COMPLETE (19a ✅, 19b ✅, 19c ✅, 19d ✅)
 
 Hardening (after the roadmap)
-└── Sprint 20: Thread Safety ✅ COMPLETE (20a ✅, 20b ✅, 20c ✅)
+├── Sprint 20: Thread Safety ✅ COMPLETE (20a ✅, 20b ✅, 20c ✅)
+└── Sprint 21: Fork Choice   📋 PLANNED (21a ⬜, 21b ⬜, 21c ⬜)
 ```
 
 ---
