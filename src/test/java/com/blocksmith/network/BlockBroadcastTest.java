@@ -1,5 +1,7 @@
 package com.blocksmith.network;
 
+import com.blocksmith.TestChains;
+
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.lang.reflect.Field;
@@ -67,7 +69,7 @@ class BlockBroadcastTest {
     @Test
     @DisplayName("NewBlockMessage round-trips through MessageParser")
     void newBlockMessage_roundTripsThroughParser() {
-        Block block = mineNextBlock(new Blockchain());
+        Block block = mineNextBlock(TestChains.unsigned());
         String json = new NewBlockMessage("node-1", block).toJson();
 
         Message parsed = MessageParser.parse(json);
@@ -80,7 +82,7 @@ class BlockBroadcastTest {
     @Test
     @DisplayName("NEW_BLOCK handler appends a valid block")
     void newBlockHandler_appendsValidBlock() throws Exception {
-        node = new Node(getNextPort());
+        node = new Node(getNextPort(), TestChains.unsigned());
         Block block = mineNextBlock(node.getBlockchain());
 
         getHandler(node, MessageType.NEW_BLOCK)
@@ -95,7 +97,7 @@ class BlockBroadcastTest {
     @Test
     @DisplayName("NEW_BLOCK handler ignores a duplicate block")
     void newBlockHandler_ignoresDuplicate() throws Exception {
-        node = new Node(getNextPort());
+        node = new Node(getNextPort(), TestChains.unsigned());
         Block block = mineNextBlock(node.getBlockchain());
         MessageHandler handler = getHandler(node, MessageType.NEW_BLOCK);
 
@@ -109,7 +111,7 @@ class BlockBroadcastTest {
     @Test
     @DisplayName("NEW_BLOCK handler rejects an invalid block")
     void newBlockHandler_rejectsInvalidBlock() throws Exception {
-        node = new Node(getNextPort());
+        node = new Node(getNextPort(), TestChains.unsigned());
         Block tip = node.getBlockchain().getLatestBlock();
         // Wrong previousHash and unmined: fails validation in addBlock.
         Block bad = new Block(tip.getIndex() + 1, "external", "not-the-tip-hash");

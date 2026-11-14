@@ -1,5 +1,7 @@
 package com.blocksmith.api;
 
+import com.blocksmith.TestChains;
+
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -42,7 +44,7 @@ class ApiIndexedQueryTest {
         int offset = counter++;
         apiPort = API_PORT_BASE + offset;
         store = H2ChainStore.openInMemory("api-query-" + UUID.randomUUID());
-        node = new Node(P2P_PORT_BASE + offset, new Blockchain(store));
+        node = new Node(P2P_PORT_BASE + offset, new Blockchain(store, TestChains.PARAMS));
         api = new ApiServer(node, apiPort);
         api.start();
     }

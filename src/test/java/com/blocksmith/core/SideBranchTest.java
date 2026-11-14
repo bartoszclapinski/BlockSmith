@@ -1,5 +1,7 @@
 package com.blocksmith.core;
 
+import com.blocksmith.TestChains;
+
 import java.math.BigInteger;
 import java.util.List;
 
@@ -24,7 +26,7 @@ class SideBranchTest {
     /** Easy PoW, no retarget: every block has the same target, so the same work. */
     private static final ChainParams EASY = new ChainParams(ONE_ZERO, 10_000, 1_000_000, 4,
             Target.MAX, ChainParams.DEFAULT_MAX_FUTURE_DRIFT_MS,
-            ChainParams.DEFAULT_MAX_BLOCK_BYTES, ChainParams.DEFAULT_MAX_BLOCK_TRANSACTIONS);
+            ChainParams.DEFAULT_MAX_BLOCK_BYTES, ChainParams.DEFAULT_MAX_BLOCK_TRANSACTIONS).withoutSignatureRule();
 
     private static Blockchain chain() {
         return new Blockchain(NoOpChainStore.INSTANCE, EASY);

@@ -1,5 +1,7 @@
 package com.blocksmith.core;
 
+import com.blocksmith.TestChains;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -19,7 +21,7 @@ class OrphanBlockTest {
 
     @BeforeEach
     void setUp() {
-        blockchain = new Blockchain();
+        blockchain = TestChains.unsigned();
     }
 
     /** Mines a well-formed block at the given index linking to parentHash. */

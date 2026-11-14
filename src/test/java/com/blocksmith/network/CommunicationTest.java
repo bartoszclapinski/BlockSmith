@@ -1,5 +1,7 @@
 package com.blocksmith.network;
 
+import com.blocksmith.TestChains;
+
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -53,7 +55,7 @@ class CommunicationTest {
         int port = getNextPort();
 
         // Start node
-        node = new Node(port);
+        node = new Node(port, TestChains.unsigned());
         node.start();
         Thread.sleep(100);
 
@@ -93,7 +95,7 @@ class CommunicationTest {
     void node_multiplePings_multiplesPongs() throws IOException, InterruptedException {
         int port = getNextPort();
 
-        node = new Node(port);
+        node = new Node(port, TestChains.unsigned());
         node.start();
         Thread.sleep(100);
 
@@ -140,7 +142,7 @@ class CommunicationTest {
     void node_customHandler_getsCalled() throws IOException, InterruptedException {
         int port = getNextPort();
 
-        node = new Node(port);
+        node = new Node(port, TestChains.unsigned());
 
         // Register custom handler for PONG (just for testing)
         CountDownLatch handlerLatch = new CountDownLatch(1);
@@ -176,7 +178,7 @@ class CommunicationTest {
     void node_unregisteredType_noCrash() throws IOException, InterruptedException {
         int port = getNextPort();
 
-        node = new Node(port);
+        node = new Node(port, TestChains.unsigned());
         node.start();
         Thread.sleep(100);
 
@@ -216,7 +218,7 @@ class CommunicationTest {
     void listener_peerDisconnects_onDisconnectCalled() throws IOException, InterruptedException {
         int port = getNextPort();
 
-        node = new Node(port);
+        node = new Node(port, TestChains.unsigned());
         node.start();
         Thread.sleep(100);
 
@@ -251,7 +253,7 @@ class CommunicationTest {
         int port = getNextPort();
 
         // Start node
-        node = new Node(port);
+        node = new Node(port, TestChains.unsigned());
         node.start();
         Thread.sleep(100);
 

@@ -1,5 +1,7 @@
 package com.blocksmith.network;
 
+import com.blocksmith.TestChains;
+
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -37,8 +39,8 @@ class NodeTest {
     @Test
     @DisplayName("Node should generate unique ID on creation")
     void node_creation_generatesUniqueId() {
-        Node node1 = new Node(getNextPort());
-        Node node2 = new Node(getNextPort());
+        Node node1 = new Node(getNextPort(), TestChains.unsigned());
+        Node node2 = new Node(getNextPort(), TestChains.unsigned());
         
         assertNotNull(node1.getNodeId(), "Node ID should not be null");
         assertNotNull(node2.getNodeId(), "Node ID should not be null");
@@ -49,7 +51,7 @@ class NodeTest {
     @Test
     @DisplayName("Node ID should have correct format")
     void nodeId_shouldHaveCorrectFormat() {
-        node = new Node(getNextPort());
+        node = new Node(getNextPort(), TestChains.unsigned());
         String nodeId = node.getNodeId();
         
         assertTrue(nodeId.startsWith(NetworkConfig.NODE_ID_PREFIX), 
@@ -62,7 +64,7 @@ class NodeTest {
     @DisplayName("Node should use specified port")
     void node_shouldUseSpecifiedPort() {
         int port = getNextPort();
-        node = new Node(port);
+        node = new Node(port, TestChains.unsigned());
         
         assertEquals(port, node.getPort(), "Node should use specified port");
     }
@@ -82,7 +84,7 @@ class NodeTest {
     @DisplayName("Node should start and listen on port")
     void node_start_shouldListenOnPort() throws IOException {
         int port = getNextPort();
-        node = new Node(port);
+        node = new Node(port, TestChains.unsigned());
         
         assertFalse(node.isRunning(), "Node should not be running before start");
         
@@ -95,7 +97,7 @@ class NodeTest {
     @DisplayName("Node should stop gracefully")
     void node_stop_shouldStopGracefully() throws IOException {
         int port = getNextPort();
-        node = new Node(port);
+        node = new Node(port, TestChains.unsigned());
         node.start();
         
         assertTrue(node.isRunning(), "Node should be running");
@@ -109,7 +111,7 @@ class NodeTest {
     @DisplayName("Starting already running node should throw exception")
     void node_startTwice_shouldThrowException() throws IOException {
         int port = getNextPort();
-        node = new Node(port);
+        node = new Node(port, TestChains.unsigned());
         node.start();
         
         assertThrows(IllegalStateException.class, () -> node.start(),
@@ -122,7 +124,7 @@ class NodeTest {
     @DisplayName("Node should accept incoming connection")
     void node_shouldAcceptConnection() throws IOException, InterruptedException {
         int port = getNextPort();
-        node = new Node(port);
+        node = new Node(port, TestChains.unsigned());
         node.start();
         
         // Give server time to start listening

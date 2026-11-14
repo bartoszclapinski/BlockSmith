@@ -1,5 +1,7 @@
 package com.blocksmith.core;
 
+import com.blocksmith.TestChains;
+
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -31,7 +33,7 @@ class BlockLimitsTest {
 
     private static ChainParams params(int maxBytes, int maxTxs) {
         return new ChainParams(Target.fromLeadingZeros(1), 10_000, 10, 4, Target.MAX,
-                ChainParams.DEFAULT_MAX_FUTURE_DRIFT_MS, maxBytes, maxTxs);
+                ChainParams.DEFAULT_MAX_FUTURE_DRIFT_MS, maxBytes, maxTxs).withoutSignatureRule();
     }
 
     private static Blockchain chain(ChainParams p) {

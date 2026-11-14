@@ -1,5 +1,7 @@
 package com.blocksmith.api;
 
+import com.blocksmith.TestChains;
+
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -49,7 +51,7 @@ class NodeConcurrencyTest {
      */
     private static final ChainParams FAST = new ChainParams(Target.fromLeadingZeros(1), 1, 5, 4,
             Target.MAX, ChainParams.DEFAULT_MAX_FUTURE_DRIFT_MS,
-            ChainParams.DEFAULT_MAX_BLOCK_BYTES, ChainParams.DEFAULT_MAX_BLOCK_TRANSACTIONS);
+            ChainParams.DEFAULT_MAX_BLOCK_BYTES, ChainParams.DEFAULT_MAX_BLOCK_TRANSACTIONS).withoutSignatureRule();
 
     private final List<Node> nodes = new ArrayList<>();
     private final List<ApiServer> apis = new ArrayList<>();

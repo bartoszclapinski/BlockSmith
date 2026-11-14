@@ -1,5 +1,7 @@
 package com.blocksmith.core;
 
+import com.blocksmith.TestChains;
+
 import java.nio.file.Path;
 import java.util.List;
 
@@ -34,7 +36,7 @@ class ReplaceByFeeTest {
 
     private static final ChainParams EASY = new ChainParams(Target.fromLeadingZeros(1), 10_000, 10, 4,
             Target.MAX, ChainParams.DEFAULT_MAX_FUTURE_DRIFT_MS,
-            ChainParams.DEFAULT_MAX_BLOCK_BYTES, ChainParams.DEFAULT_MAX_BLOCK_TRANSACTIONS);
+            ChainParams.DEFAULT_MAX_BLOCK_BYTES, ChainParams.DEFAULT_MAX_BLOCK_TRANSACTIONS).withoutSignatureRule();
 
     private static Blockchain chain() {
         return chain(MempoolPolicy.DEFAULT);

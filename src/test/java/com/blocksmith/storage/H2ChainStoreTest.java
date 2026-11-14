@@ -1,5 +1,7 @@
 package com.blocksmith.storage;
 
+import com.blocksmith.TestChains;
+
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -37,7 +39,7 @@ class H2ChainStoreTest {
     @BeforeEach
     void setUp() {
         store = H2ChainStore.openInMemory("store-" + UUID.randomUUID());
-        blockchain = new Blockchain();
+        blockchain = TestChains.unsigned();
     }
 
     @AfterEach

@@ -1,5 +1,7 @@
 package com.blocksmith.network;
 
+import com.blocksmith.TestChains;
+
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -91,7 +93,7 @@ class PeerDiscoveryTest {
     @Test
     @DisplayName("GET_PEERS handler responds with known peer addresses")
     void getPeersHandler_respondsWithKnownPeers() throws Exception {
-        node = new Node(getNextPort());
+        node = new Node(getNextPort(), TestChains.unsigned());
         node.getPeerManager().addPeer(connectedPeer("10.0.0.1", 8335, "node-a"));
         node.getPeerManager().addPeer(connectedPeer("10.0.0.2", 8335, "node-b"));
 
@@ -112,7 +114,7 @@ class PeerDiscoveryTest {
     @Test
     @DisplayName("PEERS handler records received addresses as DISCOVERED")
     void peersHandler_addsReceivedPeers() throws Exception {
-        node = new Node(getNextPort());
+        node = new Node(getNextPort(), TestChains.unsigned());
         PeersMessage incoming = new PeersMessage("sender",
                 List.of("10.0.0.5:8335", "10.0.0.6:8335"));
 
@@ -129,7 +131,7 @@ class PeerDiscoveryTest {
     @Test
     @DisplayName("PEERS handler skips malformed addresses")
     void peersHandler_skipsMalformedAddresses() throws Exception {
-        node = new Node(getNextPort());
+        node = new Node(getNextPort(), TestChains.unsigned());
         PeersMessage incoming = new PeersMessage("sender",
                 List.of("garbage", "10.0.0.7:8335", "noport:"));
 

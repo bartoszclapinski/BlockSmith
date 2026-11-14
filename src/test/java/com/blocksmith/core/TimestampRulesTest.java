@@ -30,7 +30,7 @@ class TimestampRulesTest {
     private static final BigInteger EASY = Target.fromLeadingZeros(1);
 
     /** 10 s blocks, retarget every 4, 4x clamp, 15 s future limit. */
-    private static final ChainParams PARAMS = new ChainParams(EASY, 10 * SEC, 4, 4, Target.MAX, 15 * SEC);
+    private static final ChainParams PARAMS = new ChainParams(EASY, 10 * SEC, 4, 4, Target.MAX, 15 * SEC).withoutSignatureRule();
 
     private static Clock clockAt(long millis) {
         return Clock.fixed(Instant.ofEpochMilli(millis), ZoneOffset.UTC);
@@ -111,7 +111,7 @@ class TimestampRulesTest {
                 "At most 1.75x easier");
 
         // Without the rule (a 10-year limit) the same trick hits the 4x clamp.
-        ChainParams lax = new ChainParams(EASY, 10 * SEC, 4, 4, Target.MAX, 3_650L * 24 * 3_600 * SEC);
+        ChainParams lax = new ChainParams(EASY, 10 * SEC, 4, 4, Target.MAX, 3_650L * 24 * 3_600 * SEC).withoutSignatureRule();
         Blockchain unprotected = chain(lax, NoOpChainStore.INSTANCE, NOW);
         add(unprotected, NOW - 20 * SEC);
         add(unprotected, NOW - 10 * SEC);

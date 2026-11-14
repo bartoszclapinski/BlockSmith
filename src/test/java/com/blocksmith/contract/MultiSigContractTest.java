@@ -1,5 +1,7 @@
 package com.blocksmith.contract;
 
+import com.blocksmith.TestChains;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -35,7 +37,7 @@ class MultiSigContractTest {
 
     @BeforeEach
     void setUp() {
-        blockchain = new Blockchain();
+        blockchain = TestChains.unsigned();
         // Fund the funder with a mining reward (50 BSC).
         blockchain.minePendingTransactions(FUNDER);
 
@@ -112,7 +114,7 @@ class MultiSigContractTest {
     @Test
     @DisplayName("External blocks build the same multisig state (network convergence)")
     void externalBlocks_buildSameMultisigState() {
-        Blockchain nodeB = new Blockchain();
+        Blockchain nodeB = TestChains.unsigned();
 
         String id = deployMultisig(2, 20);
         blockchain.claimContract(id, CLAIMER, signatures(id, CLAIMER, k1, k2));

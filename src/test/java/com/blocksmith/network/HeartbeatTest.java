@@ -1,5 +1,7 @@
 package com.blocksmith.network;
 
+import com.blocksmith.TestChains;
+
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -62,7 +64,7 @@ class HeartbeatTest {
     @Test
     @DisplayName("heartbeat evicts peer whose lastSeen exceeds PEER_TIMEOUT_MS")
     void heartbeat_evictsDeadPeer() throws Exception {
-        node = new Node(getNextPort());
+        node = new Node(getNextPort(), TestChains.unsigned());
         PeerInfo dead = connectedPeer("10.0.0.1", 9001, "node-dead");
         setLastSeen(dead, System.currentTimeMillis() - NetworkConfig.PEER_TIMEOUT_MS - 1000);
         node.getPeerManager().addPeer(dead);
@@ -76,7 +78,7 @@ class HeartbeatTest {
     @Test
     @DisplayName("heartbeat keeps peer seen within PEER_TIMEOUT_MS")
     void heartbeat_keepsLivePeer() throws Exception {
-        node = new Node(getNextPort());
+        node = new Node(getNextPort(), TestChains.unsigned());
         PeerInfo live = connectedPeer("10.0.0.2", 9002, "node-live");
         node.getPeerManager().addPeer(live);
 
@@ -89,7 +91,7 @@ class HeartbeatTest {
     @Test
     @DisplayName("heartbeat evicts only stale peers, keeps live ones")
     void heartbeat_evictsOnlyStalePeers() throws Exception {
-        node = new Node(getNextPort());
+        node = new Node(getNextPort(), TestChains.unsigned());
         PeerInfo dead = connectedPeer("10.0.0.3", 9003, "node-dead");
         setLastSeen(dead, System.currentTimeMillis() - NetworkConfig.PEER_TIMEOUT_MS - 1000);
         PeerInfo live = connectedPeer("10.0.0.4", 9004, "node-live");

@@ -83,6 +83,15 @@ public class Wallet {
      * We use simplified SHA-256 approach for educational purposes.      * 
      */
     private String generateAddress() {
+        return addressOf(publicKey);
+    }
+
+    /**
+     * The address of a public key (Sprint 22a: shared by wallets and by
+     * the node, which uses it to check that a signing key is the sender's):
+     * "0x" + the last 40 hex digits of SHA-256(hex of the X.509 encoding).
+     */
+    public static String addressOf(PublicKey publicKey) {
         byte[] publicKeyBytes = publicKey.getEncoded();
         String hash = HashUtil.applySha256(bytesToHex(publicKeyBytes));
 
@@ -95,7 +104,7 @@ public class Wallet {
     /**
      * Helper method to convert byte array to hexadecimal string.
      */
-    private String bytesToHex(byte[] bytes) {
+    private static String bytesToHex(byte[] bytes) {
         StringBuilder hexString = new StringBuilder();
         for (byte b : bytes) {
             String hex = Integer.toHexString(0xff & b);

@@ -1,5 +1,7 @@
 package com.blocksmith.core;
 
+import com.blocksmith.TestChains;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -29,7 +31,7 @@ class FeeTest {
 
     private static ChainParams params(int maxTxs) {
         return new ChainParams(Target.fromLeadingZeros(1), 10_000, 10, 4, Target.MAX,
-                ChainParams.DEFAULT_MAX_FUTURE_DRIFT_MS, ChainParams.DEFAULT_MAX_BLOCK_BYTES, maxTxs);
+                ChainParams.DEFAULT_MAX_FUTURE_DRIFT_MS, ChainParams.DEFAULT_MAX_BLOCK_BYTES, maxTxs).withoutSignatureRule();
     }
 
     private static Blockchain chain(int maxTxs) {

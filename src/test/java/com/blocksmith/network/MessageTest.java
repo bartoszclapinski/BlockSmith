@@ -1,5 +1,7 @@
 package com.blocksmith.network;
 
+import com.blocksmith.TestChains;
+
 import com.blocksmith.core.Block;
 import com.blocksmith.core.Blockchain;
 import com.blocksmith.core.Transaction;
@@ -119,7 +121,7 @@ class MessageTest {
     @DisplayName("BLOCKS with a signed transaction round-trips")
     void blocksMessage_signedTransaction_roundTrips() {
         Wallet wallet = new Wallet();
-        Blockchain chain = new Blockchain();
+        Blockchain chain = TestChains.unsigned();
         chain.minePendingTransactions(wallet.getAddress());
         Transaction tx = new Transaction(wallet.getAddress(), "bob", 5);
         wallet.signTransaction(tx);

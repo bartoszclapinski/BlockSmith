@@ -1,5 +1,7 @@
 package com.blocksmith.core;
 
+import com.blocksmith.TestChains;
+
 import java.util.List;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -22,7 +24,7 @@ class MempoolPruneTest {
 
     @BeforeEach
     void setUp() {
-        blockchain = new Blockchain();
+        blockchain = TestChains.unsigned();
         // Fund "Miner1" so it can send spendable transactions.
         blockchain.minePendingTransactions("Miner1");
     }

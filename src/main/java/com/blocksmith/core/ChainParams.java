@@ -24,6 +24,8 @@ import com.blocksmith.util.Target;
  *                             may be (Sprint 17c)
  * @param maxBlockBytes        largest allowed block, in bytes of its JSON (Sprint 18b)
  * @param maxBlockTransactions most transactions per block, coinbase included (Sprint 18b)
+ * @param requireSignatures    every transfer must be signed by its sender (Sprint 22a);
+ *                             false only for tests of other rules ({@link #withoutSignatureRule()})
  *
  * THEORY: Choosing the future-time limit
  *
@@ -43,7 +45,8 @@ public record ChainParams(
         BigInteger powLimit,
         long maxFutureDriftMs,
         int maxBlockBytes,
-        int maxBlockTransactions) {
+        int maxBlockTransactions,
+        boolean requireSignatures) {
 
     /** Default future-time limit: 1.5 target block times. */
     public static final long DEFAULT_MAX_FUTURE_DRIFT_MS = 15_000;
@@ -74,6 +77,25 @@ public record ChainParams(
             DEFAULT_MAX_BLOCK_TRANSACTIONS);
 
     /** Params with the default block limits (before Sprint 18b). */
+    /** All params except the signature rule, which is then ON (Sprint 22a): the safe default. */
+    public ChainParams(BigInteger initialTarget, long targetBlockTimeMs, int retargetInterval,
+                       int maxAdjustmentFactor, BigInteger powLimit, long maxFutureDriftMs,
+                       int maxBlockBytes, int maxBlockTransactions) {
+        this(initialTarget, targetBlockTimeMs, retargetInterval, maxAdjustmentFactor, powLimit,
+                maxFutureDriftMs, maxBlockBytes, maxBlockTransactions, true);
+    }
+
+    /**
+     * The same network without the signature rule (Sprint 22a): any sender
+     * may be spent from unsigned. ONLY for tests of other rules (fees,
+     * limits, difficulty...), which then do not need a key per address;
+     * Bitcoin's "regtest" plays a similar role. Never for a real node.
+     */
+    public ChainParams withoutSignatureRule() {
+        return new ChainParams(initialTarget, targetBlockTimeMs, retargetInterval, maxAdjustmentFactor,
+                powLimit, maxFutureDriftMs, maxBlockBytes, maxBlockTransactions, false);
+    }
+
     public ChainParams(BigInteger initialTarget, long targetBlockTimeMs, int retargetInterval,
                        int maxAdjustmentFactor, BigInteger powLimit, long maxFutureDriftMs) {
         this(initialTarget, targetBlockTimeMs, retargetInterval, maxAdjustmentFactor, powLimit,

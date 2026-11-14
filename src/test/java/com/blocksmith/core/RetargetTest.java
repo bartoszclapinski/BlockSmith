@@ -1,5 +1,7 @@
 package com.blocksmith.core;
 
+import com.blocksmith.TestChains;
+
 import java.math.BigInteger;
 import java.util.List;
 import java.util.UUID;
@@ -26,7 +28,7 @@ class RetargetTest {
 
     /** 4-block window, 1 s target, 4x clamp; powLimit chosen per test. */
     private static ChainParams params(BigInteger powLimit) {
-        return new ChainParams(EASY, 1_000, 4, 4, powLimit);
+        return new ChainParams(EASY, 1_000, 4, 4, powLimit).withoutSignatureRule();
     }
 
     private static Blockchain chain(ChainParams p) {
@@ -119,7 +121,7 @@ class RetargetTest {
     @Test
     @DisplayName("Default params: ten quick blocks make the next one harder")
     void defaultParams_fastMining_raisesDifficulty() {
-        Blockchain c = new Blockchain();
+        Blockchain c = TestChains.unsigned();
         BigInteger initial = c.getNextTarget();
         for (int i = 0; i < 10; i++) c.minePendingTransactions("miner");   // far faster than 10 s each
         assertTrue(c.getNextTarget().compareTo(initial) < 0, "Target shrank, mining got harder");

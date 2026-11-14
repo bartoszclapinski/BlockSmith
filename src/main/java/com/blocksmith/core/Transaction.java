@@ -218,6 +218,19 @@ public class Transaction {
      * 
      * @return true if transaction passes basic validation
      */
+    /**
+     * True if this transaction is signed by its SENDER (Sprint 22a): the
+     * signature verifies with the attached public key AND that key's
+     * address is the sender. The first half alone only proves "someone
+     * signed this"; the second makes it "the owner of the sender address
+     * signed this". Bitcoin's P2PKH does the same two steps:
+     * OP_HASH160 <address> OP_EQUALVERIFY, then OP_CHECKSIG.
+     */
+    public boolean isSignedBySender() {
+        return signature != null && senderPublicKey != null && verifySignature()
+                && Wallet.addressOf(senderPublicKey).equals(sender);
+    }
+
     public boolean isValid() {
         // Amount must be positive
         if (amount <= 0) return false;
@@ -294,6 +307,11 @@ public class Transaction {
         if (fee != 0) data += "|fee:" + fee;
         // Signed (Sprint 19b), so nobody can strip or change the sequence.
         if (sequence != null) data += "|seq:" + sequence;
+        // Contract scripts are signed too (Sprint 22a), exactly as they are
+        // part of the id (#264): otherwise a relay could swap the locking
+        // script of a signed deploy for its own and claim the funds.
+        if (lockingScript != null) data += "|lock:" + lockingScript.length() + ":" + lockingScript;
+        if (unlockingScript != null) data += "|unlock:" + unlockingScript.length() + ":" + unlockingScript;
         return data;
     }
 
