@@ -301,11 +301,13 @@ public class ApiServer {
      * here we simply never serialize it.
      */
     private void postWalletCreate(Context ctx) {
-        Wallet wallet = new Wallet();
-        Map<String, String> m = new LinkedHashMap<>();
-        m.put("address", wallet.getAddress());
-        ctx.status(201);
-        json(ctx, m);
+        // Retired (Sprint 22c): a key pair made on the node is not the
+        // user's key. It used to be thrown away, so the address could never
+        // spend. Wallets are created where their owner keeps the key (the
+        // dashboard: Web Crypto in the browser).
+        ctx.status(410);
+        json(ctx, error("Retired: create the key pair in your own wallet (the dashboard does it in the browser);"
+                + " the node never holds private keys"));
     }
 
     /** Lists the currently connected peers. */

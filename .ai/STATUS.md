@@ -430,8 +430,8 @@ Design handoff (prototype + README) lives in `.ai/design/UIUX redesign project/`
    - Self-identification filtering in peer lists
    - Mempool request is sent on outbound connect only; inbound side does not
      yet pull the peer's mempool
-   - API transactions are unsigned (educational); signature-carrying submission
-     would need public-key + signature fields in the request body
+   - Browser keys live in `localStorage` (educational): no passphrase
+     encryption, no hardware wallet
    - Multisig signing is a server-side convenience (the node holds the member
      keys and signs claims); a production design signs client-side and submits
      only signatures. Member keys live in memory only (lost on restart)

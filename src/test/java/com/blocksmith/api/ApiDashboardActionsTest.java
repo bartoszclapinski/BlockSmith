@@ -24,7 +24,9 @@ import static org.junit.jupiter.api.Assertions.*;
  * The browser UI is verified by running it; here we drive the SAME endpoint
  * chain the dashboard buttons hit - create wallet, mine, check balance, submit
  * a transaction, mine again - end to end, and confirm value moves as a user
- * would expect from the page. The individual endpoints already have focused
+ * would expect from the page. Since Sprint 22c the wallet's key lives with the
+ * client (a Java Wallet stands in for the browser's Web Crypto key) and every
+ * spend goes prepare -> sign -> submit, on a network that requires signatures. The individual endpoints already have focused
  * Sprint 12 tests; this checks they compose correctly for the UI flow.
  */
 @DisplayName("API Dashboard Actions Tests")
@@ -44,7 +46,8 @@ class ApiDashboardActionsTest {
     void setUp() {
         int offset = counter++;
         apiPort = API_PORT_BASE + offset;
-        node = new Node(P2P_PORT_BASE + offset, TestChains.unsigned());
+        node = new Node(P2P_PORT_BASE + offset, new com.blocksmith.core.Blockchain(
+                com.blocksmith.storage.NoOpChainStore.INSTANCE, com.blocksmith.core.ChainParams.DEFAULT));
         api = new ApiServer(node, apiPort);
         api.start();
     }
@@ -80,11 +83,9 @@ class ApiDashboardActionsTest {
     @Test
     @DisplayName("Dashboard action chain moves value end to end")
     void dashboardActionEndpoints_behaveAsExpected() throws Exception {
-        // Create wallet button -> POST /api/wallet/create.
-        HttpResponse<String> created = post("/api/wallet/create", "{}");
-        assertEquals(201, created.statusCode());
-        String miner = json(created).get("address").getAsString();
-        assertNotNull(miner);
+        // Create wallet button -> a key pair made by the client (Sprint 22c).
+        com.blocksmith.core.Wallet wallet = new com.blocksmith.core.Wallet();
+        String miner = wallet.getAddress();
 
         // Mine button -> POST /api/mine, giving the miner a coinbase reward.
         assertEquals(201, post("/api/mine", "{\"minerAddress\":\"" + miner + "\"}").statusCode());
@@ -94,12 +95,17 @@ class ApiDashboardActionsTest {
         assertEquals(MINING_REWARD, balance.get("balance").getAsDouble(), 0.0001,
                 "Miner should hold the coinbase reward after mining");
 
-        // Send transaction form -> POST /api/transactions (spend part of the reward).
+        // Send transaction form -> prepare, sign with the client's key, submit.
         String recipient = "recipient-address";
-        String txBody = "{\"sender\":\"" + miner + "\",\"recipient\":\""
-                + recipient + "\",\"amount\":10}";
-        HttpResponse<String> txRes = post("/api/transactions", txBody);
-        assertEquals(201, txRes.statusCode());
+        HttpResponse<String> prepared = post("/api/transactions/prepare", "{\"sender\":\"" + miner
+                + "\",\"recipient\":\"" + recipient + "\",\"amount\":10}");
+        assertEquals(201, prepared.statusCode());
+        JsonObject template = json(prepared);
+        HttpResponse<String> txRes = post("/api/transactions", "{\"templateId\":\""
+                + template.get("templateId").getAsString() + "\",\"signature\":\""
+                + wallet.signData(template.get("signatureData").getAsString()) + "\",\"publicKey\":\""
+                + wallet.getPublicKeyHex() + "\"}");
+        assertEquals(201, txRes.statusCode(), txRes.body());
         assertTrue(json(txRes).has("transactionId"), "Response should echo the transaction id");
 
         // The transaction is pending until mined.
