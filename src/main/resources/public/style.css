@@ -571,7 +571,9 @@ body {
     text-transform: uppercase;
     letter-spacing: .5px;
 }
-.field input {
+.field input,
+.field textarea,
+.field select {
     background: var(--bg);
     border: 1px solid var(--border);
     border-radius: 9px;
@@ -581,7 +583,9 @@ body {
     font-size: 13px;
     outline: none;
 }
-.field input:focus { border-color: var(--accent); }
+.field input:focus,
+.field textarea:focus { border-color: var(--accent); }
+.field textarea { resize: vertical; min-height: 64px; font-size: 12px; word-break: break-all; }
 .field-hint { font-size: 11px; color: var(--muted2); }
 .drawer p.note { margin: 0; font-size: 13px; line-height: 1.6; color: var(--text-mid); }
 .readout {
@@ -675,6 +679,10 @@ body {
 /* Browser wallet (Sprint 22c) */
 .export-key { font-size: 11px; font-weight: 500; color: var(--text-mid); }
 .mp-bump:disabled { opacity: .45; cursor: not-allowed; }
+
+/* Multisig signing (Sprint 23b) */
+.ms-status { flex: none; font: 600 11px var(--font-mono); color: var(--muted); }
+.ms-status.ok { color: var(--accent); }
 
 /* ===== Toast ===== */
 .toast {
