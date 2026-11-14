@@ -97,6 +97,16 @@ class ForkSyncTest {
                 HttpResponse.BodyHandlers.ofString());
     }
 
+    /** True if both chains share a tip within {@code ms}. */
+    private static boolean sameTip(Blockchain a, Blockchain b, long ms) throws InterruptedException {
+        long deadline = System.currentTimeMillis() + ms;
+        while (System.currentTimeMillis() < deadline) {
+            if (a.getLatestBlock().getHash().equals(b.getLatestBlock().getHash())) return true;
+            Thread.sleep(50);
+        }
+        return false;
+    }
+
     private static void waitFor(BooleanSupplier condition, String what) throws InterruptedException {
         long deadline = System.currentTimeMillis() + 20_000;
         while (!condition.getAsBoolean()) {
@@ -214,6 +224,12 @@ class ForkSyncTest {
             assertEquals(201, post(apiA, "/api/mine", "{\"minerAddress\":\"sweeper\"}").statusCode());
             Thread.sleep(200);
         } while (chainA.getPendingCount() > 0);
+        // A block of B's may still have been on its way when A swept: the two
+        // can end on equal work, and a tie keeps each node on what it saw
+        // first. As on a real network, the next block breaks it.
+        for (int extra = 0; extra < 10 && !sameTip(chainA, chainB, 2_000); extra++) {
+            assertEquals(201, post(apiA, "/api/mine", "{\"minerAddress\":\"sweeper\"}").statusCode());
+        }
         waitFor(() -> chainB.getLatestBlock().getHash().equals(chainA.getLatestBlock().getHash()), "B to reach A's tip");
         waitFor(() -> chainB.getPendingCount() == 0, "B's mempool to empty");
 
