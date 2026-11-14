@@ -236,25 +236,45 @@ public class Block {
      * @return Mining time in milliseconds
      */
     public long mineBlock(java.math.BigInteger target) {
+        long startTime = System.currentTimeMillis();
+        mineBlock(target, () -> false);
+        return System.currentTimeMillis() - startTime;
+    }
+
+    /** How many nonces are tried between two checks of the stop condition (Sprint 20b). */
+    public static final int STOP_CHECK_INTERVAL = 1_000;
+
+    /**
+     * Mines like {@link #mineBlock(java.math.BigInteger)}, but asks
+     * {@code stop} before starting and every {@value #STOP_CHECK_INTERVAL}
+     * nonces whether to give up (Sprint 20b), e.g. because a peer's block
+     * just made this one pointless: it would no longer extend the tip.
+     *
+     * @return true if a valid nonce was found, false if stopped first
+     */
+    public boolean mineBlock(java.math.BigInteger target, java.util.function.BooleanSupplier stop) {
         // Compare as 64-digit hex text: same order as the numbers, but no
         // BigInteger has to be built for every attempt.
         String targetHex = Target.toHex(target);
 
         long startTime = System.currentTimeMillis();
+        if (stop.getAsBoolean()) return false;
 
         // Keep incrementing nonce until we find a valid hash
+        long tries = 0;
         while (!Target.meetsHex(hash, targetHex)) {
+            if (++tries % STOP_CHECK_INTERVAL == 0 && stop.getAsBoolean()) {
+                System.out.println("Mining stopped after " + tries + " tries");
+                return false;
+            }
             nonce++;
             hash = calculateHash();
         }
 
-        long endTime = System.currentTimeMillis();
-        long miningTime = endTime - startTime;
-
+        long miningTime = System.currentTimeMillis() - startTime;
         System.out.println("Block mined! Nonce: " + nonce + " | Time: " + miningTime + "ms");
         System.out.println("Hash: " + hash);
-
-        return miningTime;
+        return true;
     }
 
     /**

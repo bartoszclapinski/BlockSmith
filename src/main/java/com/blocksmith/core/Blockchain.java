@@ -88,6 +88,16 @@ public class Blockchain {
     /** This node's mempool limits (Sprint 19a): policy, not consensus. */
     private final MempoolPolicy mempoolPolicy;
 
+    /** How often mining starts over when a peer's block makes its work stale (Sprint 20b). */
+    private static final int MAX_MINING_ATTEMPTS = 100;
+
+    /**
+     * Hash of the tip, readable WITHOUT the lock (volatile), so the nonce
+     * search, which runs outside it, can notice a new block (Sprint 20b).
+     * Written only under the lock, together with the chain.
+     */
+    private volatile String tipHash;
+
     /** Room left for the nonce to grow from "0" to 10 digits while mining (Sprint 18b). */
     private static final int NONCE_DIGITS_MARGIN = 9;
 
@@ -227,6 +237,7 @@ public class Blockchain {
         Block genesis = Block.createGenesisBlock();
         genesis.mineBlock(GENESIS_TARGET);
         chain.add(genesis);
+        tipHash = genesis.getHash();
         targets.add(params.initialTarget());
         store.saveBlock(genesis);
     }
@@ -506,6 +517,7 @@ public class Blockchain {
         BigInteger target = getNextTarget();
         store.saveBlock(block);
         chain.add(block);
+        tipHash = block.getHash();
         targets.add(target);
         for (Transaction tx : block.getTransactions()) {
             confirmedTxIds.add(tx.getTransactionId());
@@ -1275,7 +1287,66 @@ public class Blockchain {
      * @param minerAddress Address to receive mining reward
      * @return The newly mined block, or null if no transactions
      */
-    public synchronized Block minePendingTransactions(String minerAddress) {
+    public Block minePendingTransactions(String minerAddress) {
+        return minePendingTransactions(minerAddress, () -> false);
+    }
+
+    /**
+     * Mines like {@link #minePendingTransactions(String)}, but gives up and
+     * returns null as soon as {@code cancelled} says so (Sprint 20b), e.g.
+     * when the node shuts down.
+     *
+     * THEORY: Template, work, submit (Sprint 20b)
+     *
+     * The nonce search can take seconds and needs none of the chain's state:
+     * only the block being mined. So it runs WITHOUT the lock, and the API
+     * and the network keep working meanwhile. A real miner works the same
+     * way: it gets a block template from its node, hashes, and submits.
+     *
+     *   1. template (locked): tip, transactions, coinbase, target, timestamp
+     *   2. work (no lock):     the nonce search; it stops early if the tip
+     *                          moves (a peer's block arrived), because a
+     *                          block on the old tip could never be appended
+     *   3. submit (locked):    appended only if the tip is still the one the
+     *                          template was built on
+     *
+     * Stale work is thrown away and a new template is built, at most
+     * {@value #MAX_MINING_ATTEMPTS} times. Nothing is lost: the template
+     * never removed anything from the mempool except stale transactions.
+     *
+     * @return the appended block, or null if cancelled
+     */
+    public Block minePendingTransactions(String minerAddress, java.util.function.BooleanSupplier cancelled) {
+        for (int attempt = 1; attempt <= MAX_MINING_ATTEMPTS; attempt++) {
+            MiningTemplate template = buildMiningTemplate(minerAddress);
+            Block block = template.block();
+            String parent = template.parentHash();
+            System.out.println("\n⛏️  Mining block #" + block.getIndex() + " with "
+                    + block.getTransactions().size() + " transactions...");
+
+            boolean found = block.mineBlock(template.target(),
+                    () -> cancelled.getAsBoolean() || !parent.equals(tipHash));
+            if (found && submitMinedBlock(template)) {
+                System.out.println("✅ Block mined and added to chain!");
+                System.out.println("   Miner " + minerAddress + " received " + block.getTransactions().get(0).getAmount()
+                        + " " + BlockchainConfig.CURRENCY_SYMBOL + " (reward + fees)");
+                return block;
+            }
+            if (cancelled.getAsBoolean()) {
+                System.out.println("Mining of block #" + block.getIndex() + " cancelled");
+                return null;
+            }
+            System.out.println("Stale work: the chain moved on while mining block #" + block.getIndex()
+                    + ", building a new template (attempt " + attempt + ")");
+        }
+        throw new IllegalStateException("Could not mine: the tip moved " + MAX_MINING_ATTEMPTS + " times in a row");
+    }
+
+    /** What step 1 hands to step 2: the block to mine and what it was built on. */
+    private record MiningTemplate(Block block, BigInteger target, String parentHash) {}
+
+    /** Step 1 (locked): pick transactions and build the block to mine on the current tip. */
+    private synchronized MiningTemplate buildMiningTemplate(String minerAddress) {
         Block latestBlock = getLatestBlock();
         int newIndex = latestBlock.getIndex() + 1;
 
@@ -1328,26 +1399,28 @@ public class Blockchain {
         blockTransactions.add(rewardTx);
         blockTransactions.addAll(selected);
 
-        // Create and mine the new block
         Block newBlock = new Block(newIndex, blockTransactions, latestBlock.getHash(),
                 nextBlockTimestamp(newIndex));
+        return new MiningTemplate(newBlock, getNextTarget(), latestBlock.getHash());
+    }
 
-        System.out.println("\n⛏️  Mining block #" + newIndex + " with " + blockTransactions.size() + " transactions...");
-        newBlock.mineBlock(getNextTarget());
+    /**
+     * Step 3 (locked): append the mined block if it still extends the tip.
+     *
+     * @return false if the work is stale (the tip moved meanwhile)
+     */
+    private synchronized boolean submitMinedBlock(MiningTemplate template) {
+        if (!getLatestBlock().getHash().equals(template.parentHash())) return false;
 
-        // Our own block must pass the same rules as anyone else's.
-        String why = blockRuleViolation(newBlock);
+        // Same tip, so the same balances, targets and median time as when the
+        // template was built: our block must pass the rules anyone's must.
+        String why = blockRuleViolation(template.block());
         if (why != null) throw new IllegalStateException("Mined an invalid block: " + why);
 
-        // Add block to chain. appendBlock also removes the block's
-        // transactions from the pending pool (they're now confirmed).
-        appendBlock(newBlock);
-
-        System.out.println("✅ Block mined and added to chain!");
-        System.out.println("   Miner " + minerAddress + " received " +
-            rewardTx.getAmount() + " " + BlockchainConfig.CURRENCY_SYMBOL + " (reward + fees)");
-
-        return newBlock;
+        // appendBlock also removes the block's transactions from the pending
+        // pool (they're now confirmed), and any other version of them (19b).
+        appendBlock(template.block());
+        return true;
     }
 
     /**
