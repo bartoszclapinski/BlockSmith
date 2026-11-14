@@ -110,6 +110,17 @@ public class Blockchain {
     /** Ids of every transaction already inside a block (Sprint 18a). */
     private final Set<String> confirmedTxIds = new HashSet<>();
 
+    /** Every (sender, sequence) pair already inside a block (Sprint 19b). */
+    private final Set<SequenceKey> confirmedSequences = new HashSet<>();
+
+    /** A replace-by-fee key: at most one transaction per pair ever confirms. */
+    private record SequenceKey(String sender, long sequence) {
+        /** The key of {@code tx}, or null if it has no sequence. */
+        static SequenceKey of(Transaction tx) {
+            return tx.getSequence() == null ? null : new SequenceKey(tx.getSender(), tx.getSequence());
+        }
+    }
+
     /**
      * Largest number of orphan blocks held at once. Caps memory if a peer
      * floods us with forward blocks whose parents never arrive.
@@ -484,7 +495,11 @@ public class Blockchain {
         store.saveBlock(block);
         chain.add(block);
         targets.add(target);
-        for (Transaction tx : block.getTransactions()) confirmedTxIds.add(tx.getTransactionId());
+        for (Transaction tx : block.getTransactions()) {
+            confirmedTxIds.add(tx.getTransactionId());
+            SequenceKey key = SequenceKey.of(tx);
+            if (key != null) confirmedSequences.add(key);
+        }
         removeConfirmed(block);
         registerContracts(block);
     }
@@ -505,6 +520,7 @@ public class Blockchain {
         final Map<String, Double> delta = new HashMap<>();
         final Set<String> ids = new HashSet<>();
         final Set<String> claimedContracts = new HashSet<>();
+        final Set<SequenceKey> sequences = new HashSet<>();
 
         BlockCheck(int height) {
             this.height = height;
@@ -519,6 +535,8 @@ public class Blockchain {
             delta.merge(tx.getSender(), -tx.getTotalCost(), Double::sum);
             delta.merge(tx.getRecipient(), tx.getAmount(), Double::sum);
             ids.add(tx.getTransactionId());
+            SequenceKey key = SequenceKey.of(tx);
+            if (key != null) sequences.add(key);
             if (tx.getSender().startsWith(BlockchainConfig.CONTRACT_ADDRESS_PREFIX)) {
                 claimedContracts.add(contractIdOf(tx.getSender()));
             }
@@ -580,6 +598,7 @@ public class Blockchain {
                     + BlockchainConfig.MINING_REWARD + " + fees " + fees;
         }
         if (coinbase.getFee() != 0) return "the coinbase carries a fee";
+        if (coinbase.getSequence() != null) return "the coinbase carries a sequence";
         if (coinbase.getLockingScript() != null || coinbase.getUnlockingScript() != null) {
             return "the coinbase carries a contract script";
         }
@@ -629,6 +648,12 @@ public class Blockchain {
         }
         String id = tx.getTransactionId();
         if (check.ids.contains(id) || confirmedTxIds.contains(id)) return "already included";
+        // Replace-by-fee (Sprint 19b): two versions of one payment share a
+        // (sender, sequence) pair, and only one of them may ever confirm.
+        SequenceKey key = SequenceKey.of(tx);
+        if (key != null && (check.sequences.contains(key) || confirmedSequences.contains(key))) {
+            return "sequence " + key.sequence() + " of this sender is already used";
+        }
 
         if (tx.getRecipient().startsWith(BlockchainConfig.CONTRACT_ADDRESS_PREFIX)
                 && (tx.getLockingScript() == null || tx.getLockingScript().isBlank())) {
@@ -787,7 +812,11 @@ public class Blockchain {
             confirmedIds.add(tx.getTransactionId());
         }
         pendingTransactions.removeIf(tx -> {
-            if (!confirmedIds.contains(tx.getTransactionId())) return false;
+            // Also drop a pending version of a payment whose OTHER version
+            // was just confirmed (Sprint 19b): it can never be mined now.
+            SequenceKey key = SequenceKey.of(tx);
+            boolean conflict = key != null && confirmedSequences.contains(key);
+            if (!confirmedIds.contains(tx.getTransactionId()) && !conflict) return false;
             store.removePending(tx.getTransactionId());
             return true;
         });
@@ -868,10 +897,31 @@ public class Blockchain {
             }
         }
 
-        // Check sender has sufficient balance
+        // Replace-by-fee (Sprint 19b): a pending tx with the same (sender,
+        // sequence) is an older version of this payment.
+        SequenceKey key = SequenceKey.of(transaction);
+        Transaction replaced = null;
+        if (key != null) {
+            if (confirmedSequences.contains(key)) {
+                System.out.println("Transaction rejected: sequence " + key.sequence() + " already confirmed");
+                return false;
+            }
+            replaced = pendingWithSequence(key);
+            if (replaced != null) {
+                String why = replacementViolation(replaced, transaction);
+                if (why != null) {
+                    System.out.println("Replacement rejected: " + why);
+                    return false;
+                }
+            }
+        }
+
+        // Check sender has sufficient balance. A replacement releases what
+        // the version it replaces had promised.
         double senderBalance = getBalance(transaction.getSender());
         double pendingOutgoing = getPendingOutgoing(transaction.getSender());
-        double availableBalance = senderBalance - pendingOutgoing;
+        double availableBalance = senderBalance - pendingOutgoing
+                + (replaced != null ? replaced.getTotalCost() : 0);
 
         if (availableBalance < transaction.getTotalCost()) {
             System.out.println("Transacion rejected: Insufficient funds. " + 
@@ -882,10 +932,20 @@ public class Blockchain {
 
         // Mempool limit (Sprint 19a): when full, the cheapest transactions
         // make room, but only for one that pays clearly more per byte.
+        // A replacement first gives up its old version's place; if it then
+        // still does not fit, the old version is put back where it was.
+        int replacedAt = replaced != null ? pendingTransactions.indexOf(replaced) : -1;
+        if (replaced != null) pendingTransactions.remove(replacedAt);
         String noRoom = makeRoomFor(transaction);
         if (noRoom != null) {
+            if (replaced != null) pendingTransactions.add(replacedAt, replaced);
             System.out.println("Transaction rejected: " + noRoom);
             return false;
+        }
+        if (replaced != null) {
+            store.removePending(replaced.getTransactionId());
+            System.out.println("Replaced pending transaction " + shortId(replaced) + " (fee "
+                    + replaced.getFee() + ") with " + shortId(transaction) + " (fee " + transaction.getFee() + ")");
         }
 
         // Add to pending pool (and remember it across restarts)
@@ -893,6 +953,60 @@ public class Blockchain {
         store.savePending(transaction);
         System.out.println("Transaction added to pending pool: " + transaction);
         return true;
+    }
+
+    // ===== REPLACE-BY-FEE (Sprint 19b) =====
+
+    private Transaction pendingWithSequence(SequenceKey key) {
+        for (Transaction tx : pendingTransactions) {
+            if (key.equals(SequenceKey.of(tx))) return tx;
+        }
+        return null;
+    }
+
+    /**
+     * Why {@code tx} may not replace the pending {@code old}, or null.
+     *
+     * THEORY: Replacement rules (after Bitcoin's BIP125)
+     *
+     * 1. Only the fee may change. Changing the recipient or amount would be
+     *    "cancel and send something else", which is a different feature.
+     * 2. The fee must go up, and the fee per byte by at least the mempool's
+     *    increment. Otherwise anyone could relay endless near-identical
+     *    versions, each costing every node bandwidth, for free.
+     * 3. A signed payment can only be replaced by one signed with the same
+     *    key, so nobody else can bump (and so spend) someone's fee for them.
+     *
+     * These are mempool POLICY. Consensus only says that one version, never
+     * two, may be confirmed; which one a miner picks is up to the miner.
+     */
+    private String replacementViolation(Transaction old, Transaction tx) {
+        if (!old.getRecipient().equals(tx.getRecipient()) || old.getAmount() != tx.getAmount()
+                || !java.util.Objects.equals(old.getLockingScript(), tx.getLockingScript())
+                || !java.util.Objects.equals(old.getUnlockingScript(), tx.getUnlockingScript())) {
+            return "a replacement may only change the fee";
+        }
+        if (old.getSenderPublicKey() != null && (tx.getSenderPublicKey() == null
+                || !java.util.Arrays.equals(old.getSenderPublicKey().getEncoded(),
+                        tx.getSenderPublicKey().getEncoded()))) {
+            return "the replacement must be signed by the same key";
+        }
+        if (!(tx.getFee() > old.getFee())) {
+            return "the fee " + tx.getFee() + " is not higher than " + old.getFee();
+        }
+        double needed = old.feeRate() + mempoolPolicy.incrementalFeeRate();
+        if (!(tx.feeRate() > old.feeRate() && tx.feeRate() >= needed)) {
+            return "fee rate " + tx.feeRate() + " BSC/byte is below the minimum " + needed;
+        }
+        return null;
+    }
+
+    /** The pending transaction with this id, or null (Sprint 19b: what a bump starts from). */
+    public Transaction getPendingTransaction(String transactionId) {
+        for (Transaction tx : pendingTransactions) {
+            if (tx.getTransactionId().equals(transactionId)) return tx;
+        }
+        return null;
     }
 
     // ===== MEMPOOL LIMIT (Sprint 19a) =====

@@ -61,6 +61,25 @@ public class Transaction {
     private double fee;
 
     /**
+     * Optional replace-by-fee key (Sprint 19b); null = not replaceable.
+     *
+     * THEORY: Why an account model needs a conflict key
+     *
+     * In Bitcoin a replacement spends the same coins (inputs) as the
+     * original, so the two conflict by construction: only one can ever be
+     * mined. Here a transaction just names a sender and an amount; a
+     * "replacement" with a new id would be a second payment, and both could
+     * end up in blocks. So a replaceable transaction carries a sequence, and
+     * the rule is: a (sender, sequence) pair confirms at most once. Two
+     * transactions with the same pair are two versions of ONE payment.
+     * Ethereum's account nonce plays the same role, but must also count up
+     * one by one; ours does not have to, so any subset of the mempool is
+     * still a valid block. Gson leaves a null field out of the JSON, so a
+     * transaction without one looks exactly as before.
+     */
+    private Long sequence;
+
+    /**
      * Creates a new transaction.
      * 
      * @param sender The address sending funds
@@ -76,10 +95,21 @@ public class Transaction {
      * The sender is charged {@code amount + fee}.
      */
     public Transaction(String sender, String recipient, double amount, double fee) {
+        this(sender, recipient, amount, fee, null);
+    }
+
+    /**
+     * Creates a transaction that can later be replaced by a version with a
+     * higher fee (Sprint 19b): same sender, recipient, amount and sequence.
+     *
+     * @param sequence the replace-by-fee key, or null for "not replaceable"
+     */
+    public Transaction(String sender, String recipient, double amount, double fee, Long sequence) {
         this.sender = sender;
         this.recipient = recipient;
         this.amount = amount;
         this.fee = fee;
+        this.sequence = sequence;
         this.timestamp = System.currentTimeMillis();
         this.transactionId = calculateHash();
     }
@@ -110,6 +140,8 @@ public class Transaction {
         // The fee joins the id only when there is one, so every transaction
         // created before Sprint 18c keeps exactly the id it always had.
         if (fee != 0) data.append("|fee:").append(fee);
+        // Same for the sequence (Sprint 19b): absent = the id is unchanged.
+        if (sequence != null) data.append("|seq:").append(sequence);
         if (lockingScript != null) {
             data.append("|lock:").append(lockingScript.length()).append(':').append(lockingScript);
         }
@@ -259,7 +291,10 @@ public class Transaction {
      */
     public String getSignatureData() {
         String data = sender + recipient + amount + timestamp;
-        return fee != 0 ? data + "|fee:" + fee : data;
+        if (fee != 0) data += "|fee:" + fee;
+        // Signed (Sprint 19b), so nobody can strip or change the sequence.
+        if (sequence != null) data += "|seq:" + sequence;
+        return data;
     }
 
     public long getTimestamp() {
@@ -278,6 +313,38 @@ public class Transaction {
      */
     public PublicKey getSenderPublicKey() {
         return senderPublicKey;
+    }
+
+    /** The replace-by-fee key, or null if this transaction cannot be replaced (Sprint 19b). */
+    public Long getSequence() {
+        return sequence;
+    }
+
+    /** True if a version with a higher fee may replace this one while it is pending. */
+    public boolean isReplaceable() {
+        return sequence != null;
+    }
+
+    /**
+     * The same payment with a different fee (Sprint 19b): same sender,
+     * recipient, amount, scripts and sequence; a new timestamp and id.
+     * It is unsigned: a wallet must sign it again.
+     *
+     * @throws IllegalStateException if this transaction has no sequence
+     */
+    public Transaction withFee(double newFee) {
+        if (sequence == null) {
+            throw new IllegalStateException("Transaction " + transactionId + " is not replaceable");
+        }
+        Transaction bumped = new Transaction(sender, recipient, amount, newFee, sequence);
+        if (lockingScript != null) bumped.setLockingScript(lockingScript);
+        if (unlockingScript != null) bumped.setUnlockingScript(unlockingScript);
+        return bumped;
+    }
+
+    /** A random non-negative sequence, for a new replaceable transaction. */
+    public static long randomSequence() {
+        return new java.security.SecureRandom().nextLong() & Long.MAX_VALUE;
     }
 
     // ===== SETTERS =====

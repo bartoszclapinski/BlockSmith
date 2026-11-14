@@ -121,4 +121,25 @@ class TransactionBroadcastTest {
         assertEquals(0, chain.getPendingTransactions().size(),
                 "Invalid transaction must not be added");
     }
+
+    @Test
+    @DisplayName("A gossiped bump replaces the pending version; the late old version is ignored (Sprint 19b)")
+    void newTransactionHandler_appliesReplacement() throws Exception {
+        node = new Node(getNextPort());
+        Blockchain chain = node.getBlockchain();
+        fund(chain, "Miner1");
+        Transaction v1 = new Transaction("Miner1", "Alice", 30.0, 0.5, 42L);
+        Transaction v2 = v1.withFee(1.0);
+        MessageHandler handler = getHandler(node, MessageType.NEW_TRANSACTION);
+
+        // Through the wire format, so the sequence must survive the JSON.
+        for (Transaction tx : new Transaction[] {v1, v2, v1}) {
+            Message msg = MessageParser.parse(new NewTransactionMessage("sender", tx).toJson());
+            handler.handle(msg, sinkContext("sender"));
+        }
+
+        assertEquals(1, chain.getPendingTransactions().size());
+        assertEquals(v2.getTransactionId(), chain.getPendingTransactions().get(0).getTransactionId(),
+                "Only the bumped version is pending");
+    }
 }
