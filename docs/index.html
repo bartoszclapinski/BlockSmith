@@ -6,7 +6,7 @@
 <title>BlockSmith</title>
 <meta name="description" content="BlockSmith: a working blockchain built from scratch in Java. Proof-of-Work, ECDSA wallets, a P2P network, a REST API, a web dashboard, a script VM for smart contracts, and multisig.">
 <meta property="og:title" content="BlockSmith: a blockchain built from scratch in Java">
-<meta property="og:description" content="Proof-of-Work, ECDSA wallets, P2P gossip, REST API, web dashboard, smart contracts, multisig, crash-safe persistence, self-adjusting difficulty and a fee market. 22 sprints, 419 tests.">
+<meta property="og:description" content="Proof-of-Work, ECDSA wallets, P2P gossip, REST API, web dashboard, smart contracts, multisig, crash-safe persistence, self-adjusting difficulty and a fee market. 23 sprints, 428 tests.">
 <meta property="og:image" content="assets/dashboard-dark.png">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23e0894c'/%3E%3Cpath d='M9 22l7-7m-3-4l4-4 6 6-4 4z' stroke='%2320120a' stroke-width='2.6' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -347,7 +347,7 @@
       <div class="blk tip"><b>#2</b>00009c51…182f<br>tip</div>
     </div>
     <div class="wrap">
-      <span class="eyebrow">All 4 phases complete · 419 tests passing</span>
+      <span class="eyebrow">All 4 phases complete · 428 tests passing</span>
       <h1>A blockchain, <em>forged</em> from scratch in Java.</h1>
       <p class="lead">
         BlockSmith is a working cryptocurrency built to understand how Bitcoin and Ethereum work under the hood:
@@ -364,9 +364,9 @@
       </div>
 
       <div class="stats">
-        <div class="stat"><b>22</b><span>sprints shipped</span></div>
-        <div class="stat"><b>419</b><span>JUnit tests, all green</span></div>
-        <div class="stat"><b>~8.7k</b><span>lines of Java (+10.3k in tests)</span></div>
+        <div class="stat"><b>23</b><span>sprints shipped</span></div>
+        <div class="stat"><b>428</b><span>JUnit tests, all green</span></div>
+        <div class="stat"><b>~8.8k</b><span>lines of Java (+10.5k in tests)</span></div>
         <div class="stat"><b>0</b><span>blockchain libraries used</span></div>
       </div>
     </div>
@@ -457,7 +457,7 @@
       <div class="features">
         <div class="card"><b>Command palette</b><p>Press Ctrl/⌘+K and type: mine, send, deploy. Arrow keys and Enter do the rest.</p></div>
         <div class="card"><b>Live activity feed</b><p>Polls the API every 4 seconds and turns the changes into a feed of mined blocks, transactions, deploys and claims.</p></div>
-        <div class="card"><b>Contracts in two clicks</b><p>Deploy a hashlock (the page shows you the secret) or a 2-of-3 multisig, then claim it from its row.</p></div>
+        <div class="card"><b>Contracts in two clicks</b><p>Deploy a hashlock (the page shows you the secret) or a multisig, then claim it from its row; each member signs in their own browser.</p></div>
       </div>
     </div>
   </section>
@@ -514,13 +514,14 @@
           </ul>
         </article>
         <article class="card layer">
-          <header><h3>Contracts &amp; multisig</h3><span class="when">Sprints 14–15</span></header>
+          <header><h3>Contracts &amp; multisig</h3><span class="when">Sprints 14–15, 23</span></header>
           <p>A Bitcoin-Script-style stack machine that decides who can spend locked coins.</p>
           <ul>
             <li>Opcodes: <code>SHA256</code>, <code>EQUAL</code>, <code>CHECKLOCKTIME</code>, <code>CHECKSIG</code>, <code>CHECKMULTISIG</code>, …</li>
             <li>The VM never throws: a malformed script simply evaluates to false</li>
             <li>Every node rebuilds the contract registry from the blocks themselves</li>
             <li>M-of-N multisig with a signed hash of each claim, so signatures cannot be replayed</li>
+            <li>Members keep their own keys and sign claims in their browsers; the node only assembles the signatures</li>
           </ul>
         </article>
       </div>
@@ -655,7 +656,7 @@
         <article class="card phase">
           <div>
             <h3>Phase 4 · Production</h3>
-            <div class="meta">Nov 2026 · 419 tests</div>
+            <div class="meta">Nov 2026 · 428 tests</div>
             <div class="status"><span class="badge ok">complete</span></div>
           </div>
           <div class="sprints">
@@ -667,7 +668,7 @@
         </article>
       </div>
       <div class="bar" role="img" aria-label="All 19 planned sprints shipped"><span style="width: 100%"></span></div>
-      <p class="caption">All 19 planned sprints shipped, plus Sprints 20–22 (thread safety, fork choice, required signatures).</p>
+      <p class="caption">All 19 planned sprints shipped, plus Sprints 20–23 (thread safety, fork choice, required signatures, client-side multisig).</p>
     </div>
   </section>
 
@@ -688,7 +689,7 @@
         <div class="card">
           <h3>Run the tests and the console demo</h3>
           <p>The demo mines blocks, compares difficulties, moves coins and shows tamper detection in the terminal. Custom ports: <code style="white-space: nowrap">-Dexec.args="&lt;p2p&gt; &lt;api&gt;"</code>.</p>
-<div class="term"><span class="p">$ </span>mvn test   <span class="c"># 419 tests</span>
+<div class="term"><span class="p">$ </span>mvn test   <span class="c"># 428 tests</span>
 <span class="p">$ </span>mvn exec:java \
     -Dexec.mainClass=com.blocksmith.BlockSmithDemo</div>
         </div>

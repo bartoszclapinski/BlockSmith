@@ -160,6 +160,7 @@ POST /api/multisig/claim       # Assemble + submit a multisig claim
 | 20 | Thread Safety | `Blockchain` monitor, mining outside the lock, consistent API snapshots ✅ Complete |
 | 21 | Fork Choice | Most-work chain rule, reorganisation, block-locator sync ✅ Complete |
 | 22 | Required Signatures | Sender must sign (key bound to address), prepare/sign/submit API, browser keys ✅ Complete |
+| 23 | Client-side Multisig | Members keep their keys and sign in their browsers; the node only coordinates ✅ Complete |
 
 ---
 

@@ -9,9 +9,9 @@
 | Field | Value |
 |-------|-------|
 | **Phase** | 4 - Production Features - ✅ COMPLETE (all 4 phases done) |
-| **Current Sprint** | 23 (Client-side Multisig, hardening) - Planned |
-| **Current Milestone** | 22c Complete (Browser keys and signing) |
-| **Status** | Sprint 22 complete (22a-22c): only the sender can spend (signature bound to the address), prepare/sign/submit API, browser keys. Next: see the candidates in the notes |
+| **Current Sprint** | 23 (Client-side Multisig, hardening) - Complete |
+| **Current Milestone** | 23c Complete (Two signers, two browsers) |
+| **Status** | Sprint 23 complete (23a-23c): multisig members keep their keys and sign in their own browsers; the node only coordinates. Next: see the candidates in the notes |
 
 ---
 
@@ -62,7 +62,7 @@ Hardening (after the roadmap)
 ├── Sprint 20: Thread Safety ✅ COMPLETE (20a ✅, 20b ✅, 20c ✅)
 ├── Sprint 21: Fork Choice   ✅ COMPLETE (21a ✅, 21b ✅, 21c ✅)
 ├── Sprint 22: Signatures    ✅ COMPLETE (22a ✅, 22b ✅, 22c ✅)
-└── Sprint 23: Multisig keys 📋 PLANNED (23a ⬜, 23b ⬜, 23c ⬜)
+└── Sprint 23: Multisig keys ✅ COMPLETE (23a ✅, 23b ✅, 23c ✅)
 ```
 
 ---
@@ -103,7 +103,7 @@ Hardening (after the roadmap)
 | ChainContractTest | 9 | ✅ |
 | ApiContractsTest | 3 | ✅ |
 | MultiSigContractTest | 5 | ✅ |
-| ApiMultiSigTest | 2 | ✅ |
+| ApiMultiSigTest | 9 | ✅ |
 | H2ChainStoreTest | 8 | ✅ |
 | PersistRestoreTest | 6 | ✅ |
 | BlockIntegrityTest | 7 | ✅ |
@@ -132,8 +132,8 @@ Hardening (after the roadmap)
 | ForkSyncTest | 3 | ✅ |
 | SignatureRuleTest | 8 | ✅ |
 | ApiSigningTest | 6 | ✅ |
-| WebCryptoInteropTest | 2 | ✅ |
-| **Total** | **419** | ✅ |
+| WebCryptoInteropTest | 4 | ✅ |
+| **Total** | **428** | ✅ |
 
 Last test run: `mvn test` - All passing
 
@@ -194,7 +194,7 @@ Last test run: `mvn test` - All passing
 
 | Class | Status | Lines | Notes |
 |-------|--------|-------|-------|
-| ApiServer.java | ✅ Complete | ~1095 | Javalin REST API: blocks, transactions, mining, wallet, network, JSON errors (Sprint 12) + static dashboard hosting (Sprint 13a) + contract deploy/claim/inspect endpoints (Sprint 14c) + multisig create/claim endpoints, server-held member keys (Sprint 15c) + `JsonUtil` Gson (#259) + block by hash, address history, tx location (Sprint 16c) + `POST /api/admin/backup`, loopback only (Sprint 16d) + live difficulty in status, `GET /api/network/difficulty` (Sprint 17d) + optional `fee`, `GET /api/mempool`, block `sizeBytes` / `totalFees`, limits in status (Sprint 18d) + `GET /api/fees/estimate`, `POST /api/transactions/{id}/bump`, sequence on new txs, refusal reasons, mempool policy fields (Sprint 19d) + multi-value responses from one `atomically` snapshot, `pendingOutgoing` with fees (Sprint 20c) + `totalWork`, `sideBlocks`, `reorgs`, `lastReorg` in status (Sprint 21c) + prepare/submit templates for transfers, deploys and bumps; `/api/wallet/create` retired (Sprint 22b/22c) |
+| ApiServer.java | ✅ Complete | ~1140 | Javalin REST API: blocks, transactions, mining, wallet, network, JSON errors (Sprint 12) + static dashboard hosting (Sprint 13a) + contract deploy/claim/inspect endpoints (Sprint 14c) + multisig create/claim endpoints (Sprint 15c; since 23a from member public keys, claim/prepare + member signatures, no keys on the node) + `JsonUtil` Gson (#259) + block by hash, address history, tx location (Sprint 16c) + `POST /api/admin/backup`, loopback only (Sprint 16d) + live difficulty in status, `GET /api/network/difficulty` (Sprint 17d) + optional `fee`, `GET /api/mempool`, block `sizeBytes` / `totalFees`, limits in status (Sprint 18d) + `GET /api/fees/estimate`, `POST /api/transactions/{id}/bump`, sequence on new txs, refusal reasons, mempool policy fields (Sprint 19d) + multi-value responses from one `atomically` snapshot, `pendingOutgoing` with fees (Sprint 20c) + `totalWork`, `sideBlocks`, `reorgs`, `lastReorg` in status (Sprint 21c) + prepare/submit templates for transfers, deploys and bumps; `/api/wallet/create` retired (Sprint 22b/22c) |
 
 ### Contract Classes (`com.blocksmith.contract`)
 
@@ -204,14 +204,14 @@ Last test run: `mvn test` - All passing
 | ScriptVM.java | ✅ Complete | ~290 | Stack machine; hashlock/timelock; sighash + signature opcodes; never throws (malformed = false) (Sprint 14a, 15a) |
 | Contract.java | ✅ Complete | ~120 | Contract model: locking script, amount, funder, status, derived from chain (Sprint 14b) + claimSighash (Sprint 15b) |
 | ContractStatus.java | ✅ Complete | ~12 | OPEN / CLAIMED (Sprint 14b) |
-| MultiSigWallet.java | ✅ Complete | ~130 | M-of-N wallet: builds CHECKMULTISIG lock, derives MS: address; public keys only (Sprint 15b) |
+| MultiSigWallet.java | ✅ Complete | ~150 | M-of-N wallet: builds CHECKMULTISIG lock, derives MS: address; public keys only (Sprint 15b) + `fromLockingScript` (Sprint 23a) |
 
 ### Web Dashboard (`src/main/resources/public`)
 
 | File | Status | Notes |
 |------|--------|-------|
 | index.html | ✅ Complete | Single-screen "command deck": top bar, chain-of-blocks hero, activity feed / actions / balance + contracts grid, footer; `data-tour` anchors (redesign, PR #157/#158) |
-| app.js | ✅ Complete | Vanilla JS, no build step: 4s polling, client-side activity feed (diff of polls), command palette (Ctrl/⌘+K), side drawers (send, create wallet, deploy hashlock/multisig, claim), toasts, theme toggle, 5-step onboarding tour (redesign, PR #157/#158) |
+| app.js | ✅ Complete | Vanilla JS, no build step: 4s polling, client-side activity feed (diff of polls), command palette (Ctrl/⌘+K), side drawers (send, create wallet, deploy hashlock/multisig, claim, multisig member), toasts, theme toggle, 5-step onboarding tour (redesign, PR #157/#158); browser keys (Sprint 22c), multisig member signing (Sprint 23b) |
 | style.css | ✅ Complete | CSS-variable themes "Clay dark" + "Clay" (light), `prefers-color-scheme` default, animated background canvas (respects `prefers-reduced-motion`) (redesign, PR #157) |
 
 Design handoff (prototype + README) lives in `.ai/design/UIUX redesign project/`.
@@ -297,6 +297,9 @@ Design handoff (prototype + README) lives in `.ai/design/UIUX redesign project/`
 - [x] M-of-N multisig as a contract (MultiSigWallet + CHECKMULTISIG lock) (Sprint 15b)
 - [x] Claim sighash SHA256(contractId+claimer+amount) binds signatures, replay-safe (Sprint 15b)
 - [x] Multisig REST endpoints + dashboard panel; server-held keys, never serialized (Sprint 15c)
+- [x] Multisig without node-held keys: create from public keys, claim with members' signatures (Sprint 23a)
+- [x] Multisig member keys and claim signing in the browser (Sprint 23b)
+- [x] A claim signed in two browser profiles passes CHECKMULTISIG (Sprint 23c)
 - [x] Dashboard redesign: command-deck layout, light/dark themes, command palette, side drawers, activity feed (PR #157)
 - [x] Onboarding tour (5-step spotlight, opt-out remembered, `?` restarts) + drawer backdrop fix (PR #158)
 - [x] H2 `ChainStore` storage layer; blocks stored in the P2P JSON format (Sprint 16a)
@@ -335,7 +338,7 @@ Design handoff (prototype + README) lives in `.ai/design/UIUX redesign project/`
 | Item | Value |
 |------|-------|
 | **Current Branch** | `master` |
-| **Last Commit** | Sprint 22 complete (PR #338, #339, #340) |
+| **Last Commit** | Sprint 23 complete (PR #349, #350, #351) |
 | **Tag** | `v1.0.0` (Phase 1) |
 | **Main Branch** | `master` |
 
@@ -436,14 +439,22 @@ Design handoff (prototype + README) lives in `.ai/design/UIUX redesign project/`
    - **Local `data/` chains with unsigned transfers restore only up to the
      first one: start a fresh data directory**
 
-9. **Next candidates** (no sprint planned yet):
-   - Client-side multisig: the node still holds multisig member keys and
-     signs claims for them, the last exception to "the node never holds a
-     user's private key"
+9. **Sprint 23 COMPLETE** - Client-side Multisig (2026-11-14)
+   - Probe: Mallory, with no key, claimed a 2-of-3 through the API
+   - 23a (PR #349): create from public keys, claim/prepare, claim with
+     members' signatures ordered by the node; the node keeps nothing
+   - 23b (PR #350): member keys and claim signing in the dashboard;
+     "Multisig member" drawer checks a request before signing
+   - 23c (PR #351): two browser profiles, interop vector through
+     CHECKMULTISIG, docs
+   - **Multisig contracts from before Sprint 23 cannot be claimed: start a
+     fresh data directory**
+
+10. **Next candidates** (no sprint planned yet):
    - Persistent `nodeId` + auto-connect to discovered peers (network)
    - A bonus feature from `roadmap.md` (SPV light client, explorer app)
 
-10. **Deferred / future work**
+11. **Deferred / future work**
    - Gossip auto-connect to DISCOVERED peers (needs MAX_PEERS guarding)
    - Self-identification filtering in peer lists
    - Mempool request is sent on outbound connect only; inbound side does not
@@ -461,4 +472,4 @@ Design handoff (prototype + README) lives in `.ai/design/UIUX redesign project/`
 
 ---
 
-*Last updated: 2026-11-14 | Sprint 22 Complete (Required Signatures) - roadmap done, hardening in progress*
+*Last updated: 2026-11-14 | Sprint 23 Complete (Client-side Multisig) - roadmap done, hardening in progress*

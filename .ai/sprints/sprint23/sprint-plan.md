@@ -7,7 +7,7 @@
 | **Sprint** | 23 |
 | **Title** | Client-side Multisig |
 | **Phase** | Hardening (after the roadmap) |
-| **Status** | 📋 Planned |
+| **Status** | ✅ Complete (2026-11-14) |
 | **Depends On** | Sprint 15 (multisig contracts, CHECKMULTISIG), Sprint 22 (signatures, browser keys) |
 
 > **Why:** Sprint 15 made multisig claims convenient: `POST /api/multisig/create`
@@ -42,9 +42,9 @@ THIS claimer, nothing moves.
 
 | Milestone | Title | Branch | Status |
 |-----------|-------|--------|--------|
-| **23a** | API: the node holds no member keys | `sprint23a/multisig-api` | ⬜ Planned (#342, #343) |
-| **23b** | Dashboard: members sign in the browser | `sprint23b/multisig-dashboard` | ⬜ Planned (#344, #345) |
-| **23c** | Two signers, two browsers + interop + docs | `sprint23c/multisig-two-signers` | ⬜ Planned (#346, #347) |
+| **23a** | API: the node holds no member keys | `sprint23a/multisig-api` | ✅ PR #349 (#342, #343) |
+| **23b** | Dashboard: members sign in the browser | `sprint23b/multisig-dashboard` | ✅ PR #350 (#344, #345) |
+| **23c** | Two signers, two browsers + interop + docs | `sprint23c/multisig-two-signers` | ✅ PR #351 (#346, #347) |
 
 ---
 
@@ -136,4 +136,4 @@ devices.
 
 ---
 
-*Created: 2026-11-14 | Sprint 23 Planning*
+*Created: 2026-11-14 | Sprint 23 Planning | Completed: 2026-11-14*
