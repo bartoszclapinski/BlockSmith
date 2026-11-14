@@ -113,4 +113,22 @@ class DashboardKeystoreTest {
         assertTrue(functionBody(js, "createBrowserWallet").contains("await ensureUnlocked()"), "New keys need the passphrase");
         assertTrue(js.contains("AUTO_LOCK_MS = 15 * 60 * 1000"));
     }
+
+    @Test
+    @DisplayName("Change passphrase re-encrypts under a new salt in one write; import checks every key first")
+    void dashboardScript_changePassphraseAtomic_importChecksFirst() throws Exception {
+        String js = get("/app.js");
+        String change = functionBody(js, "changePassphrase");
+        assertEquals(1, change.split("saveStore\\(", -1).length - 1, "One write: all keys or none");
+        assertTrue(change.contains("salt: randomHex(16)"), "A new salt");
+        assertTrue(change.indexOf("The current passphrase is wrong") < change.indexOf("saveStore("),
+                "The current passphrase is checked before anything is written");
+
+        String imp = functionBody(js, "importKeys");
+        int checks = imp.indexOf("checkKeyPair(");
+        int stores = imp.indexOf("storeKey(");
+        assertTrue(checks >= 0 && checks < stores, "Every pair is checked before any is stored");
+        assertTrue(imp.contains("\"Wrong passphrase for this backup\""));
+        assertTrue(js.contains("blocksmith: \"keystore-backup\""), "Whole-keystore backup");
+    }
 }

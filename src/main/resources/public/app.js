@@ -402,33 +402,102 @@ function keyBackup(address) {
         publicKey: e.publicKey, label: e.label, iv: e.iv, ciphertext: e.ciphertext });
 }
 
-/**
- * Imports a key: an encrypted backup (needs ITS passphrase) or an old
- * plaintext export ({publicKey, privateKey}, Sprint 22-23). Either way the
- * pair is checked, then stored encrypted under this keystore.
- */
-async function importBrowserWallet(text, backupPassphrase) {
-    let entry;
-    try { entry = JSON.parse(text); } catch (e) { throw new Error("Paste the exported JSON"); }
-    if (!entry || !entry.publicKey) throw new Error("Expected a key backup or {publicKey, privateKey}");
-    let jwk = entry.privateKey;
-    if (entry.blocksmith === "key-backup") {
-        if (!backupPassphrase) throw new Error("This backup is encrypted: enter the passphrase it was made with");
-        try {
-            jwk = JSON.parse(await unseal(await deriveAesKey(backupPassphrase, entry.kdf), entry, entry.address));
-        } catch (e) { throw new Error("The backup does not open: wrong passphrase, or the backup was changed"); }
-    }
-    if (!jwk) throw new Error("Expected a key backup or {publicKey, privateKey}");
+/** The whole keystore as an encrypted backup (Sprint 24b): every key, its labels, the KDF and check value. */
+function keystoreBackup() {
+    const store = loadStore();
+    return store ? JSON.stringify(Object.assign({ blocksmith: "keystore-backup" }, store)) : null;
+}
+
+/** Checks that a private JWK, its public key and its address belong together. */
+async function checkKeyPair(jwk, publicKey, address) {
     const priv = await crypto.subtle.importKey("jwk", jwk, EC, true, ["sign"]);
-    const pub = await crypto.subtle.importKey("spki", hexToBytes(entry.publicKey), EC, true, ["verify"]);
+    const pub = await crypto.subtle.importKey("spki", hexToBytes(publicKey), EC, true, ["verify"]);
     const probe = new TextEncoder().encode("blocksmith key check");
     const sig = await crypto.subtle.sign(SIGN, priv, probe);
     if (!(await crypto.subtle.verify(SIGN, pub, sig, probe))) throw new Error("The private key does not match the public key");
-    const address = await addressOfPublicKeyHex(entry.publicKey);
-    if (entry.address && entry.address !== address) throw new Error("The backup's address does not match its key");
+    const derived = await addressOfPublicKeyHex(publicKey);
+    if (address && address !== derived) throw new Error("The backup's address does not match its key");
+    return derived;
+}
+
+/**
+ * Imports keys (Sprint 24a/24b): a keystore backup or a one-key backup
+ * (each opens with ITS passphrase), or an old plaintext export ({publicKey,
+ * privateKey}, Sprints 22-23). Every pair is checked, then stored encrypted
+ * under THIS keystore. Returns the imported addresses.
+ */
+async function importKeys(text, backupPassphrase) {
+    let backup;
+    try { backup = JSON.parse(text); } catch (e) { throw new Error("Paste the exported JSON"); }
+    if (!backup || typeof backup !== "object") throw new Error("Not a BlockSmith key backup");
+
+    const found = [];                 // [{address, publicKey, label, jwk}]
+    if (backup.blocksmith === "keystore-backup" || backup.blocksmith === "key-backup") {
+        if (!backup.kdf || !backup.kdf.salt || !(backup.kdf.iterations > 0)) throw new Error("Not a BlockSmith key backup (no KDF parameters)");
+        if (!backupPassphrase) throw new Error("This backup is encrypted: enter the passphrase it was made with");
+        const aes = await deriveAesKey(backupPassphrase, backup.kdf);
+        const entries = backup.blocksmith === "key-backup" ? { [backup.address]: backup } : (backup.keys || {});
+        if (backup.blocksmith === "keystore-backup") {
+            try {
+                if (await unseal(aes, backup.check, "check") !== CHECK_TEXT) throw new Error("check");
+            } catch (e) { throw new Error("Wrong passphrase for this backup"); }
+        }
+        for (const address of Object.keys(entries)) {
+            const e = entries[address];
+            let jwk;
+            try { jwk = JSON.parse(await unseal(aes, e, address)); }
+            catch (err) {
+                throw new Error(backup.blocksmith === "key-backup"
+                    ? "The backup does not open: wrong passphrase, or the backup was changed"
+                    : "The key for " + shortHash(address) + " does not open: the backup was changed");
+            }
+            found.push({ address: address, publicKey: e.publicKey, label: e.label, jwk: jwk });
+        }
+    } else if (backup.publicKey && backup.privateKey) {
+        found.push({ address: null, publicKey: backup.publicKey, label: backup.label, jwk: backup.privateKey });
+    } else {
+        throw new Error("Not a BlockSmith key backup");
+    }
+    if (!found.length) throw new Error("The backup holds no keys");
+
+    for (const k of found) k.address = await checkKeyPair(k.jwk, k.publicKey, k.address);   // all checked before any is stored
     await ensureUnlocked();
-    await storeKey(address, entry.publicKey, jwk, entry.label);
-    return address;
+    for (const k of found) await storeKey(k.address, k.publicKey, k.jwk, k.label);
+    return found.map(function (k) { return k.address; });
+}
+
+/**
+ * New passphrase (Sprint 24b): every key is decrypted with the current one
+ * and re-encrypted under a new salt; the keystore is written once, so a
+ * failure half way leaves the old one intact. Old backups keep their own
+ * passphrase.
+ */
+async function changePassphrase(current, next) {
+    if (next.length < MIN_PASSPHRASE) throw new Error("The new passphrase needs at least " + MIN_PASSPHRASE + " characters.");
+    if (keystoreState() === "legacy") await ensureUnlocked();
+    const store = loadStore();
+    if (!store) throw new Error("No keys to protect yet");
+    const oldAes = await deriveAesKey(current, store.kdf);
+    try {
+        if (await unseal(oldAes, store.check, "check") !== CHECK_TEXT) throw new Error("check");
+    } catch (e) { throw new Error("The current passphrase is wrong"); }
+
+    const kdf = { name: "PBKDF2", hash: "SHA-256", iterations: KDF_ITERATIONS, salt: randomHex(16) };
+    const aes = await deriveAesKey(next, kdf);
+    const keys = {};
+    const unlocked = {};
+    for (const address of Object.keys(store.keys)) {
+        const e = store.keys[address];
+        const jwkText = await unseal(oldAes, e, address);
+        const box = await seal(aes, jwkText, address);
+        keys[address] = { publicKey: e.publicKey, label: e.label, iv: box.iv, ciphertext: box.ciphertext };
+        unlocked[address] = await crypto.subtle.importKey("jwk", JSON.parse(jwkText), EC, false, ["sign"]);
+    }
+    saveStore({ version: 1, kdf: kdf, check: await seal(aes, CHECK_TEXT, "check"), keys: keys });   // one write
+    vault.aes = aes;
+    vault.keys = unlocked;
+    touchVault();
+    renderLock();
 }
 
 /**
@@ -1104,8 +1173,9 @@ function openWalletDrawer() {
         importBtn.type = "button";
         importBtn.addEventListener("click", function () {
             err.hide();
-            importBrowserWallet(imp.input.value.trim(), impPass.input.value).then(function (address) { activate(address, "Key imported"); })
-                .catch(function (e) { err.show(e.message); });
+            importKeys(imp.input.value.trim(), impPass.input.value).then(function (addresses) {
+                activate(addresses[0], addresses.length === 1 ? "Key imported" : addresses.length + " keys imported");
+            }).catch(function (e) { err.show(e.message); });
         });
         form.appendChild(importBtn);
 
@@ -1124,6 +1194,43 @@ function openWalletDrawer() {
                 }).catch(function (e) { err.show(e.message); });
             });
             form.appendChild(exportBtn);
+        }
+
+        // The whole keystore (Sprint 24b): one encrypted backup, and the passphrase.
+        if (loadStore()) {
+            form.appendChild(el("div", "readout-label", "Keystore · " + Object.keys(loadStore().keys).length + " keys, encrypted"));
+            const allBtn = el("button", "seg-btn", "Back up all keys (encrypted)");
+            allBtn.type = "button";
+            allBtn.addEventListener("click", function () {
+                const backup = keystoreBackup();
+                const out = el("div", "readout");
+                out.appendChild(el("div", "readout-label", "Every key here, encrypted with your passphrase"));
+                out.appendChild(el("div", "readout-value export-key ks-backup", backup));
+                allBtn.replaceWith(out);
+                out.after(copyButton("Copy the backup", backup));
+            });
+            form.appendChild(allBtn);
+
+            const changeBtn = el("button", "seg-btn", "Change passphrase");
+            changeBtn.type = "button";
+            changeBtn.addEventListener("click", function () {
+                const box = el("div", "drawer-form ks-change");
+                const cur = passwordField("Current passphrase", "current-password");
+                const next = passwordField("New passphrase", "new-password");
+                const again = passwordField("New passphrase again", "new-password");
+                const go = submitButton("Re-encrypt with the new passphrase", function () {
+                    err.hide();
+                    if (next.input.value !== again.input.value) return err.show("The two new passphrases differ.");
+                    go.disabled = true;
+                    changePassphrase(cur.input.value, next.input.value).then(function () {
+                        openWalletDrawer();                  // before the toast: redrawing clears the overlay
+                        toast("Passphrase changed · every key re-encrypted");
+                    }).catch(function (e) { go.disabled = false; err.show(e.message); });
+                });
+                [cur.wrap, next.wrap, again.wrap, go].forEach(function (n) { box.appendChild(n); });
+                changeBtn.replaceWith(box);
+            });
+            form.appendChild(changeBtn);
         }
         drawer.appendChild(form);
     });
