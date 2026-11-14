@@ -9,7 +9,7 @@
 | Field | Value |
 |-------|-------|
 | **Phase** | 4 - Production Features - ✅ COMPLETE (all 4 phases done) |
-| **Current Sprint** | 24 (Encrypted Browser Keystore, hardening) - Complete |
+| **Current Sprint** | 25 (Loose Ends: contract ids, coinbase height, key rotation) - Planned |
 | **Current Milestone** | 24c Complete (Every signing flow under encryption) |
 | **Status** | Sprint 24 complete (24a-24c): browser keys stored only encrypted under a passphrase (PBKDF2 + AES-GCM), unlock on demand, encrypted backups. Next: see the candidates in the notes |
 
@@ -63,7 +63,8 @@ Hardening (after the roadmap)
 ├── Sprint 21: Fork Choice   ✅ COMPLETE (21a ✅, 21b ✅, 21c ✅)
 ├── Sprint 22: Signatures    ✅ COMPLETE (22a ✅, 22b ✅, 22c ✅)
 ├── Sprint 23: Multisig keys ✅ COMPLETE (23a ✅, 23b ✅, 23c ✅)
-└── Sprint 24: Keystore      ✅ COMPLETE (24a ✅, 24b ✅, 24c ✅)
+├── Sprint 24: Keystore      ✅ COMPLETE (24a ✅, 24b ✅, 24c ✅)
+└── Sprint 25: Loose ends    📋 PLANNED (25a ⬜, 25b ⬜, 25c ⬜)
 ```
 
 ---
