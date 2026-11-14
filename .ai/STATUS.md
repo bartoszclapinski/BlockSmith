@@ -9,9 +9,9 @@
 | Field | Value |
 |-------|-------|
 | **Phase** | 4 - Production Features - ✅ COMPLETE (all 4 phases done) |
-| **Current Sprint** | 21 (Fork Choice, hardening) - Planned |
-| **Current Milestone** | 20c Complete (Consistent API snapshots + two-node concurrency test) |
-| **Status** | Sprint 20 complete (20a-20c): Blockchain is a monitor, mining runs outside the lock, consistent API snapshots. Next: fork choice (found in 20c) |
+| **Current Sprint** | 21 (Fork Choice, hardening) - Complete |
+| **Current Milestone** | 21c Complete (Fork-aware sync; two mining nodes converge) |
+| **Status** | Sprint 21 complete (21a-21c): chain work, side branches, reorg onto the most-work chain, block-locator sync. Next: require signatures (API accepts unsigned txs for any sender) |
 
 ---
 
@@ -60,7 +60,7 @@ Phase 4: Production Features  [███████████████] 10
 
 Hardening (after the roadmap)
 ├── Sprint 20: Thread Safety ✅ COMPLETE (20a ✅, 20b ✅, 20c ✅)
-└── Sprint 21: Fork Choice   📋 PLANNED (21a ⬜, 21b ⬜, 21c ⬜)
+└── Sprint 21: Fork Choice   ✅ COMPLETE (21a ✅, 21b ✅, 21c ✅)
 ```
 
 ---
@@ -125,7 +125,10 @@ Hardening (after the roadmap)
 | ConcurrencyTest | 5 | ✅ |
 | MiningOutsideLockTest | 6 | ✅ |
 | NodeConcurrencyTest | 3 | ✅ |
-| **Total** | **384** | ✅ |
+| SideBranchTest | 5 | ✅ |
+| ReorgTest | 11 | ✅ |
+| ForkSyncTest | 3 | ✅ |
+| **Total** | **403** | ✅ |
 
 Last test run: `mvn test` - All passing
 
@@ -138,7 +141,7 @@ Last test run: `mvn test` - All passing
 | Class | Status | Lines | Notes |
 |-------|--------|-------|-------|
 | Block.java | ✅ Complete | ~355 | Transactions + Merkle root + `hasValidMerkleRoot()` recomputes it from the txs (Sprint 16b, #260) + `mineBlock(BigInteger target)`, explicit-timestamp constructor (Sprint 17) + `sizeBytes()` (Sprint 18b) + `mineBlock(target, stop)` (Sprint 20b) |
-| Blockchain.java | ✅ Complete | ~1900 | Pending pool + mining + external append + orphan buffer (Sprint 10) + tx dedupe + mempool prune (Sprint 11) + contract registry (deploy/claim, derived from chain) (Sprint 14b) + optional `ChainStore`, single `appendBlock()`, `restoreFromStore()` replay (Sprint 16b) + `getBlockByHash` / `findTransaction` / `getTransactionHistory` (Sprint 16c) + `backupTo` (Sprint 16d) + `ChainParams`, targets per height, `getNextTarget` / retarget, median-time-past + future limit with injectable `Clock`, difficulty report (Sprint 17) + block content rules (`blockRuleViolation` / `transactionRuleViolation`, `BlockCheck`), `isChainValid()` by replay (Sprint 18a) + block limits, mining fills up to them (18b) + coinbase = reward + fees, fee-rate block assembly, `getPendingInMiningOrder()` (18c/18d) + mempool limit / eviction, `getMempoolMinFeeRate()` (19a) + `confirmedSequences`, replacement rules (19b) + `estimateFeeRate()` (19c) + `submitTransaction()` with reasons, `minimumBumpFee()` (19d) + monitor (`synchronized`, snapshot getters) (20a) + mining as template / unlocked work / submit, `volatile tipHash`, cancellable mining (20b) + `atomically()` (20c) |
+| Blockchain.java | ✅ Complete | ~2200 | Pending pool + mining + external append + orphan buffer (Sprint 10) + tx dedupe + mempool prune (Sprint 11) + contract registry (deploy/claim, derived from chain) (Sprint 14b) + optional `ChainStore`, single `appendBlock()`, `restoreFromStore()` replay (Sprint 16b) + `getBlockByHash` / `findTransaction` / `getTransactionHistory` (Sprint 16c) + `backupTo` (Sprint 16d) + `ChainParams`, targets per height, `getNextTarget` / retarget, median-time-past + future limit with injectable `Clock`, difficulty report (Sprint 17) + block content rules (`blockRuleViolation` / `transactionRuleViolation`, `BlockCheck`), `isChainValid()` by replay (Sprint 18a) + block limits, mining fills up to them (18b) + coinbase = reward + fees, fee-rate block assembly, `getPendingInMiningOrder()` (18c/18d) + mempool limit / eviction, `getMempoolMinFeeRate()` (19a) + `confirmedSequences`, replacement rules (19b) + `estimateFeeRate()` (19c) + `submitTransaction()` with reasons, `minimumBumpFee()` (19d) + monitor (`synchronized`, snapshot getters) (20a) + mining as template / unlocked work / submit, `volatile tipHash`, cancellable mining (20b) + `atomically()` (20c) + cumulative work, side branches (21a) + `tryReorg` / `adoptChain`, `ReorgEvent` (21b) + block locator, `getBlocksAfter` (21c) |
 | Transaction.java | ✅ Complete | ~410 | Validation + signing + verification + optional contract locking/unlocking scripts (Sprint 14b) + `hasValidId()` (Sprint 16b, #260); contract scripts are part of the id (#264) + `fee` (in id/signature only when > 0), `getTotalCost()`, `sizeBytes()`, `feeRate()` (Sprint 18c) + optional `sequence` (in id/signature only when set), `withFee()`, `randomSequence()` (Sprint 19b) |
 | Wallet.java | ✅ Complete | ~169 | ECDSA keys + signing |
 | ChainParams.java | ✅ Complete | ~100 | Consensus params record: initial target, block time, retarget interval, 4x clamp, powLimit, max future drift (Sprint 17b/17c), max block bytes / transactions (Sprint 18b) |
@@ -151,7 +154,7 @@ Last test run: `mvn test` - All passing
 | HashUtil.java | ✅ Complete | ~50 | SHA-256 |
 | SignatureUtil.java | ✅ Complete | ~140 | ECDSA sign/verify (secp256r1) + hex encode/decode; verify never throws (Sprint 15a) |
 | BlockchainConfig.java | ✅ Complete | ~56 | Constants |
-| Target.java | ✅ Complete | ~120 | 256-bit PoW target: from leading zeros, meets (never throws), difficulty display, hex (Sprint 17a) |
+| Target.java | ✅ Complete | ~135 | 256-bit PoW target: from leading zeros, meets (never throws), difficulty display, hex (Sprint 17a) + `work(target)` (Sprint 21a) |
 | JsonUtil.java | ✅ Complete | ~60 | Shared Gson with a `PublicKey` adapter (hex X.509); used by storage, P2P messages and the API (Sprint 16a/16b, #259) |
 | BlockExplorer.java | ⬜ Stub | ~14 | Explorer role covered by the API + dashboard |
 
@@ -162,7 +165,7 @@ Last test run: `mvn test` - All passing
 | MessageType.java | ✅ Complete | ~45 | Message types enum |
 | Message.java | ✅ Complete | ~82 | Base message class |
 | NetworkConfig.java | ✅ Complete | ~103 | Network constants + heartbeat + seed nodes |
-| Node.java | ✅ Complete | ~650 | Server + message loop + peer tracking + heartbeat eviction + peer discovery + seed bootstrap + block broadcast + chain sync (Sprint 10) + tx broadcast + mempool sync (Sprint 11) |
+| Node.java | ✅ Complete | ~765 | Server + message loop + peer tracking + heartbeat eviction + peer discovery + seed bootstrap + block broadcast + chain sync (Sprint 10) + tx broadcast + mempool sync (Sprint 11) + locator-based `GET_BLOCKS` for unknown parents (Sprint 21c) |
 | Peer.java | ✅ Complete | ~294 | Client + async listener thread |
 | MessageParser.java | ✅ Complete | ~116 | JSON-to-Message routing (Sprint 8d) |
 | MessageHandler.java | ✅ Complete | ~36 | Handler functional interface (Sprint 8d) |
@@ -177,16 +180,16 @@ Last test run: `mvn test` - All passing
 
 | Class | Status | Lines | Notes |
 |-------|--------|-------|-------|
-| ChainStore.java | ✅ Complete | ~110 | Store interface: blocks, pending txs; indexed lookups (default: not indexed); backup (default: unsupported) |
+| ChainStore.java | ✅ Complete | ~120 | Store interface: blocks, pending txs; indexed lookups (default: not indexed); backup (default: unsupported); `truncateAbove` (Sprint 21b) |
 | NoOpChainStore.java | ✅ Complete | ~45 | Default store: remembers nothing, keeps `new Blockchain()` in memory |
-| H2ChainStore.java | ✅ Complete | ~470 | Embedded H2 (JDBC): `blocks`, `pending_tx`, `tx_index` (indexed on sender/recipient/block); block + index rows in one DB transaction; `BACKUP TO`; `restoreBackup` (staging, single-entry check, probe open, old DB kept) |
+| H2ChainStore.java | ✅ Complete | ~470 | Embedded H2 (JDBC): `blocks`, `pending_tx`, `tx_index` (indexed on sender/recipient/block); block + index rows in one DB transaction; `BACKUP TO`; `restoreBackup` (staging, single-entry check, probe open, old DB kept) + `truncateAbove` (Sprint 21b) |
 | StorageException.java | ✅ Complete | ~15 | Unchecked wrapper for storage failures |
 
 ### API Classes (`com.blocksmith.api`)
 
 | Class | Status | Lines | Notes |
 |-------|--------|-------|-------|
-| ApiServer.java | ✅ Complete | ~890 | Javalin REST API: blocks, transactions, mining, wallet, network, JSON errors (Sprint 12) + static dashboard hosting (Sprint 13a) + contract deploy/claim/inspect endpoints (Sprint 14c) + multisig create/claim endpoints, server-held member keys (Sprint 15c) + `JsonUtil` Gson (#259) + block by hash, address history, tx location (Sprint 16c) + `POST /api/admin/backup`, loopback only (Sprint 16d) + live difficulty in status, `GET /api/network/difficulty` (Sprint 17d) + optional `fee`, `GET /api/mempool`, block `sizeBytes` / `totalFees`, limits in status (Sprint 18d) + `GET /api/fees/estimate`, `POST /api/transactions/{id}/bump`, sequence on new txs, refusal reasons, mempool policy fields (Sprint 19d) + multi-value responses from one `atomically` snapshot, `pendingOutgoing` with fees (Sprint 20c) |
+| ApiServer.java | ✅ Complete | ~905 | Javalin REST API: blocks, transactions, mining, wallet, network, JSON errors (Sprint 12) + static dashboard hosting (Sprint 13a) + contract deploy/claim/inspect endpoints (Sprint 14c) + multisig create/claim endpoints, server-held member keys (Sprint 15c) + `JsonUtil` Gson (#259) + block by hash, address history, tx location (Sprint 16c) + `POST /api/admin/backup`, loopback only (Sprint 16d) + live difficulty in status, `GET /api/network/difficulty` (Sprint 17d) + optional `fee`, `GET /api/mempool`, block `sizeBytes` / `totalFees`, limits in status (Sprint 18d) + `GET /api/fees/estimate`, `POST /api/transactions/{id}/bump`, sequence on new txs, refusal reasons, mempool policy fields (Sprint 19d) + multi-value responses from one `atomically` snapshot, `pendingOutgoing` with fees (Sprint 20c) + `totalWork`, `sideBlocks`, `reorgs`, `lastReorg` in status (Sprint 21c) |
 
 ### Contract Classes (`com.blocksmith.contract`)
 
@@ -313,6 +316,9 @@ Design handoff (prototype + README) lives in `.ai/design/UIUX redesign project/`
 - [x] Thread-safe chain: one monitor, snapshot getters (Sprint 20a)
 - [x] Mining outside the lock: API and network keep working while a block is mined (Sprint 20b)
 - [x] Consistent API snapshots; first two-node TCP test under parallel traffic (Sprint 20c)
+- [x] Chain work and side branches: competing blocks are kept, not dropped (Sprint 21a)
+- [x] Reorganisation onto the valid chain with the most work; undone txs back to the mempool (Sprint 21b)
+- [x] Block-locator sync; two nodes that both mine converge (Sprint 21c)
 
 ---
 
@@ -321,7 +327,7 @@ Design handoff (prototype + README) lives in `.ai/design/UIUX redesign project/`
 | Item | Value |
 |------|-------|
 | **Current Branch** | `master` |
-| **Last Commit** | Sprint 20 complete (PR #316, #317, #318) |
+| **Last Commit** | Sprint 21 complete (PR #327, #328, #329) |
 | **Tag** | `v1.0.0` (Phase 1) |
 | **Main Branch** | `master` |
 
@@ -402,12 +408,23 @@ Design handoff (prototype + README) lives in `.ai/design/UIUX redesign project/`
    - 20c (PR #318): `atomically()` snapshots in the API, `pendingOutgoing`
      with fees, two-node TCP test; found: **no fork choice**
 
-7. **Next: fork choice** (recommended) - most-work chain rule with
-   reorganisation (undo blocks back to the fork point, re-apply the other
-   branch, return their txs to the mempool). Then the rest of the deferred
+7. **Sprint 21 COMPLETE** - Fork Choice (2026-11-14)
+   - Planning probe: B rejected every block of A's longer branch for good
+   - 21a (PR #327): `Target.work`, cumulative work, bounded side branches
+   - 21b (PR #328): reorg by replaying the candidate through `addBlock`;
+     strictly more work wins, ties keep the first seen; mempool rebuilt;
+     `ChainStore.truncateAbove`
+   - 21c (PR #329): block locator sync, reorgs in status + dashboard; two
+     mining nodes converge
+
+8. **Next (recommended): require signatures.** `POST /api/transactions`
+   still accepts an unsigned transaction for ANY sender, so anyone who can
+   reach a node's API can move anyone's coins. Fix: sign in the dashboard
+   (keys stay in the browser), submit signature + public key, and make
+   unsigned transfers invalid (consensus). Then the rest of the deferred
    list, or a bonus feature (SPV, explorer)
 
-8. **Deferred / future work**
+9. **Deferred / future work**
    - Gossip auto-connect to DISCOVERED peers (needs MAX_PEERS guarding)
    - Self-identification filtering in peer lists
    - Mempool request is sent on outbound connect only; inbound side does not
@@ -428,4 +445,4 @@ Design handoff (prototype + README) lives in `.ai/design/UIUX redesign project/`
 
 ---
 
-*Last updated: 2026-11-14 | Sprint 20 Complete (Thread Safety) - roadmap done, hardening in progress*
+*Last updated: 2026-11-14 | Sprint 21 Complete (Fork Choice) - roadmap done, hardening in progress*

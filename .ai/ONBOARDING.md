@@ -39,9 +39,9 @@
 | **Test Framework** | JUnit 5 |
 | **Serialization** | Gson 2.10.1 |
 | **Current Phase** | Phase 4: Production Features — ✅ Complete (all 4 phases done) |
-| **Current Sprint** | Sprint 20 (Thread Safety, hardening) — Complete |
-| **Current Milestone** | 20c Complete; next: fork choice (most-work chain + reorg) |
-| **Total Tests** | 384 (all passing) |
+| **Current Sprint** | Sprint 21 (Fork Choice, hardening) — Complete |
+| **Current Milestone** | 21c Complete; next: require signatures (API accepts unsigned txs) |
+| **Total Tests** | 403 (all passing) |
 | **Main Branch** | `master` |
 
 ---
@@ -132,7 +132,7 @@ BlockSmith/
 │   └── BlockSmithNode.java           # ✅ Complete (runnable node: P2P + API + dashboard, Sprint 13a)
 │
 ├── src/main/resources/public/        # Web dashboard (Sprint 13-15, redesigned PR #157/#158): index.html, app.js, style.css
-├── src/test/java/com/blocksmith/     # 384 unit tests
+├── src/test/java/com/blocksmith/     # 403 unit tests
 ├── pom.xml                           # Maven configuration (Gson, JUnit, Javalin)
 └── README.md                         # Public documentation
 ```
@@ -186,12 +186,14 @@ BlockSmith/
 
 **Sprint 20: Thread Safety** — peer listener threads, Jetty threads and the heartbeat share one `Blockchain`. A probe showed a CME on reads, a corrupted chain from concurrent mining and overdrawn mempools. 20a: `Blockchain` is a monitor (all state-touching public methods `synchronized`, getters return copies). 20b: mining = template (locked) -> nonce search (unlocked; `Block.mineBlock(target, stop)` stops when the `volatile tipHash` moves) -> submit on the same tip (stale work retried); cancellable. 20c: `atomically(Supplier)` for multi-value API responses, `pendingOutgoing` with fees, first two-node TCP test. Found: **no fork choice** (two miners at one height diverge for good).
 
+**Sprint 21: Fork Choice** — nodes follow the valid chain with the most cumulative work (`Target.work` = 2^256/(target+1)). 21a: competing blocks are kept on bounded side branches (fork within `MAX_REORG_DEPTH` 100). 21b: when a branch reaches our height, ours-up-to-fork + branch is replayed through `addBlock` on a fresh `Blockchain`; valid and strictly more work -> `adoptChain` (state swapped under the lock, undone blocks become side blocks, store rewritten + `truncateAbove`, mempool rebuilt); ties keep the first seen. 21c: block locator in `GET_BLOCKS`, asked when a block's parent is unknown; `reorgs` / `lastReorg` / `totalWork` in status; two mining nodes converge over TCP.
+
 ---
 
 ## What's NOT Implemented Yet
 
 ### Roadmap complete, hardening in progress
-- All planned sprints (0-19) are done; Sprint 20 (thread safety) too. Next: fork choice (most-work chain + reorg), then the deferred list below or a bonus feature (SPV, explorer)
+- All planned sprints (0-19) are done; Sprints 20 (thread safety) and 21 (fork choice) too. Next: require signatures (the API still accepts unsigned transactions for any sender), then the deferred list below or a bonus feature (SPV, explorer)
 
 ### Deferred / known follow-ups
 - Mempool request is sent on outbound connect only; inbound side does not yet pull the peer's mempool
@@ -310,7 +312,10 @@ mvn exec:java -Dexec.mainClass=com.blocksmith.BlockSmithDemo
 | ConcurrencyTest | 5 | Reads during appends, concurrent mining, overspend, same block twice, snapshots (Sprint 20a) |
 | MiningOutsideLockTest | 6 | Stop condition, unblocked reads, stale template, cancel, concurrent mines (Sprint 20b) |
 | NodeConcurrencyTest | 3 | `atomically`, consistent status/wallet under load, two nodes over TCP converge (Sprint 20c) |
-| **Total** | **384** | All passing ✅ |
+| SideBranchTest | 5 | Work values, competing blocks kept, branch growth in any order, junk/deep forks not kept, bound (Sprint 21a) |
+| ReorgTest | 11 | Longer branch wins, txs back, double spend, invalid branch, ties, contracts, sequences, restart, depth (Sprint 21b) |
+| ForkSyncTest | 3 | Locator, a node on another branch reorgs over TCP, two mining nodes converge (Sprint 21c) |
+| **Total** | **403** | All passing ✅ |
 
 ---
 
@@ -321,7 +326,7 @@ mvn exec:java -Dexec.mainClass=com.blocksmith.BlockSmithDemo
 - **Doc branches**: `docs/{description}` (e.g., `docs/sprint11-complete`)
 - **Commits**: One per issue, format: `feat(scope): description #NN` — never add `Co-Authored-By`
 - **PRs**: created with `gh`, include `Closes #NN` lines; merged with a **regular merge commit** (`gh pr merge N --merge`, not squash) so the one-commit-per-issue history stays on master (decided 2026-11-11; #130-#278 were squash-merged); then ff-only pull to sync local master
-- **Latest**: Sprint 20 complete (Thread Safety, PR #316, #317, #318); roadmap done, hardening in progress
+- **Latest**: Sprint 21 complete (Fork Choice, PR #327, #328, #329); roadmap done, hardening in progress
 - **Maven path**: run `mvn` from `F:\Repos\Java\BlockSmith` (capital J); from a lowercase path Jetty 404s static files and 3 dashboard tests fail
 
 ---
@@ -334,9 +339,9 @@ mvn exec:java -Dexec.mainClass=com.blocksmith.BlockSmithDemo
 | `CONVENTIONS.md` | Need full code style rules, THEORY comment format, test conventions |
 | `STATUS.md` | Need exact current status, implementation table, feature checklist |
 | `roadmap.md` | Need full project phases and timeline |
-| `sprints/sprint20/sprint-plan.md` | Most recent sprint's milestones, issues, acceptance criteria |
-| `sprints/sprint20/sprint-log.md` | What was completed in the latest sprint |
+| `sprints/sprint21/sprint-plan.md` | Most recent sprint's milestones, issues, acceptance criteria |
+| `sprints/sprint21/sprint-log.md` | What was completed in the latest sprint |
 
 ---
 
-*Last updated: 2026-11-14 | Sprint 20 Complete (Thread Safety) — roadmap done, hardening in progress*
+*Last updated: 2026-11-14 | Sprint 21 Complete (Fork Choice) — roadmap done, hardening in progress*
