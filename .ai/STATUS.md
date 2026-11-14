@@ -398,7 +398,9 @@ Design handoff (prototype + README) lives in `.ai/design/UIUX redesign project/`
      keys and signs claims); a production design signs client-side and submits
      only signatures. Member keys live in memory only (lost on restart)
    - `nodeId` is random per start (not persisted with the chain)
-   - `Blockchain` itself is not synchronized (network + API threads); the store is
+   - No fork choice: a block competing for a height we already have is rejected,
+     so two nodes that mine at the same height diverge for good (needs a
+     most-work-chain rule with reorganisation; found while writing the 20c test)
    - WebSocket push for the dashboard (currently 4s polling)
    - Contract deploy uses `System.currentTimeMillis()` in the id seed; fine for
      uniqueness but not reproducible across a re-mine
