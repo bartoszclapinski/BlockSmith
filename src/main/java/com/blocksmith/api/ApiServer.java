@@ -136,11 +136,13 @@ public class ApiServer {
         app.get("/api/network/difficulty", ctx -> json(ctx, blockchain.atomically(this::difficulty)));
 
         // Transaction + mining endpoints (Milestone 12b).
+        app.post("/api/transactions/prepare", this::postTransactionPrepare);
         app.post("/api/transactions", this::postTransaction);
         app.get("/api/transactions/{id}", this::getTransactionById);
         app.post("/api/mine", this::postMine);
         app.get("/api/mempool", ctx -> json(ctx, blockchain.atomically(this::mempoolView)));
         app.post("/api/transactions/{id}/bump", this::postBump);
+        app.post("/api/transactions/{id}/bump/prepare", this::postBumpPrepare);
         app.get("/api/fees/estimate", ctx -> json(ctx, blockchain.atomically(this::feeEstimate)));
 
         // Wallet + network endpoints (Milestone 12c).
@@ -152,6 +154,7 @@ public class ApiServer {
         // Contract endpoints (Milestone 14c).
         app.get("/api/contracts", ctx -> json(ctx, blockchain.atomically(this::contractsList)));
         app.get("/api/contracts/{id}", this::getContract);
+        app.post("/api/contracts/prepare", this::postContractPrepare);
         app.post("/api/contracts", this::postContract);
         app.post("/api/contracts/{id}/claim", this::postContractClaim);
 
@@ -187,6 +190,12 @@ public class ApiServer {
         } catch (JsonSyntaxException | IllegalStateException e) {
             ctx.status(400);
             json(ctx, error("Request body must be a JSON object"));
+            return;
+        }
+
+        // Signed submission of a prepared transaction (Sprint 22b).
+        if (body.has("templateId")) {
+            submitSigned(ctx, body);
             return;
         }
 
@@ -336,14 +345,17 @@ public class ApiServer {
             return;
         }
 
-        Transaction deploy = blockchain.deployContract(
+        Transaction deploy = Blockchain.buildDeploy(
                 body.get("funder").getAsString(),
                 body.get("lockingScript").getAsString(),
                 body.get("amount").getAsDouble());
 
-        if (deploy == null) {
+        // Unsigned: only on a chain without the signature rule (Sprint 22b);
+        // otherwise use POST /api/contracts/prepare and sign.
+        String why = blockchain.submitTransaction(deploy);
+        if (why != null) {
             ctx.status(400);
-            json(ctx, error("Contract deploy rejected (invalid script or insufficient funds)"));
+            json(ctx, error("Contract deploy rejected: " + why));
             return;
         }
 
@@ -725,9 +737,8 @@ public class ApiServer {
             o.addProperty("feeRate", tx.feeRate());
             // Bump info (Sprint 19d): the API can only re-build unsigned ones;
             // a signed tx must be bumped (re-signed) by its wallet.
-            boolean bumpable = tx.isReplaceable() && tx.getSignature() == null;
             o.addProperty("replaceable", tx.isReplaceable());
-            if (bumpable) o.addProperty("minBumpFee", blockchain.minimumBumpFee(tx));
+            if (tx.isReplaceable()) o.addProperty("minBumpFee", blockchain.minimumBumpFee(tx));
             txs.add(o);
             totalFees += tx.getFee();
         }
@@ -765,7 +776,8 @@ public class ApiServer {
         }
         if (old.getSignature() != null) {
             ctx.status(400);
-            json(ctx, error("A signed transaction must be bumped (re-signed) by its wallet"));
+            json(ctx, error("A signed transaction is bumped by its sender: POST /api/transactions/"
+                    + id + "/bump/prepare, sign, then POST /api/transactions"));
             return;
         }
 
@@ -824,6 +836,182 @@ public class ApiServer {
         m.put("typicalTxBytes", bytes);
         m.put("mempoolMinFeeRate", blockchain.getMempoolMinFeeRate());
         return m;
+    }
+
+    // ===== 22b: PREPARE / SIGN / SUBMIT =====
+    //
+    // THEORY: the node builds, the owner signs
+    //
+    // The node holds no private keys, and a client cannot rebuild the exact
+    // text the node verifies (Java writes the amount 10 as "10.0", JavaScript
+    // as "10"; timestamp, fee and sequence must match to the character). So:
+    //   1. prepare: the node builds the transaction and returns its exact
+    //      signatureData plus a template id (the transaction id)
+    //   2. sign:    the owner signs that text with their key, wherever it is
+    //   3. submit:  {templateId, signature, publicKey}; the normal rules
+    //               decide, including "the key must be the sender's"
+    // A client should show what it signs: the node could prepare something
+    // else, but it can never sign for the user.
+
+    /** A prepared, unsigned transaction waiting for its signature. */
+    private record Template(Transaction tx, long createdAt, String replaces) {}
+
+    /** Most templates held at once; the oldest go first. */
+    static final int MAX_TEMPLATES = 1_000;
+
+    /** How long a template can be signed and submitted. */
+    private volatile long templateTtlMs = 5 * 60_000;
+
+    /** Tests shorten the template lifetime. */
+    void setTemplateTtlMs(long ttlMs) {
+        this.templateTtlMs = ttlMs;
+    }
+
+    private final Map<String, Template> templates = java.util.Collections.synchronizedMap(
+            new LinkedHashMap<>(16, 0.75f, false) {
+                @Override
+                protected boolean removeEldestEntry(Map.Entry<String, Template> eldest) {
+                    return size() > MAX_TEMPLATES;
+                }
+            });
+
+    /** POST /api/transactions/prepare {sender, recipient, amount, fee?}: a transfer to sign. */
+    private void postTransactionPrepare(Context ctx) {
+        JsonObject body = jsonBody(ctx);
+        if (body == null) return;
+        if (!body.has("sender") || !body.has("recipient") || !body.has("amount")) {
+            ctx.status(400);
+            json(ctx, error("Transaction requires sender, recipient, and amount"));
+            return;
+        }
+        double fee = body.has("fee") && !body.get("fee").isJsonNull() ? parseFee(body.get("fee")) : 0;
+        if (Double.isNaN(fee)) {
+            ctx.status(400);
+            json(ctx, error("fee must be a non-negative number"));
+            return;
+        }
+        Transaction tx = new Transaction(body.get("sender").getAsString(), body.get("recipient").getAsString(),
+                body.get("amount").getAsDouble(), fee, Transaction.randomSequence());
+        prepared(ctx, tx, null);
+    }
+
+    /** POST /api/contracts/prepare {funder, amount, lockingScript}: a contract deploy to sign. */
+    private void postContractPrepare(Context ctx) {
+        JsonObject body = jsonBody(ctx);
+        if (body == null) return;
+        if (!body.has("funder") || !body.has("amount") || !body.has("lockingScript")) {
+            ctx.status(400);
+            json(ctx, error("Contract requires funder, amount, and lockingScript"));
+            return;
+        }
+        Transaction deploy = Blockchain.buildDeploy(body.get("funder").getAsString(),
+                body.get("lockingScript").getAsString(), body.get("amount").getAsDouble());
+        prepared(ctx, deploy, null);
+    }
+
+    /** POST /api/transactions/{id}/bump/prepare {fee?}: a new version of a pending payment to sign. */
+    private void postBumpPrepare(Context ctx) {
+        String id = ctx.pathParam("id");
+        Transaction old = blockchain.getPendingTransaction(id);
+        if (old == null) {
+            ctx.status(404);
+            json(ctx, error("No pending transaction " + id));
+            return;
+        }
+        if (!old.isReplaceable()) {
+            ctx.status(400);
+            json(ctx, error("Transaction " + id + " is not replaceable (it has no sequence)"));
+            return;
+        }
+        String raw = ctx.body();
+        double fee;
+        try {
+            JsonObject body = raw == null || raw.isBlank() ? new JsonObject() : JsonParser.parseString(raw).getAsJsonObject();
+            fee = body.has("fee") && !body.get("fee").isJsonNull() ? parseFee(body.get("fee")) : blockchain.minimumBumpFee(old);
+        } catch (JsonSyntaxException | IllegalStateException e) {
+            ctx.status(400);
+            json(ctx, error("Request body must be a JSON object"));
+            return;
+        }
+        if (Double.isNaN(fee)) {
+            ctx.status(400);
+            json(ctx, error("fee must be a non-negative number"));
+            return;
+        }
+        prepared(ctx, old.withFee(fee), id);
+    }
+
+    /** Stores a template and answers with what the owner must sign. */
+    private void prepared(Context ctx, Transaction tx, String replaces) {
+        if (!tx.isValid()) {
+            ctx.status(400);
+            json(ctx, error("Invalid transaction (amount, fee, sender or recipient)"));
+            return;
+        }
+        templates.put(tx.getTransactionId(), new Template(tx, System.currentTimeMillis(), replaces));
+        JsonObject out = new JsonObject();
+        out.addProperty("templateId", tx.getTransactionId());
+        out.addProperty("signatureData", tx.getSignatureData());
+        out.addProperty("expiresInMs", templateTtlMs);
+        if (replaces != null) out.addProperty("replaces", replaces);
+        if (tx.getRecipient().startsWith(BlockchainConfig.CONTRACT_ADDRESS_PREFIX)) {
+            out.addProperty("contractId", tx.getRecipient().substring(BlockchainConfig.CONTRACT_ADDRESS_PREFIX.length()));
+        }
+        out.add("transaction", gson.toJsonTree(tx));
+        ctx.status(201);
+        json(ctx, out);
+    }
+
+    /** POST /api/transactions {templateId, signature, publicKey}: attach, then the rules decide. */
+    private void submitSigned(Context ctx, JsonObject body) {
+        String id = body.get("templateId").getAsString();
+        Template t = templates.get(id);
+        if (t == null || System.currentTimeMillis() - t.createdAt() > templateTtlMs) {
+            templates.remove(id);
+            ctx.status(404);
+            json(ctx, error("Unknown or expired template " + id + ": prepare it again"));
+            return;
+        }
+        if (!body.has("signature") || !body.has("publicKey")) {
+            ctx.status(400);
+            json(ctx, error("signature and publicKey (hex) are required"));
+            return;
+        }
+        Transaction tx = t.tx();
+        String why;
+        synchronized (t) {
+            try {
+                tx.setSenderPublicKey(SignatureUtil.hexToPublicKey(body.get("publicKey").getAsString()));
+                tx.setSignature(SignatureUtil.hexToBytes(body.get("signature").getAsString()));
+            } catch (Exception e) {
+                ctx.status(400);
+                json(ctx, error("signature must be hex DER and publicKey hex X.509"));
+                return;
+            }
+            why = blockchain.submitTransaction(tx);
+        }
+        if (why != null) {
+            ctx.status(400);
+            json(ctx, error("Transaction rejected: " + why));
+            return;
+        }
+        templates.remove(id);
+        node.broadcastTransaction(tx);
+        JsonObject out = gson.toJsonTree(tx).getAsJsonObject();
+        if (t.replaces() != null) out.addProperty("replaces", t.replaces());
+        ctx.status(201);
+        json(ctx, out);
+    }
+
+    /** The request body as a JSON object, or null after answering 400. */
+    private JsonObject jsonBody(Context ctx) {
+        try {
+            return JsonParser.parseString(ctx.body()).getAsJsonObject();
+        } catch (JsonSyntaxException | IllegalStateException e) {
+            ctx.status(400);
+            json(ctx, error("Request body must be a JSON object"));
+            return null;
+        }
     }
 
     /** A fee from JSON, or NaN if it is not a non-negative finite number. */
