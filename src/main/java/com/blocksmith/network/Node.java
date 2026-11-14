@@ -331,16 +331,25 @@ public class Node {
                 System.out.println("  ← Accepted NEW_BLOCK #" + block.getIndex()
                         + " from " + context.getRemoteNodeId());
                 broadcastBlock(block, context.getRemoteNodeId());
-            } else if (block.getIndex() > blockchain.getChainSize()) {
-                // The peer is ahead of us: a block landed beyond our tip+1, so we
-                // are missing the blocks in between. Ask for the gap.
-                context.sendMessage(new GetBlocksMessage(nodeId, blockchain.getChainSize()));
+            } else if (!blockchain.isKnownBlock(block.getPreviousHash())) {
+                // We do not know its parent: we are behind, or the peer is on
+                // another branch (Sprint 21c). Send our block locator; the
+                // peer replies with everything after our last common block,
+                // and addBlock sorts out side branches and reorgs.
+                context.sendMessage(new GetBlocksMessage(nodeId, blockchain.getBlockLocator()));
             }
         });
 
         // GET_BLOCKS -> serve our blocks from the requested index to the tip
         registerHandler(MessageType.GET_BLOCKS, (message, context) -> {
-            int fromIndex = ((GetBlocksMessage) message).getFromIndex();
+            GetBlocksMessage request = (GetBlocksMessage) message;
+            if (request.getLocator() != null && !request.getLocator().isEmpty()) {
+                // By locator (Sprint 21c): after the last block we have in common.
+                context.sendMessage(new BlocksMessage(nodeId,
+                        new ArrayList<>(blockchain.getBlocksAfter(request.getLocator(), Blockchain.MAX_BLOCKS_PER_REPLY))));
+                return;
+            }
+            int fromIndex = request.getFromIndex();
             if (fromIndex < 0) fromIndex = 0;
 
             List<Block> chain = blockchain.getChain();
@@ -364,6 +373,10 @@ public class Node {
             if (applied > 0) {
                 System.out.println("  ← Synced " + applied + " block(s) from "
                         + context.getRemoteNodeId());
+            }
+            // A full reply means the peer may have more: ask for the next part.
+            if (blocks.size() >= Blockchain.MAX_BLOCKS_PER_REPLY) {
+                context.sendMessage(new GetBlocksMessage(nodeId, blockchain.getBlockLocator()));
             }
         });
 
