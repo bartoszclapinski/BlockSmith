@@ -38,6 +38,15 @@ public interface ChainStore extends AutoCloseable {
     /** Returns every stored block, ordered by index (genesis first). */
     List<Block> loadBlocks();
 
+    /**
+     * Forgets every block above {@code height} (Sprint 21b). After a
+     * reorganisation onto a branch that is shorter (but has more work) the
+     * old, higher blocks must not come back on the next restore. Blocks at
+     * or below {@code height} are overwritten by {@link #saveBlock}, which
+     * stores by height.
+     */
+    default void truncateAbove(int height) {}
+
     /** Stores a pending transaction. Saving the same one twice is a no-op. */
     void savePending(Transaction transaction);
 
