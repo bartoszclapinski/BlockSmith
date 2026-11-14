@@ -1089,6 +1089,102 @@ public class Blockchain {
         return lowest + mempoolPolicy.incrementalFeeRate();
     }
 
+    // ===== FEE ESTIMATION (Sprint 19c) =====
+
+    /** How many recent blocks the history view of the fee estimate looks at. */
+    public static final int FEE_HISTORY_BLOCKS = 6;
+
+    /**
+     * The fee rate (BSC per byte) that should get a new transaction mined
+     * within {@code targetBlocks} blocks.
+     *
+     * THEORY: Two views, take the stricter
+     *
+     * 1. MEMPOOL VIEW (what is waiting now): fill {@code targetBlocks}
+     *    blocks the way a miner would (best fee per byte first, same
+     *    limits). If everything fits, any fee will do. If not, a new
+     *    transaction must outbid the cheapest one that still made it in.
+     * 2. HISTORY VIEW (what recent blocks accepted): the cheapest rate in
+     *    each of the last {@value #FEE_HISTORY_BLOCKS} blocks, counting a
+     *    block that had room as 0 (anything would have got in). For "next
+     *    block" we want a rate that would have made it into every one of
+     *    them (the highest of those minimums); for 6 blocks, into at least
+     *    one (the lowest). So a longer target never costs more.
+     * 3. And never below what the mempool itself demands to let a
+     *    transaction in ({@link #getMempoolMinFeeRate()}).
+     *
+     * The mempool view reacts at once; the history view remembers that blocks
+     * were full a moment ago even if the mempool has just been emptied.
+     * Bitcoin Core's estimator is fancier (it tracks how long transactions
+     * at each fee rate actually took to confirm) but answers the same
+     * question: "what rate gets me in within N blocks?"
+     *
+     * @param targetBlocks within how many blocks, at least 1
+     */
+    public double estimateFeeRate(int targetBlocks) {
+        if (targetBlocks < 1) throw new IllegalArgumentException("targetBlocks must be at least 1");
+        double estimate = Math.max(mempoolFeeRate(targetBlocks), historyFeeRate(targetBlocks));
+        return Math.max(estimate, getMempoolMinFeeRate());
+    }
+
+    /** The mempool view: simulate the next {@code targetBlocks} blocks. */
+    private double mempoolFeeRate(int targetBlocks) {
+        List<Transaction> waiting = byFeeRate(pendingTransactions);
+        Block latest = getLatestBlock();
+        Transaction placeholder = new Transaction(
+                BlockchainConfig.COINBASE_ADDRESS, "fee-estimate", BlockchainConfig.MINING_REWARD);
+        int emptyBlockBytes = new Block(latest.getIndex() + 1, List.of(placeholder), latest.getHash(), 0L)
+                .sizeBytes() + NONCE_DIGITS_MARGIN + COINBASE_AMOUNT_MARGIN;
+
+        double cheapestIn = Double.MAX_VALUE;
+        for (int b = 0; b < targetBlocks && !waiting.isEmpty(); b++) {
+            // Same selection as minePendingTransactions (without the stale check).
+            int bytes = emptyBlockBytes;
+            int count = 0;
+            java.util.Iterator<Transaction> it = waiting.iterator();
+            while (it.hasNext()) {
+                if (count + 1 >= params.maxBlockTransactions()) break;
+                Transaction tx = it.next();
+                int txBytes = tx.sizeBytes() + 1;
+                if (bytes + txBytes > params.maxBlockBytes()) continue;
+                bytes += txBytes;
+                count++;
+                cheapestIn = Math.min(cheapestIn, tx.feeRate());
+                it.remove();
+            }
+            if (count == 0) break;                    // blocks hold no transactions at all
+        }
+        if (waiting.isEmpty() || cheapestIn == Double.MAX_VALUE) return 0;
+        // Some would still wait: beat the cheapest that got in (ties lose, they keep arrival order).
+        return cheapestIn + mempoolPolicy.incrementalFeeRate();
+    }
+
+    /** The history view: what recent blocks accepted, see {@link #estimateFeeRate}. */
+    private double historyFeeRate(int targetBlocks) {
+        List<Double> cheapest = new ArrayList<>();
+        for (int i = chain.size() - 1; i >= 1 && cheapest.size() < FEE_HISTORY_BLOCKS; i--) {
+            cheapest.add(cheapestRateIfFull(chain.get(i)));
+        }
+        if (cheapest.isEmpty()) return 0;
+        cheapest.sort(Comparator.reverseOrder());
+        return cheapest.get(Math.min(targetBlocks, cheapest.size()) - 1);
+    }
+
+    /**
+     * The lowest fee rate a full block included, or 0 if the block had room
+     * for another typical transaction (then any fee would have got in).
+     */
+    private double cheapestRateIfFull(Block block) {
+        List<Transaction> txs = block.getTransactions();
+        if (txs.size() <= 1) return 0;
+        boolean full = txs.size() >= params.maxBlockTransactions()
+                || block.sizeBytes() + MempoolPolicy.TYPICAL_TX_BYTES + 1 > params.maxBlockBytes();
+        if (!full) return 0;
+        double cheapest = Double.MAX_VALUE;
+        for (int i = 1; i < txs.size(); i++) cheapest = Math.min(cheapest, txs.get(i).feeRate());
+        return cheapest;
+    }
+
     /**
      * Calculates total outgoing amount in pending transactions for an address
      * 
