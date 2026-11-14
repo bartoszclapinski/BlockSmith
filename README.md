@@ -8,7 +8,7 @@ BlockSmith is a comprehensive blockchain project that goes beyond tutorials - im
 
 [![Java](https://img.shields.io/badge/Java-20+-orange.svg)](https://openjdk.org/)
 [![Maven](https://img.shields.io/badge/Maven-3.9+-blue.svg)](https://maven.apache.org/)
-[![Tests](https://img.shields.io/badge/Tests-419%20passing-brightgreen.svg)](#)
+[![Tests](https://img.shields.io/badge/Tests-428%20passing-brightgreen.svg)](#)
 [![Phase](https://img.shields.io/badge/Phase%204-Complete-brightgreen.svg)](#)
 [![Version](https://img.shields.io/badge/Version-1.0.0-blue.svg)](#)
 
@@ -106,8 +106,14 @@ BlockSmith is a comprehensive blockchain project that goes beyond tutorials - im
   - ✅ Prepare / sign elsewhere / submit: the node never holds your private key (Sprint 22b)
   - ✅ Keys created and kept in the browser (Web Crypto) by the dashboard (Sprint 22c)
 
+- ✅ Client-side multisig (Sprint 23)
+  - ✅ The node makes no member keys: a multisig is created from the members' public keys (Sprint 23a)
+  - ✅ Members sign a claim in their own browsers; the node only assembles the signatures (Sprint 23b)
+  - ✅ A claim signed in two browser profiles is checked by the Java script VM (Sprint 23c)
+
 > Upgrading from an older checkout? Chains saved before Sprint 22 contain unsigned transfers and
-> restore only up to the first one: start with a fresh `data/` directory.
+> restore only up to the first one, and multisig contracts from before Sprint 23 cannot be claimed:
+> start with a fresh `data/` directory.
 
 ---
 
@@ -244,7 +250,7 @@ Average attempts: ~16^difficulty (~65,536 for difficulty 4)
 mvn clean compile
 ```
 
-### Run all tests (419 tests)
+### Run all tests (428 tests)
 ```bash
 mvn test
 ```
@@ -321,7 +327,7 @@ BlockSmith/
 │   ├── BlockSmithNode.java     # Runnable node (P2P + API + dashboard)
 │   └── BlockSmithDemo.java     # Teaching demo application
 ├── src/main/resources/public/  # Web dashboard (index.html, app.js, style.css)
-├── src/test/java/              # 419 unit tests
+├── src/test/java/              # 428 unit tests
 ├── data/                       # Node databases (H2), one folder per node: data/node-<port>/
 ├── pom.xml                     # Maven configuration
 └── README.md
@@ -365,7 +371,7 @@ BlockSmith/
 | ChainContractTest | 9 | Contract deploy/claim, timelock, double-claim, convergence |
 | ApiContractsTest | 3 | Contract lifecycle over HTTP + error envelopes |
 | MultiSigContractTest | 5 | M-of-N deploy/claim, threshold, wrong-key, replay safety, convergence |
-| ApiMultiSigTest | 2 | Multisig lifecycle over HTTP + error envelopes |
+| ApiMultiSigTest | 9 | Members sign, the node coordinates (any order, too few, other claimer, dashboard flow) |
 | H2ChainStoreTest | 8 | H2 store round-trip, ordering, idempotency, reopen |
 | PersistRestoreTest | 6 | Restart restores chain + mempool; tampered blocks rejected |
 | BlockIntegrityTest | 7 | Edited transactions (amounts, contract scripts) fail the Merkle check |
@@ -394,8 +400,8 @@ BlockSmith/
 | ForkSyncTest | 3 | Fork-aware sync; two mining nodes converge |
 | SignatureRuleTest | 8 | Only the sender's own key can authorise a transfer |
 | ApiSigningTest | 6 | Prepare / sign / submit over HTTP |
-| WebCryptoInteropTest | 2 | Browser (Web Crypto) and Java agree on addresses and signatures |
-| **Total** | **419** | All passing ✅ |
+| WebCryptoInteropTest | 4 | Browser (Web Crypto) and Java agree on addresses, signatures and multisig claims |
+| **Total** | **428** | All passing ✅ |
 
 ---
 
@@ -471,6 +477,7 @@ BlockSmith/
 | Sprint 20 | Thread Safety | ✅ Complete (20a, 20b, 20c) |
 | Sprint 21 | Fork Choice | ✅ Complete (21a, 21b, 21c) |
 | Sprint 22 | Required Signatures | ✅ Complete (22a, 22b, 22c) |
+| Sprint 23 | Client-side Multisig | ✅ Complete (23a, 23b, 23c) |
 
 ---
 

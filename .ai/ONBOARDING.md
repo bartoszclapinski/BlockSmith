@@ -39,9 +39,9 @@
 | **Test Framework** | JUnit 5 |
 | **Serialization** | Gson 2.10.1 |
 | **Current Phase** | Phase 4: Production Features — ✅ Complete (all 4 phases done) |
-| **Current Sprint** | Sprint 22 (Required Signatures, hardening) — Complete |
-| **Current Milestone** | 22c Complete; next: see candidates in STATUS.md (client-side multisig recommended) |
-| **Total Tests** | 419 (all passing) |
+| **Current Sprint** | Sprint 23 (Client-side Multisig, hardening) — Complete |
+| **Current Milestone** | 23c Complete; next: see candidates in STATUS.md |
+| **Total Tests** | 428 (all passing) |
 | **Main Branch** | `master` |
 
 ---
@@ -128,11 +128,11 @@ BlockSmith/
 │   │   ├── ScriptVM.java             # ✅ Stack-based interpreter (hashlock/timelock + sighash/signatures)
 │   │   ├── Contract.java             # ✅ Contract model (derived from chain) + claim sighash
 │   │   ├── ContractStatus.java       # ✅ OPEN / CLAIMED
-│   │   └── MultiSigWallet.java       # ✅ M-of-N wallet + CHECKMULTISIG lock (Sprint 15b)
+│   │   └── MultiSigWallet.java       # ✅ M-of-N wallet + CHECKMULTISIG lock (Sprint 15b), read back from a lock (23a)
 │   └── BlockSmithNode.java           # ✅ Complete (runnable node: P2P + API + dashboard, Sprint 13a)
 │
 ├── src/main/resources/public/        # Web dashboard (Sprint 13-15, redesigned PR #157/#158): index.html, app.js, style.css
-├── src/test/java/com/blocksmith/     # 419 unit tests
+├── src/test/java/com/blocksmith/     # 428 unit tests
 ├── pom.xml                           # Maven configuration (Gson, JUnit, Javalin)
 └── README.md                         # Public documentation
 ```
@@ -190,12 +190,14 @@ BlockSmith/
 
 **Sprint 22: Required Signatures** — a probe showed anyone could spend anyone's coins (unsigned transfers, and signatures with the attacker's own key were accepted). 22a: `Transaction.isSignedBySender()` = signature verifies AND `Wallet.addressOf(key)` == sender (always on); `ChainParams.requireSignatures` (DEFAULT true; coinbase and contract claims exempt); contract scripts are now signed; tests of other rules use `TestChains` (`withoutSignatureRule()`). 22b: prepare / sign elsewhere / submit (`/prepare` returns `templateId` + exact `signatureData`, the owner signs, `POST /api/transactions` {templateId, signature, publicKey}). 22c: dashboard keys with Web Crypto (P-256, `localStorage`, export/import, r||s -> DER); `/api/wallet/create` retired; `WebCryptoInteropTest` pins browser and Java together. **Start a fresh `data/` dir**: old chains with unsigned transfers do not fully restore.
 
+**Sprint 23: Client-side Multisig** — a probe showed anyone could claim any multisig: the node made the member keys and signed claims for whoever asked. 23a: `POST /api/multisig/create` takes member PUBLIC keys; `/api/multisig/claim/prepare` returns the claim sighash (binds contract, claimer, amount) and the members in script order; `/api/multisig/claim` takes {publicKey, signature} pairs, the node orders them (`CHECKMULTISIG` matches left to right) and the VM decides; `MultiSigWallet.fromLockingScript`. 23b: dashboard member keys, claim drawer collects M signatures, "Multisig member" drawer checks a request against its own node before signing. 23c: a claim signed in two browser profiles; `WebCryptoInteropTest` runs it through `CHECKMULTISIG`.
+
 ---
 
 ## What's NOT Implemented Yet
 
 ### Roadmap complete, hardening in progress
-- All planned sprints (0-19) are done; Sprints 20 (thread safety), 21 (fork choice) and 22 (required signatures) too. Next candidates: client-side multisig (the node still holds member keys), persistent nodeId + peer auto-connect, or a bonus feature (SPV, explorer)
+- All planned sprints (0-19) are done; Sprints 20 (thread safety), 21 (fork choice), 22 (required signatures) and 23 (client-side multisig) too. Next candidates: persistent nodeId + peer auto-connect, or a bonus feature (SPV, explorer)
 
 ### Deferred / known follow-ups
 - Mempool request is sent on outbound connect only; inbound side does not yet pull the peer's mempool
@@ -290,7 +292,7 @@ mvn exec:java -Dexec.mainClass=com.blocksmith.BlockSmithDemo
 | ChainContractTest | 9 | Contract deploy/claim, timelock, double-claim, convergence (Sprint 14b) |
 | ApiContractsTest | 3 | Contract lifecycle over HTTP + error envelopes (Sprint 14c) |
 | MultiSigContractTest | 5 | M-of-N deploy/claim, threshold, wrong-key, replay safety, convergence (Sprint 15b) |
-| ApiMultiSigTest | 2 | Multisig lifecycle over HTTP + error envelopes (Sprint 15c) |
+| ApiMultiSigTest | 9 | Members sign, the node coordinates: any order, too few, other claimer, non-member, restart, dashboard flow (Sprint 15c, rewritten 23a/23b) |
 | H2ChainStoreTest | 8 | Store round-trip, order, idempotency, signed tx, reopen (Sprint 16a) |
 | PersistRestoreTest | 6 | Restart round-trip, mempool, tamper rejected, orphans, no double-mine (Sprint 16b) |
 | BlockIntegrityTest | 7 | Edited tx (amount or contract script) keeps the hash but fails the Merkle check (#260, #264) |
@@ -319,8 +321,8 @@ mvn exec:java -Dexec.mainClass=com.blocksmith.BlockSmithDemo
 | ForkSyncTest | 3 | Locator, a node on another branch reorgs over TCP, two mining nodes converge (Sprint 21c) |
 | SignatureRuleTest | 8 | Unsigned / other key refused, owner accepted, peer blocks, signed deploy script, bump, restore (Sprint 22a) |
 | ApiSigningTest | 6 | Prepare/sign/submit, wrong key, tampered, expiry, deploy, signed bump at the minimum (Sprint 22b) |
-| WebCryptoInteropTest | 2 | Addresses and signatures from a real browser verify in Java (Sprint 22c) |
-| **Total** | **419** | All passing ✅ |
+| WebCryptoInteropTest | 4 | Addresses and signatures from a real browser verify in Java (Sprint 22c); a claim signed in two browsers passes CHECKMULTISIG (Sprint 23c) |
+| **Total** | **428** | All passing ✅ |
 
 ---
 
@@ -331,7 +333,7 @@ mvn exec:java -Dexec.mainClass=com.blocksmith.BlockSmithDemo
 - **Doc branches**: `docs/{description}` (e.g., `docs/sprint11-complete`)
 - **Commits**: One per issue, format: `feat(scope): description #NN` — never add `Co-Authored-By`
 - **PRs**: created with `gh`, include `Closes #NN` lines; merged with a **regular merge commit** (`gh pr merge N --merge`, not squash) so the one-commit-per-issue history stays on master (decided 2026-11-11; #130-#278 were squash-merged); then ff-only pull to sync local master
-- **Latest**: Sprint 22 complete (Required Signatures, PR #338, #339, #340); roadmap done, hardening in progress
+- **Latest**: Sprint 23 complete (Client-side Multisig, PR #349, #350, #351); roadmap done, hardening in progress
 - **Maven path**: run `mvn` from `F:\Repos\Java\BlockSmith` (capital J); from a lowercase path Jetty 404s static files and 3 dashboard tests fail
 
 ---
@@ -344,9 +346,9 @@ mvn exec:java -Dexec.mainClass=com.blocksmith.BlockSmithDemo
 | `CONVENTIONS.md` | Need full code style rules, THEORY comment format, test conventions |
 | `STATUS.md` | Need exact current status, implementation table, feature checklist |
 | `roadmap.md` | Need full project phases and timeline |
-| `sprints/sprint22/sprint-plan.md` | Most recent sprint's milestones, issues, acceptance criteria |
-| `sprints/sprint22/sprint-log.md` | What was completed in the latest sprint |
+| `sprints/sprint23/sprint-plan.md` | Most recent sprint's milestones, issues, acceptance criteria |
+| `sprints/sprint23/sprint-log.md` | What was completed in the latest sprint |
 
 ---
 
-*Last updated: 2026-11-14 | Sprint 22 Complete (Required Signatures) — roadmap done, hardening in progress*
+*Last updated: 2026-11-14 | Sprint 23 Complete (Client-side Multisig) — roadmap done, hardening in progress*
