@@ -9,7 +9,7 @@
 | Field | Value |
 |-------|-------|
 | **Phase** | 4 - Production Features - ✅ COMPLETE (all 4 phases done) |
-| **Current Sprint** | 19 (Fee Market) - Complete |
+| **Current Sprint** | 20 (Thread Safety, hardening after the roadmap) - Planned |
 | **Current Milestone** | 19d Complete (Fee estimates, bumps and the mempool in API + dashboard) |
 | **Status** | Sprint 19 complete (19a-19d): mempool limit + eviction, replace-by-fee, fee estimation, API + dashboard. Roadmap complete; next: deferred items or bonus features |
 
@@ -57,6 +57,9 @@ Phase 4: Production Features  [███████████████] 10
 ├── Sprint 17: Difficulty    ✅ COMPLETE (17a ✅, 17b ✅, 17c ✅, 17d ✅)
 ├── Sprint 18: Block Rules   ✅ COMPLETE (18a ✅, 18b ✅, 18c ✅, 18d ✅)
 └── Sprint 19: Fee Market    ✅ COMPLETE (19a ✅, 19b ✅, 19c ✅, 19d ✅)
+
+Hardening (after the roadmap)
+└── Sprint 20: Thread Safety 📋 PLANNED (20a ⬜, 20b ⬜, 20c ⬜)
 ```
 
 ---
