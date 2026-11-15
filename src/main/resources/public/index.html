@@ -86,6 +86,14 @@
                         <div class="card-label">Open contracts</div>
                         <div id="contract-list" class="scroll-col"></div>
                     </div>
+                    <div class="panel peers-card" data-tour="peers">
+                        <div class="card-label">Peers <span id="peer-count" class="peer-count"></span></div>
+                        <div id="peer-list" class="scroll-col"></div>
+                        <form id="peer-form" class="peer-form" autocomplete="off">
+                            <input id="peer-address" class="mono" type="text" placeholder="host:port" aria-label="Peer address (host:port)" spellcheck="false">
+                            <button id="peer-connect" class="btn-accent" type="submit">Connect</button>
+                        </form>
+                    </div>
                 </section>
             </div>
 

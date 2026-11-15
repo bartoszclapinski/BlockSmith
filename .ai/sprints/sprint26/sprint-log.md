@@ -106,7 +106,51 @@
   `-Dtest=A,B` and stale reports deleted before each run
 - Tests: 453/453
 
-## Milestone 26c: Mempool both ways, dashboard, live network, docs - Not started
+## Milestone 26c: Mempool both ways, dashboard, live network, docs - Done (#379, #380)
+
+- The inbound side sends `GET_MEMPOOL` after the handshake too (it already
+  sent `GET_BLOCKS` since 26a): a dialled node now sees the dialler's
+  pending transactions
+- Dashboard **Peers** card: → outbound / ← inbound, address, short id,
+  state, a count badge; a `host:port` form (client check, then the API's
+  400 / 409 / 502 messages as toasts); palette command "Connect to peer";
+  a tour step. The contracts card got a minimum height (the new card had
+  squeezed its empty-state text out of view at 1440 x 900)
+- `NetworkPanelTest` (2): `inboundSide_pullsMempool` (B dials A with a block
+  and a pending tx A lacks; A gets both); the served page and script carry
+  the panel, and the same link reads outbound on one end and inbound on
+  the other. Mutation: no inbound `GET_MEMPOOL` -> killed
+- `CommunicationTest`: raw-peer listeners also skip `GET_MEMPOOL`
+- Docs: ARCHITECTURE (BlockSmithNode `--peer`, network table, "Joining,
+  identity, discovery" section), STATUS (four network items leave the
+  deferred list; reachability of advertised addresses and ban scores
+  added), README ("Run a network of nodes")
+- Tests: 455/455
+
+### Live: three processes, then a fourth from the dashboard
+
+Real `BlockSmithNode` processes (P2P 18601-18604, API 18681-18684), data in
+the scratchpad:
+
+1. B alone; A `--peer localhost:18602`; C `--peer localhost:18602`. After
+   5 s: A has B (out) and C (in), C has B (out) and A (out): **C heard of
+   A from B and dialled it**. All three chain length 1
+2. 2 blocks mined on A: all three length 3, same tip `0000fb9c85`
+3. B hard-killed (`Stop-Process -Force`): A and C drop to 1 peer at once
+4. 1 block mined on A while B is down: **C has it** (length 4, tip
+   `00003635c8`) over the A-C link
+5. B restarted with no `--peer`: back after 7 s with **the same nodeId**
+   (`node-c58280de7c2393e3`); A and C redialled it (persistent peers),
+   B caught up to length 4
+6. D started alone (18604/18684), dashboard in headless Edge: empty state;
+   `nonsense` -> client message; `localhost:1` -> "Could not reach";
+   `localhost:18601` -> "Connected to localhost:18601 (node-1b03...)";
+   then **D dialled B and C by itself** (3 outbound, badge 3, header
+   "3 peers"), chain length 4; same address again -> "Already connected";
+   390 px: no horizontal scroll; palette command focuses the input; no
+   page errors (14/14 checks)
+7. All PIDs stopped; no java.exe or headless Edge left; no exceptions in
+   the node logs
 
 ---
 

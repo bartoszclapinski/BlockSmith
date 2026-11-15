@@ -272,6 +272,23 @@ mvn exec:java
 ```
 Optional ports (P2P, API): `mvn exec:java -Dexec.args="8335 7070"`
 
+### Run a network of nodes
+Each node needs its own ports and data directory. Give a new node the address of
+any node already running; it finds the others by itself (Sprint 26):
+```bash
+# terminal 1: the first node
+mvn exec:java -Dexec.args="8335 7070"
+# terminal 2: joins the first one
+mvn exec:java -Dexec.args="8336 7071 --peer localhost:8335"
+# terminal 3: also knows only the first one, then discovers node 2
+mvn exec:java -Dexec.args="8337 7072 --peer localhost:8335"
+```
+`--peer` can repeat (or use `-Dblocksmith.peers=host:port,host:port`). A peer given this
+way is dialled again whenever its link drops. From the dashboard, the **Peers** card lists
+the links (→ we dialled, ← they dialled us) and connects to another `host:port`. Each node
+keeps its id in `data/node-<p2pPort>/node-id`; peers are found through `GET_PEERS`, and a
+node dials them while it has fewer than 4 links of its own (at most 10 in all).
+
 ### Run the teaching demo
 ```bash
 mvn exec:java -Dexec.mainClass=com.blocksmith.BlockSmithDemo

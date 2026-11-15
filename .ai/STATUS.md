@@ -491,16 +491,14 @@ Design handoff (prototype + README) lives in `.ai/design/UIUX redesign project/`
    - A bonus feature from `roadmap.md` (SPV light client, explorer app)
 
 13. **Deferred / future work**
-   - Gossip auto-connect to DISCOVERED peers (needs MAX_PEERS guarding)
-   - Self-identification filtering in peer lists
-   - Mempool request is sent on outbound connect only; inbound side does not
-     yet pull the peer's mempool
+   - Advertised peer addresses are not checked for reachability (an inbound
+     peer behind NAT is advertised under the address it dialled from); no
+     ban score for peers that send invalid data
    - Browser keys are encrypted under a passphrase (Sprint 24), but a
      script running while unlocked can still ask them to sign; no hardware
      wallet. Plaintext keys from before Sprint 24 stay in the browser's
      files after migration; the dashboard flags them and moves their funds
      to a new key (Sprint 25c), it cannot erase the old copy
-   - `nodeId` is random per start (not persisted with the chain)
    - Side branches are kept in memory only (re-learned from peers after a
      restart); no headers-first sync
    - WebSocket push for the dashboard (currently 4s polling)

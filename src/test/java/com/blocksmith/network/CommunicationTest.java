@@ -71,8 +71,8 @@ class CommunicationTest {
         peer.startListening(new MessageListener() {
             @Override
             public void onMessage(Message message) {
-                // The node asks for our blocks right after the handshake (Sprint 26a).
-                if (message.getType() == MessageType.GET_BLOCKS) return;
+                // The node asks for our blocks (Sprint 26a) and mempool (26c) right after the handshake.
+                if (message.getType() == MessageType.GET_BLOCKS || message.getType() == MessageType.GET_MEMPOOL) return;
                 received.add(message);
                 latch.countDown();
             }
@@ -112,8 +112,8 @@ class CommunicationTest {
         peer.startListening(new MessageListener() {
             @Override
             public void onMessage(Message message) {
-                // The node asks for our blocks right after the handshake (Sprint 26a).
-                if (message.getType() == MessageType.GET_BLOCKS) return;
+                // The node asks for our blocks (Sprint 26a) and mempool (26c) right after the handshake.
+                if (message.getType() == MessageType.GET_BLOCKS || message.getType() == MessageType.GET_MEMPOOL) return;
                 received.add(message);
                 latch.countDown();
             }
@@ -277,8 +277,8 @@ class CommunicationTest {
         peer.startListening(new MessageListener() {
             @Override
             public void onMessage(Message message) {
-                // The node asks for our blocks right after the handshake (Sprint 26a).
-                if (message.getType() == MessageType.GET_BLOCKS) return;
+                // The node asks for our blocks (Sprint 26a) and mempool (26c) right after the handshake.
+                if (message.getType() == MessageType.GET_BLOCKS || message.getType() == MessageType.GET_MEMPOOL) return;
                 received.add(message);
                 pongLatch.countDown();
             }
