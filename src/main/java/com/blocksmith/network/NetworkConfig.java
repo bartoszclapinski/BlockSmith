@@ -104,6 +104,24 @@ public class NetworkConfig {
      */
     public static final List<String> SEED_NODES = List.of();
 
+    /**
+     * THEORY: Discovery and auto-connect (Sprint 26b)
+     *
+     * Every DISCOVERY_EVERY_HEARTBEATS-th heartbeat (~30 s) a node asks its
+     * peers for GET_PEERS, and dials discovered addresses while it has fewer
+     * than TARGET_OUTBOUND links it opened itself (Bitcoin: 8 outbound).
+     * Inbound links fill the rest, up to MAX_PEERS. A failed dial waits
+     * DIAL_BACKOFF_BASE_MS, then twice as long after every further failure,
+     * up to DIAL_BACKOFF_MAX_MS.
+     */
+    public static final int DISCOVERY_EVERY_HEARTBEATS = 3;
+    public static final int TARGET_OUTBOUND = 4;
+    public static final long DIAL_BACKOFF_BASE_MS = 10_000;
+    public static final long DIAL_BACKOFF_MAX_MS = 300_000;
+
+    /** File in the data directory that keeps the node's id across restarts (Sprint 26b). */
+    public static final String NODE_ID_FILE = "node-id";
+
 
     // Private constructor - utility class, no instances needed
     private NetworkConfig() {}

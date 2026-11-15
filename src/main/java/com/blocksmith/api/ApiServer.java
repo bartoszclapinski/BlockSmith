@@ -301,6 +301,9 @@ public class ApiServer {
             m.put("address", peer.getAddress());
             m.put("nodeId", peer.getNodeId());
             m.put("state", peer.getState().toString());
+            m.put("direction", peer.isOutbound() ? "outbound" : "inbound");
+            m.put("connectedAt", peer.getConnectedAt());
+            m.put("lastSeen", peer.getLastSeen());
             peers.add(m);
         }
         json(ctx, peers);

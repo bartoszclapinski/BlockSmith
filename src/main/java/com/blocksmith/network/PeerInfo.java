@@ -29,6 +29,8 @@ public class PeerInfo {
     private PeerState state;
     private long lastSeen;
     private long connectedAt;
+    /** True if we opened this link (Sprint 26b): counts toward TARGET_OUTBOUND. */
+    private volatile boolean outbound;
 
     /**
      * Creates a new PeerInfo in DISCOVERED state.
@@ -62,6 +64,15 @@ public class PeerInfo {
      * Transition peer to DISCONNECTED state.
      * Called when the connection is lost or closed.
      */
+    public void setOutbound(boolean outbound) {
+        this.outbound = outbound;
+    }
+
+    /** True if this node dialled the peer, false if the peer dialled us. */
+    public boolean isOutbound() {
+        return outbound;
+    }
+
     public void markDisconnected() {
         this.state = PeerState.DISCONNECTED;
     }

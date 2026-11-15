@@ -31,6 +31,9 @@ import com.blocksmith.storage.StorageException;
  * {@code -Dblocksmith.peers=host:port,host:port}, is dialled after start and
  * kept: if the link drops, the heartbeat dials it again. More peers can be
  * added later from the dashboard ({@code POST /api/network/peers}).
+ * The node's id is kept in {@code <dataDir>/node-id} (Sprint 26b); from the
+ * peers it knows, the node finds more ({@code GET_PEERS}) and dials them
+ * while it has fewer than {@link NetworkConfig#TARGET_OUTBOUND} links of its own.
  *
  * <p>Persistence (Sprint 16): the chain and mempool are kept in an H2
  * database under {@code data/node-<p2pPort>/} and restored on startup, so a
@@ -195,7 +198,8 @@ public class BlockSmithNode {
             Blockchain blockchain = new Blockchain(store);
             Blockchain.RestoreReport restored = blockchain.restoreFromStore();
 
-            node = new Node(options.p2pPort(), blockchain);
+            // The same id across restarts (Sprint 26b), kept next to the chain.
+            node = new Node(options.p2pPort(), blockchain, Node.loadOrCreateNodeId(dataDir));
             for (String peer : options.peers()) node.addPersistentPeer(peer);
             node.start();
 

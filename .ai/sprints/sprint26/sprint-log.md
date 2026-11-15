@@ -60,7 +60,51 @@
   the peer; no port range check
 - Tests: 448/448
 
-## Milestone 26b: Identity and discovery - Not started
+## Milestone 26b: Identity and discovery - Done (#377, #378)
+
+- `Node.loadOrCreateNodeId(dataDir)`: the id lives in `<dataDir>/node-id`
+  (created once; a file without a valid id is replaced); `BlockSmithNode`
+  passes it to the new `Node(port, chain, nodeId)`; in-memory nodes keep a
+  random id
+- Self: an inbound HELLO with our own id is answered (so the dialler learns)
+  and not registered; the dialler drops the link, remembers the address in
+  `selfAddresses` and refuses it from then on (409 from the connect API)
+- Duplicates: every handshake records address -> nodeId, so another name for
+  a linked node is refused before dialling. A second link found after the
+  HELLO is settled by the dialling side under `linkLock`: our own existing
+  link wins; between their link and ours, the one opened by the smaller id
+  stays (both ends agree, so two nodes dialling each other at once keep one
+  link, not zero). The losing inbound link is marked DISCONNECTED at once
+  and its socket closed
+- Discovery: `GET_PEERS` right after an outbound handshake (Bitcoin:
+  getaddr) and every 3rd heartbeat (`askForPeers`); the reply lists the
+  addresses of CONNECTED peers, one per nodeId, never the asker or us;
+  `PEERS` skips our own and already-linked addresses, records the rest as
+  DISCOVERED and runs `maintainConnections` soon
+- Auto-connect in `maintainConnections`: dials DISCOVERED / DISCONNECTED
+  addresses while outbound links < `TARGET_OUTBOUND` (4) and below
+  `MAX_PEERS` (10); a failed dial backs off 10 s, doubling up to 5 min
+- `PeerInfo.isOutbound()`; `GET /api/network/peers` adds `direction`,
+  `connectedAt`, `lastSeen`
+- `IdentityDiscoveryTest` (5): id kept across a restart (and seen by a
+  peer); self-dial refused, remembered, never a peer (also under
+  `localhost`, which the inbound side sees as 127.0.0.1); duplicate links
+  with fixed ids (`node-000...1` / `node-fff...f`) for both tie-break
+  outcomes, the surviving link carries blocks both ways; A and C find each
+  other through B without a heartbeat, B's reply is just C, the heartbeat
+  asks every 3rd beat, A's block reaches C after B stops; 7 nodes on a hub:
+  the newcomer stops at 4 outbound, nobody above 10, an unreachable address
+  backs off
+- Mutations (13): 12 killed (persisted id; inbound self check; dialler self
+  check; inverted and disabled tie-break; asker in the reply; own address
+  from PEERS; heartbeat never asks; no auto-connect; no outbound limit; no
+  back-off; no GET_PEERS on connect). Survived: `closeInbound` without the
+  immediate mark: closing the socket ends the other thread before
+  `connectToPeer` returns, so only timing differs (kept: it is free)
+- The first mutation run used `-Dtest=A+B` (not a Surefire class list: Maven
+  failed before any test ran and every mutation looked killed); rerun with
+  `-Dtest=A,B` and stale reports deleted before each run
+- Tests: 453/453
 
 ## Milestone 26c: Mempool both ways, dashboard, live network, docs - Not started
 
