@@ -71,6 +71,8 @@ class CommunicationTest {
         peer.startListening(new MessageListener() {
             @Override
             public void onMessage(Message message) {
+                // The node asks for our blocks right after the handshake (Sprint 26a).
+                if (message.getType() == MessageType.GET_BLOCKS) return;
                 received.add(message);
                 latch.countDown();
             }
@@ -110,6 +112,8 @@ class CommunicationTest {
         peer.startListening(new MessageListener() {
             @Override
             public void onMessage(Message message) {
+                // The node asks for our blocks right after the handshake (Sprint 26a).
+                if (message.getType() == MessageType.GET_BLOCKS) return;
                 received.add(message);
                 latch.countDown();
             }
@@ -273,6 +277,8 @@ class CommunicationTest {
         peer.startListening(new MessageListener() {
             @Override
             public void onMessage(Message message) {
+                // The node asks for our blocks right after the handshake (Sprint 26a).
+                if (message.getType() == MessageType.GET_BLOCKS) return;
                 received.add(message);
                 pongLatch.countDown();
             }
