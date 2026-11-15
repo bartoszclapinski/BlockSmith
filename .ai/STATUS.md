@@ -9,7 +9,7 @@
 | Field | Value |
 |-------|-------|
 | **Phase** | 4 - Production Features - ✅ COMPLETE (all 4 phases done) |
-| **Current Sprint** | 25 (Loose Ends: contract ids, coinbase height, key rotation) - Complete |
+| **Current Sprint** | 26 (Networking for Real: joining, identity, discovery) - Planned |
 | **Current Milestone** | 25c Complete (Move funds to a new key) |
 | **Status** | Sprint 25 complete (25a-25c): contract ids bound to their deploy (front-running closed), the block height in every coinbase, move funds to a new key. Next: see the candidates in the notes |
 
@@ -64,7 +64,8 @@ Hardening (after the roadmap)
 ├── Sprint 22: Signatures    ✅ COMPLETE (22a ✅, 22b ✅, 22c ✅)
 ├── Sprint 23: Multisig keys ✅ COMPLETE (23a ✅, 23b ✅, 23c ✅)
 ├── Sprint 24: Keystore      ✅ COMPLETE (24a ✅, 24b ✅, 24c ✅)
-└── Sprint 25: Loose ends    ✅ COMPLETE (25a ✅, 25b ✅, 25c ✅)
+├── Sprint 25: Loose ends    ✅ COMPLETE (25a ✅, 25b ✅, 25c ✅)
+└── Sprint 26: Networking    📋 PLANNED (26a ⬜, 26b ⬜, 26c ⬜)
 ```
 
 ---
