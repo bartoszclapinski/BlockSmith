@@ -7,7 +7,7 @@
 | **Sprint** | 26 |
 | **Title** | Networking for Real: Joining, Identity, Discovery |
 | **Phase** | Hardening (after the roadmap) |
-| **Status** | 📋 Planned |
+| **Status** | 🔄 In progress |
 | **Depends On** | Sprints 8-11 (P2P layer), Sprint 21 (sync), Sprint 25 (release v4.6.0) |
 
 > **Why:** the deferred list said "nodeId is random per start" and "no
@@ -48,7 +48,7 @@ in the middle dies.
 
 | Milestone | Title | Branch | Status |
 |-----------|-------|--------|--------|
-| **26a** | Joining: peer arguments, connect API, reconnect | `sprint26a/joining` | ⬜ Planned (#375, #376) |
+| **26a** | Joining: peer arguments, connect API, reconnect | `sprint26a/joining` | ✅ Done (#375, #376) |
 | **26b** | Identity and discovery | `sprint26b/identity-discovery` | ⬜ Planned (#377, #378) |
 | **26c** | Mempool both ways, dashboard peers, live network, docs | `sprint26c/live-network` | ⬜ Planned (#379, #380) |
 
@@ -58,14 +58,14 @@ in the middle dies.
 
 ### Deliverables
 
-- [ ] `BlockSmithNode`: `--peer host:port` (repeatable) and
+- [x] `BlockSmithNode`: `--peer host:port` (repeatable) and
       `-Dblocksmith.peers=a:1,b:2`; connected after start (best effort,
       retried by the heartbeat)
-- [ ] `POST /api/network/peers {address}` connects to a peer (400 for a
+- [x] `POST /api/network/peers {address}` connects to a peer (400 for a
       bad address, 409 when already connected, 502 when unreachable)
-- [ ] Reconnect: a peer that is DISCOVERED or DISCONNECTED can be connected
+- [x] Reconnect: a peer that is DISCOVERED or DISCONNECTED can be connected
       again; an outbound link that drops is marked DISCONNECTED at once
-- [ ] Tests: the probe (two nodes started like `BlockSmithNode` share
+- [x] Tests: the probe (two nodes started like `BlockSmithNode` share
       blocks); reconnect after a peer restarts; the API errors
 
 ---
