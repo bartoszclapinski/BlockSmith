@@ -8,7 +8,7 @@ BlockSmith is a comprehensive blockchain project that goes beyond tutorials - im
 
 [![Java](https://img.shields.io/badge/Java-20+-orange.svg)](https://openjdk.org/)
 [![Maven](https://img.shields.io/badge/Maven-3.9+-blue.svg)](https://maven.apache.org/)
-[![Tests](https://img.shields.io/badge/Tests-445%20passing-brightgreen.svg)](#)
+[![Tests](https://img.shields.io/badge/Tests-455%20passing-brightgreen.svg)](#)
 [![Phase](https://img.shields.io/badge/Phase%204-Complete-brightgreen.svg)](#)
 [![Version](https://img.shields.io/badge/Version-1.0.0-blue.svg)](#)
 
@@ -118,6 +118,10 @@ BlockSmith is a comprehensive blockchain project that goes beyond tutorials - im
   - ✅ A contract's id is bound to its deploy, so nobody can deploy to someone else's pending contract (Sprint 25a)
   - ✅ Every new coinbase carries its block height; the transaction index survives duplicate ids (Sprint 25b)
   - ✅ "Move funds to a new key" in the dashboard (Sprint 25c)
+- ✅ Networking for real (Sprint 26)
+  - ✅ Join a network with `--peer host:port` or from the dashboard; restarted peers are reached again (Sprint 26a)
+  - ✅ A node keeps its id, knows itself and duplicate links, and finds more peers on its own (Sprint 26b)
+  - ✅ Pending transactions flow both ways; a Peers card in the dashboard; checked live with three processes (Sprint 26c)
 
 > Upgrading from an older checkout? Chains saved before Sprint 22 contain unsigned transfers and
 > restore only up to the first one, and multisig contracts from before Sprint 23 cannot be claimed:
@@ -260,7 +264,7 @@ Average attempts: ~16^difficulty (~65,536 for difficulty 4)
 mvn clean compile
 ```
 
-### Run all tests (445 tests)
+### Run all tests (455 tests)
 ```bash
 mvn test
 ```
@@ -354,7 +358,7 @@ BlockSmith/
 │   ├── BlockSmithNode.java     # Runnable node (P2P + API + dashboard)
 │   └── BlockSmithDemo.java     # Teaching demo application
 ├── src/main/resources/public/  # Web dashboard (index.html, app.js, style.css)
-├── src/test/java/              # 445 unit tests
+├── src/test/java/              # 455 unit tests
 ├── data/                       # Node databases (H2), one folder per node: data/node-<port>/
 ├── pom.xml                     # Maven configuration
 └── README.md
@@ -432,7 +436,10 @@ BlockSmith/
 | KeystoreInteropTest | 3 | A browser keystore backup opens with standard Java crypto |
 | ContractIdTest | 5 | A contract id belongs to its deploy: front-running refused |
 | CoinbaseHeightTest | 4 | Unique coinbases and an index keyed by position |
-| **Total** | **445** | All passing ✅ |
+| JoiningTest | 3 | Nodes started with `--peer` share blocks and reconnect after a restart |
+| IdentityDiscoveryTest | 5 | Persistent node id, self and duplicate links, discovery and auto-connect |
+| NetworkPanelTest | 2 | Mempool pulled both ways; the dashboard's Peers card |
+| **Total** | **455** | All passing ✅ |
 
 ---
 
@@ -446,7 +453,7 @@ BlockSmith/
 - Transaction pools (mempool)
 
 ### Networking & API
-- TCP socket P2P networking
+- TCP socket P2P networking (joining, node identity, peer discovery with auto-connect)
 - JSON messaging (Gson)
 - REST API over HTTP (Javalin / embedded Jetty)
 
@@ -511,6 +518,7 @@ BlockSmith/
 | Sprint 23 | Client-side Multisig | ✅ Complete (23a, 23b, 23c) |
 | Sprint 24 | Encrypted Browser Keystore | ✅ Complete (24a, 24b, 24c) |
 | Sprint 25 | Loose Ends | ✅ Complete (25a, 25b, 25c) |
+| Sprint 26 | Networking for Real | ✅ Complete (26a, 26b, 26c) |
 
 ---
 

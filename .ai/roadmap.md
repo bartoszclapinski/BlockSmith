@@ -163,6 +163,7 @@ POST /api/multisig/claim       # Assemble + submit a multisig claim
 | 23 | Client-side Multisig | Members keep their keys and sign in their browsers; the node only coordinates ✅ Complete |
 | 24 | Encrypted Browser Keystore | Keys stored only under a passphrase (PBKDF2 + AES-GCM), unlock on demand, encrypted backups ✅ Complete |
 | 25 | Loose Ends | Contract ids bound to their deploy, block height in every coinbase, move funds to a new key ✅ Complete |
+| 26 | Networking for Real | Join from the command line or dashboard, persistent node id, discovery with auto-connect, reconnect ✅ Complete |
 
 ---
 

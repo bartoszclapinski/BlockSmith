@@ -5,7 +5,7 @@
 | Event | Date |
 |-------|------|
 | **Sprint Start** | 2026-11-15 |
-| **Sprint End** | - |
+| **Sprint End** | 2026-11-15 |
 
 ---
 
@@ -23,7 +23,7 @@
 
 ---
 
-## Milestone 26a: Joining - Done (#375, #376)
+## Milestone 26a: Joining - Complete (PR #382)
 
 - `BlockSmithNode`: `parseArgs` (positional ports, repeatable `--peer host:port`,
   `-Dblocksmith.peers=a:1,b:2`, `--restore`; unknown options and bad addresses
@@ -60,7 +60,7 @@
   the peer; no port range check
 - Tests: 448/448
 
-## Milestone 26b: Identity and discovery - Done (#377, #378)
+## Milestone 26b: Identity and discovery - Complete (PR #383)
 
 - `Node.loadOrCreateNodeId(dataDir)`: the id lives in `<dataDir>/node-id`
   (created once; a file without a valid id is replaced); `BlockSmithNode`
@@ -106,7 +106,7 @@
   `-Dtest=A,B` and stale reports deleted before each run
 - Tests: 453/453
 
-## Milestone 26c: Mempool both ways, dashboard, live network, docs - Done (#379, #380)
+## Milestone 26c: Mempool both ways, dashboard, live network, docs - Complete (PR #384)
 
 - The inbound side sends `GET_MEMPOOL` after the handshake too (it already
   sent `GET_BLOCKS` since 26a): a dialled node now sees the dialler's
@@ -151,6 +151,26 @@ the scratchpad:
    page errors (14/14 checks)
 7. All PIDs stopped; no java.exe or headless Edge left; no exceptions in
    the node logs
+
+---
+
+## Retrospective
+
+- The deferred list said "no auto-connect" and "random nodeId"; probing it
+  showed two real nodes could not connect at all. The whole P2P layer had
+  only ever run in tests that wired the nodes by hand.
+- Building the missing entry point found three more faults the hand-wired
+  tests never hit: no catch-up on connect (a late joiner waited for the next
+  block), a restarted peer that dialled in again was never registered, and
+  `stop()` left inbound sockets open.
+- Identity needs a rule both ends agree on. Closing "the second link" on
+  each side independently loses both links when two nodes dial each other
+  at once; "the link opened by the smaller id stays" keeps exactly one.
+- A mutation run that looks perfect can be a broken run: `-Dtest=A+B` made
+  Maven fail before any test, and every mutation looked killed. Stale
+  reports are now deleted before each run.
+- Suite: 445 -> 455 (JoiningTest 3, IdentityDiscoveryTest 5,
+  NetworkPanelTest 2).
 
 ---
 

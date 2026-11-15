@@ -9,9 +9,9 @@
 | Field | Value |
 |-------|-------|
 | **Phase** | 4 - Production Features - ✅ COMPLETE (all 4 phases done) |
-| **Current Sprint** | 26 (Networking for Real: joining, identity, discovery) - Planned |
-| **Current Milestone** | 25c Complete (Move funds to a new key) |
-| **Status** | Sprint 25 complete (25a-25c): contract ids bound to their deploy (front-running closed), the block height in every coinbase, move funds to a new key. Next: see the candidates in the notes |
+| **Current Sprint** | 26 (Networking for Real: joining, identity, discovery) - Complete |
+| **Current Milestone** | 26c Complete (Live network, dashboard peers) |
+| **Status** | Sprint 26 complete (26a-26c): nodes join a network from the command line or the dashboard, keep one id, find each other and reconnect. Next: Sprint 27 (block explorer), then the project closes |
 
 ---
 
@@ -65,7 +65,7 @@ Hardening (after the roadmap)
 ├── Sprint 23: Multisig keys ✅ COMPLETE (23a ✅, 23b ✅, 23c ✅)
 ├── Sprint 24: Keystore      ✅ COMPLETE (24a ✅, 24b ✅, 24c ✅)
 ├── Sprint 25: Loose ends    ✅ COMPLETE (25a ✅, 25b ✅, 25c ✅)
-└── Sprint 26: Networking    📋 PLANNED (26a ⬜, 26b ⬜, 26c ⬜)
+└── Sprint 26: Networking    ✅ COMPLETE (26a ✅, 26b ✅, 26c ✅)
 ```
 
 ---
@@ -140,7 +140,10 @@ Hardening (after the roadmap)
 | KeystoreInteropTest | 3 | ✅ |
 | ContractIdTest | 5 | ✅ |
 | CoinbaseHeightTest | 4 | ✅ |
-| **Total** | **445** | ✅ |
+| JoiningTest | 3 | ✅ |
+| IdentityDiscoveryTest | 5 | ✅ |
+| NetworkPanelTest | 2 | ✅ |
+| **Total** | **455** | ✅ |
 
 Last test run: `mvn test` - All passing
 
@@ -343,6 +346,9 @@ Design handoff (prototype + README) lives in `.ai/design/UIUX redesign project/`
 - [x] Contract ids bound to their deploy: a pending deploy can no longer be front-run (Sprint 25a)
 - [x] Block height in every coinbase; tx_index keyed by position (Sprint 25b)
 - [x] Move funds to a new key; once-plaintext keys flagged (Sprint 25c)
+- [x] Join a network: `--peer`, connect API, reconnect to restarted peers, catch-up on connect (Sprint 26a)
+- [x] Persistent node id; self and duplicate links detected; discovery with auto-connect (Sprint 26b)
+- [x] Mempool pulled both ways; dashboard Peers card; three live processes keep one chain (Sprint 26c)
 
 ---
 
@@ -351,7 +357,7 @@ Design handoff (prototype + README) lives in `.ai/design/UIUX redesign project/`
 | Item | Value |
 |------|-------|
 | **Current Branch** | `master` |
-| **Last Commit** | Sprint 25 complete (PR #371, #372, #373) |
+| **Last Commit** | Sprint 26 complete (PR #382, #383, #384) |
 | **Tag** | `v1.0.0` (Phase 1) |
 | **Main Branch** | `master` |
 
@@ -486,11 +492,24 @@ Design handoff (prototype + README) lives in `.ai/design/UIUX redesign project/`
      position, old index migrated
    - 25c (PR #373): "Move funds to a new key", flags for once-plaintext keys
 
-12. **Next candidates** (no sprint planned yet):
-   - Persistent `nodeId` + auto-connect to discovered peers (network)
-   - A bonus feature from `roadmap.md` (SPV light client, explorer app)
+12. **Sprint 26 COMPLETE** - Networking for Real (2026-11-15)
+   - Probe: two `BlockSmithNode` processes never connected (no peer
+     argument, no connect API, nothing sent GET_PEERS); a restarted peer
+     could never be dialled again ("Already connected")
+   - 26a (PR #382): `--peer` / `-Dblocksmith.peers`, `POST
+     /api/network/peers` (localhost only), persistent peers redialled,
+     catch-up on connect, `stop()` closes inbound links
+   - 26b (PR #383): `<dataDir>/node-id`; self-dial and duplicate links by
+     id (the smaller id's link stays); GET_PEERS on connect and every 3rd
+     beat; auto-connect while outbound < 4 with back-off
+   - 26c (PR #384): mempool pulled by both sides; dashboard Peers card;
+     live: A and C joined to B only, B killed, A's block reaches C, B back
+     with the same id
 
-13. **Deferred / future work**
+13. **Next** (agreed with the user): Sprint 27, a block explorer (release
+    v4.8.0); then the project closes
+
+14. **Deferred / future work**
    - Advertised peer addresses are not checked for reachability (an inbound
      peer behind NAT is advertised under the address it dialled from); no
      ban score for peers that send invalid data
@@ -505,4 +524,4 @@ Design handoff (prototype + README) lives in `.ai/design/UIUX redesign project/`
 
 ---
 
-*Last updated: 2026-11-15 | Sprint 25 Complete (Loose Ends) - roadmap done, hardening in progress*
+*Last updated: 2026-11-15 | Sprint 26 Complete (Networking for Real) - roadmap done, hardening in progress*
