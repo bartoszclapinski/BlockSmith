@@ -337,7 +337,12 @@ mvn exec:java -Dexec.mainClass=com.blocksmith.BlockSmithDemo
 mvn exec:java                              # P2P on NetworkConfig.DEFAULT_PORT, API + dashboard on :7070
 mvn exec:java -Dexec.args="18555 18580"    # custom [p2pPort] [apiPort]
 mvn exec:java -Dexec.args="8335 7070 --restore backup.zip"   # install a backup first (Sprint 16d)
+mvn exec:java -Dexec.args="8336 7071 --peer localhost:8335"  # join a network (Sprint 26a, repeatable)
 ```
+
+Since Sprint 26 `main` is `parseArgs` (ports, `--peer`, `-Dblocksmith.peers`, `--restore`; bad
+input exits with a message) + `launch` (returns a `Running` handle that closes API, node and
+store in that order), so tests start nodes exactly like the command line does.
 
 Since Sprint 16 it opens an `H2ChainStore` under `data/node-<p2pPort>/` (override with
 `-Dblocksmith.dataDir`), restores the chain by replay, enables backups in `<dataDir>/backups/`,
@@ -537,17 +542,46 @@ TCP peer-to-peer layer. Messages are JSON over sockets.
 
 | Class | Role |
 |-------|------|
-| `Node` | Server socket + message loop + handler registry; tracks peers, heartbeat eviction, peer discovery, seed bootstrap, block/tx broadcast with sender exclusion, chain + mempool sync |
+| `Node` | Server socket + message loop + handler registry; tracks peers, heartbeat eviction, peer discovery with auto-connect, persistent peers and reconnect, identity (self / duplicate links), block/tx broadcast with sender exclusion, chain + mempool sync on connect (both sides) |
 | `Peer` | Outbound client connection with an async listener thread |
 | `PeerManager` / `PeerInfo` / `PeerState` | Peer registry (`MAX_PEERS`), per-peer metadata, connection lifecycle |
 | `Message` / `MessageType` / `MessageParser` | Base message, type enum, JSON-to-message routing |
 | `MessageHandler` / `MessageContext` / `MessageListener` | Handler interface, connection wrapper, async listener |
-| `NetworkConfig` | Ports, heartbeat timings, seed nodes |
+| `NetworkConfig` | Ports, heartbeat timings, seed nodes, discovery cadence, `TARGET_OUTBOUND` (4), dial back-off, `node-id` file name |
 | `messages/*` | `Hello`, `Ping`/`Pong`, `GetPeers`/`Peers`, `NewBlock`, `GetBlocks`/`Blocks`, `NewTransaction`, `GetMempool`/`Mempool` |
 
 **Key flows**: handshake (`HELLO` with chain length) → behind peer requests `GET_BLOCKS` →
 new blocks/txs gossip via `NEW_BLOCK` / `NEW_TRANSACTION` (validated, deduped, re-gossiped
 to everyone except the sender); blocks with an unknown parent wait in a bounded orphan buffer.
+
+### 🌐 Joining, identity, discovery (Sprint 26)
+
+Before Sprint 26 two `BlockSmithNode` processes could not connect at all: no peer argument,
+empty `SEED_NODES`, no connect API, and nothing sent `GET_PEERS`.
+
+```
+ start    --peer host:port (repeatable) / -Dblocksmith.peers  ->  persistent peers, dialled in the background
+ connect  HELLO both ways; then each side sends GET_BLOCKS (locator) + GET_MEMPOOL;
+          the dialler also sends GET_PEERS (Bitcoin: getaddr)
+ beat     every 10 s: PING; redial persistent peers that are down; fill outbound slots
+          every 3rd beat (~30 s): GET_PEERS to all peers
+ PEERS    addresses of CONNECTED peers, one per nodeId, never the asker or us
+          -> DISCOVERED; dialled while outbound < TARGET_OUTBOUND (4), never above MAX_PEERS (10);
+             a failed dial waits 10 s, doubling up to 5 min
+```
+
+| Piece | Rule |
+|-------|------|
+| Identity | `<dataDir>/node-id`, created once (`Node.loadOrCreateNodeId`); a label for routing, not something to trust |
+| Self | A HELLO with our own id: the inbound side does not register it, the dialler remembers the address (`selfAddresses`) and refuses it from then on |
+| Second link | Every handshake records address → nodeId, so another name for a linked node is refused before dialling. One found after the HELLO is settled by the dialler under `linkLock`: our own existing link wins; between their link and ours, the one opened by the smaller id stays, so both ends keep the same link (two nodes dialling each other at once keep one, not zero) |
+| Reconnect | `connectToPeer` refuses only a CONNECTED address; `PeerManager.register` replaces a DISCOVERED / DISCONNECTED entry (inbound too); a dropped outbound link loses its writer at once; `stop()` closes inbound sockets first, so the other side sees the drop at once |
+| API | `POST /api/network/peers {address}`, localhost only (403): 400 bad address, 409 already connected / this node / full, 502 unreachable, 201 (the peer becomes persistent). `GET` adds `direction`, `connectedAt`, `lastSeen` |
+| Dashboard | **Peers** card: → outbound / ← inbound, address, short id, state; a `host:port` form; palette command "Connect to peer" |
+
+Still not done: addresses are not checked for reachability before they are advertised (an
+inbound peer behind NAT is advertised under the address it dialled from), and there is no
+ban score for peers that send invalid data.
 
 ---
 

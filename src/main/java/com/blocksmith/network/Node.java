@@ -822,8 +822,11 @@ public class Node {
 
             // Catch up on the peer's blocks (Sprint 26a): our locator, the peer
             // answers with what follows our last common block (nothing if we
-            // are level or ahead).
+            // are level or ahead). And on its pending transactions (Sprint
+            // 26c): before, only the dialling side asked, so a node that was
+            // dialled never saw what the dialler had in its mempool.
             context.sendMessage(new GetBlocksMessage(nodeId, blockchain.getBlockLocator()));
+            context.sendMessage(new GetMempoolMessage(nodeId));
 
             // === PHASE 2: Message Loop ===
             while (running && !clientSocket.isClosed()) {

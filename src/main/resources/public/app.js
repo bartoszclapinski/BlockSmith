@@ -915,6 +915,59 @@ function renderContracts(contracts) {
     });
 }
 
+// ===== peers (Sprint 26c) =====
+
+/** The node's live links: direction, address, short node id, state. */
+function renderPeers(peers) {
+    const list = document.getElementById("peer-list");
+    list.replaceChildren();
+    document.getElementById("peer-count").textContent = peers.length ? String(peers.length) : "";
+    if (!peers.length) {
+        list.appendChild(el("div", "contract-empty", "No peers yet: connect to another node's host:port"));
+        return;
+    }
+    // Links we opened first, then the ones that dialled us.
+    const ordered = peers.slice().sort(function (a, b) {
+        if (a.direction !== b.direction) return a.direction === "outbound" ? -1 : 1;
+        return a.address < b.address ? -1 : a.address > b.address ? 1 : 0;
+    });
+    ordered.forEach(function (p) {
+        const row = el("div", "peer-row");
+        const outbound = p.direction === "outbound";
+        row.title = (outbound ? "We dialled " : "Dialled us from ") + p.address + "\n" + p.nodeId
+            + (p.connectedAt ? "\nconnected " + new Date(p.connectedAt).toLocaleTimeString() : "");
+        row.appendChild(el("span", "peer-dir " + p.direction, outbound ? "→" : "←"));
+        row.appendChild(el("span", "peer-address", p.address));
+        row.appendChild(el("span", "peer-id", shortHash((p.nodeId || "").replace(/^node-/, ""))));
+        row.appendChild(el("span", "peer-state", p.state));
+        list.appendChild(row);
+    });
+}
+
+/** Connects the node to host:port (POST /api/network/peers, from localhost only). */
+async function onPeerConnect(event) {
+    event.preventDefault();
+    const input = document.getElementById("peer-address");
+    const button = document.getElementById("peer-connect");
+    const address = input.value.trim();
+    if (!/^[^\s:]+:\d{1,5}$/.test(address)) {
+        toast("Enter host:port, e.g. localhost:8335", true);
+        input.focus();
+        return;
+    }
+    button.disabled = true;
+    try {
+        const peer = await postJson("/api/network/peers", { address: address });
+        toast("Connected to " + peer.address + " (" + peer.nodeId + ")");
+        input.value = "";
+        refresh();
+    } catch (e) {
+        toast(e.message, true);
+    } finally {
+        button.disabled = false;
+    }
+}
+
 // ===== command palette =====
 
 let paletteActive = 0;
@@ -928,6 +981,7 @@ const COMMANDS = [
     { icon: "▤", label: "Deploy contract", hint: "Hashlock or multisig", run: function () { openDrawer("deploy"); } },
     { icon: "⪉", label: "Multisig wallet", hint: "Deploy an M-of-N contract from member keys", run: function () { openDrawer("deploy", { deployType: "multi" }); } },
     { icon: "✎", label: "Multisig member", hint: "Member keys · sign another member's claim", run: function () { openDrawer("member"); } },
+    { icon: "⇄", label: "Connect to peer", hint: "Join another node by its host:port", run: function () { closeOverlay(); document.getElementById("peer-address").focus(); } },
 ];
 
 function filteredCommands() {
@@ -1797,6 +1851,7 @@ const TOUR = [
     { sel: "feed", title: "Activity feed", body: "Events as they happen: blocks mined, transactions submitted, contracts deployed, and peers joining." },
     { sel: "actions", title: "Quick actions", body: "Send a transaction, create a wallet (its key stays in this browser), or deploy a contract — each opens a side panel; anything you spend is signed here." },
     { sel: "side", title: "Balance & contracts", body: "Your active-wallet balance and the open contracts (multisig / hashlock). Click a contract to claim it: a multisig needs its members' signatures." },
+    { sel: "peers", title: "Peers", body: "The nodes this one is linked to: → we dialled them, ← they dialled us. Type another node's host:port to join it; the node also finds more peers by itself." },
 ];
 
 const tour = { active: false, step: 0, remember: true, root: null, refs: null };
@@ -1977,6 +2032,7 @@ async function refresh() {
     renderFeed();
     renderBalance(balanceInfo);
     renderContracts(contracts);
+    renderPeers(peers);
 }
 
 // ===== wiring =====
@@ -2000,6 +2056,7 @@ function wire() {
     document.addEventListener("pointerdown", touchVault, true);
     document.addEventListener("keydown", touchVault, true);
     document.getElementById("mine-btn").addEventListener("click", doMine);
+    document.getElementById("peer-form").addEventListener("submit", onPeerConnect);
     // Click the balance address to track any existing address (multi-address node).
     document.getElementById("balance-address").addEventListener("click", function () {
         const input = window.prompt("Track an address in the balance card:", state.activeAddress || "");

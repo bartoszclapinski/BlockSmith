@@ -50,7 +50,7 @@ in the middle dies.
 |-----------|-------|--------|--------|
 | **26a** | Joining: peer arguments, connect API, reconnect | `sprint26a/joining` | ✅ Done (#375, #376) |
 | **26b** | Identity and discovery | `sprint26b/identity-discovery` | ✅ Done (#377, #378) |
-| **26c** | Mempool both ways, dashboard peers, live network, docs | `sprint26c/live-network` | ⬜ Planned (#379, #380) |
+| **26c** | Mempool both ways, dashboard peers, live network, docs | `sprint26c/live-network` | ✅ Done (#379, #380) |
 
 ---
 
@@ -92,12 +92,12 @@ in the middle dies.
 
 ### Deliverables
 
-- [ ] The inbound side asks for the peer's mempool too (deferred item)
-- [ ] Dashboard: the network panel lists peers (nodeId, address, state,
+- [x] The inbound side asks for the peer's mempool too (deferred item)
+- [x] Dashboard: the network panel lists peers (nodeId, address, state,
       direction) and connects to an address
-- [ ] Live: three processes, A and C both joined to B only; A discovers C;
+- [x] Live: three processes, A and C both joined to B only; A discovers C;
       B is killed; a block mined on A reaches C; B restarts and catches up
-- [ ] Docs: ARCHITECTURE (joining, identity, discovery), STATUS (four
+- [x] Docs: ARCHITECTURE (joining, identity, discovery), STATUS (four
       network items leave the deferred list), README (how to run a network)
 
 ---
