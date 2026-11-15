@@ -39,9 +39,9 @@
 | **Test Framework** | JUnit 5 |
 | **Serialization** | Gson 2.10.1 |
 | **Current Phase** | Phase 4: Production Features — ✅ Complete (all 4 phases done) |
-| **Current Sprint** | Sprint 24 (Encrypted Browser Keystore, hardening) — Complete |
-| **Current Milestone** | 24c Complete; next: see candidates in STATUS.md |
-| **Total Tests** | 435 (all passing) |
+| **Current Sprint** | Sprint 25 (Loose Ends, hardening) — Complete |
+| **Current Milestone** | 25c Complete; next: see candidates in STATUS.md |
+| **Total Tests** | 445 (all passing) |
 | **Main Branch** | `master` |
 
 ---
@@ -132,7 +132,7 @@ BlockSmith/
 │   └── BlockSmithNode.java           # ✅ Complete (runnable node: P2P + API + dashboard, Sprint 13a)
 │
 ├── src/main/resources/public/        # Web dashboard (Sprint 13-15, redesigned PR #157/#158): index.html, app.js, style.css
-├── src/test/java/com/blocksmith/     # 435 unit tests
+├── src/test/java/com/blocksmith/     # 445 unit tests
 ├── pom.xml                           # Maven configuration (Gson, JUnit, Javalin)
 └── README.md                         # Public documentation
 ```
@@ -194,12 +194,14 @@ BlockSmith/
 
 **Sprint 24: Encrypted Browser Keystore** — a probe showed that reading the browser profile's files was enough to spend: keys were plain JWKs in `localStorage`. 24a: `bs_keystore` v1 — PBKDF2-SHA256 (600 000 rounds, salt) -> AES-256-GCM per key with the address as additional data, a check value for the passphrase; unlock on demand into non-extractable `CryptoKey`s, Lock button, auto-lock after 15 min idle; plaintext `bs_keys` migrated and removed. 24b: whole-keystore / one-key encrypted backups, change passphrase (new salt, one write); `KeystoreInteropTest` opens a browser backup with `javax.crypto` (the recovery path). 24c: every signing flow live under encryption; measured that pre-Sprint 24 plaintext stays in LevelDB after migration (treat such keys as exposed).
 
+**Sprint 25: Loose Ends** — a probe on a deferred "cosmetic" item showed that a pending contract deploy could be front-run: Mallory deployed to Alice's `CONTRACT:<id>` first and Alice's 30 was stuck behind Mallory's contract. 25a: `Blockchain.contractIdFor(funder, lockingScript, amount, sequence)`, every deploy must pay to its own id (mempool and block rules; breaking for chains with older deploys). 25b: the block height in every coinbase (`sequence`, BIP34); `tx_index` keyed by (block, position), old index rebuilt. 25c: "Move funds to a new key" (old key signs, then marked `retiredTo`); keys that were once plaintext carry `plaintextBefore`.
+
 ---
 
 ## What's NOT Implemented Yet
 
 ### Roadmap complete, hardening in progress
-- All planned sprints (0-19) are done; Sprints 20 (thread safety), 21 (fork choice), 22 (required signatures) 23 (client-side multisig) and 24 (encrypted browser keystore) too. Next candidates: persistent nodeId + peer auto-connect, a "move funds to a new key" helper, or a bonus feature (SPV, explorer)
+- All planned sprints (0-19) are done; Sprints 20 (thread safety), 21 (fork choice), 22 (required signatures), 23 (client-side multisig), 24 (encrypted browser keystore) and 25 (loose ends) too. Next candidates: persistent nodeId + peer auto-connect, or a bonus feature (SPV, explorer)
 
 ### Deferred / known follow-ups
 - Mempool request is sent on outbound connect only; inbound side does not yet pull the peer's mempool
@@ -324,9 +326,11 @@ mvn exec:java -Dexec.mainClass=com.blocksmith.BlockSmithDemo
 | SignatureRuleTest | 8 | Unsigned / other key refused, owner accepted, peer blocks, signed deploy script, bump, restore (Sprint 22a) |
 | ApiSigningTest | 6 | Prepare/sign/submit, wrong key, tampered, expiry, deploy, signed bump at the minimum (Sprint 22b) |
 | WebCryptoInteropTest | 4 | Addresses and signatures from a real browser verify in Java (Sprint 22c); a claim signed in two browsers passes CHECKMULTISIG (Sprint 23c) |
-| DashboardKeystoreTest | 4 | Served dashboard: keys stored encrypted only, unlock before signing, atomic passphrase change, every signature through the keystore (Sprint 24) |
+| DashboardKeystoreTest | 5 | Served dashboard: keys stored encrypted only, unlock before signing, atomic passphrase change, every signature through the keystore (Sprint 24), move funds (Sprint 25c) |
 | KeystoreInteropTest | 3 | A browser keystore backup opens in Java; wrong passphrase / moved entry fail (Sprint 24b) |
-| **Total** | **435** | All passing ✅ |
+| ContractIdTest | 5 | Front-run deploy refused (mempool, block), wrong id / no sequence, bump keeps the id (Sprint 25a) |
+| CoinbaseHeightTest | 4 | Same-id rewards both in history, height in coinbases, wrong height, old index migrated (Sprint 25b) |
+| **Total** | **445** | All passing ✅ |
 
 ---
 
@@ -337,7 +341,7 @@ mvn exec:java -Dexec.mainClass=com.blocksmith.BlockSmithDemo
 - **Doc branches**: `docs/{description}` (e.g., `docs/sprint11-complete`)
 - **Commits**: One per issue, format: `feat(scope): description #NN` — never add `Co-Authored-By`
 - **PRs**: created with `gh`, include `Closes #NN` lines; merged with a **regular merge commit** (`gh pr merge N --merge`, not squash) so the one-commit-per-issue history stays on master (decided 2026-11-11; #130-#278 were squash-merged); then ff-only pull to sync local master
-- **Latest**: Sprint 24 complete (Encrypted Browser Keystore, PR #360, #361, #362); roadmap done, hardening in progress
+- **Latest**: Sprint 25 complete (Loose Ends, PR #371, #372, #373); roadmap done, hardening in progress
 - **Maven path**: run `mvn` from `F:\Repos\Java\BlockSmith` (capital J); from a lowercase path Jetty 404s static files and 3 dashboard tests fail
 
 ---
@@ -350,9 +354,9 @@ mvn exec:java -Dexec.mainClass=com.blocksmith.BlockSmithDemo
 | `CONVENTIONS.md` | Need full code style rules, THEORY comment format, test conventions |
 | `STATUS.md` | Need exact current status, implementation table, feature checklist |
 | `roadmap.md` | Need full project phases and timeline |
-| `sprints/sprint24/sprint-plan.md` | Most recent sprint's milestones, issues, acceptance criteria |
-| `sprints/sprint24/sprint-log.md` | What was completed in the latest sprint |
+| `sprints/sprint25/sprint-plan.md` | Most recent sprint's milestones, issues, acceptance criteria |
+| `sprints/sprint25/sprint-log.md` | What was completed in the latest sprint |
 
 ---
 
-*Last updated: 2026-11-14 | Sprint 24 Complete (Encrypted Browser Keystore) — roadmap done, hardening in progress*
+*Last updated: 2026-11-15 | Sprint 25 Complete (Loose Ends) — roadmap done, hardening in progress*
