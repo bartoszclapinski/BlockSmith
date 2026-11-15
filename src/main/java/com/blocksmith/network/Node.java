@@ -8,6 +8,9 @@ import java.io.PrintWriter;
 import java.net.ServerSocket;
 import java.net.Socket;
 
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.security.SecureRandom;
 
 import java.util.concurrent.ExecutorService;
@@ -22,6 +25,7 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.ScheduledExecutorService;
 
 import com.blocksmith.core.Block;
@@ -35,6 +39,7 @@ import com.blocksmith.network.messages.NewTransactionMessage;
 import com.blocksmith.network.messages.GetBlocksMessage;
 import com.blocksmith.network.messages.BlocksMessage;
 import com.blocksmith.network.messages.GetMempoolMessage;
+import com.blocksmith.network.messages.GetPeersMessage;
 import com.blocksmith.network.messages.MempoolMessage;
 import com.blocksmith.core.Transaction;
 
@@ -81,6 +86,21 @@ public class Node {
     private final Set<Socket> inboundSockets = ConcurrentHashMap.newKeySet();
     private final AtomicBoolean maintaining = new AtomicBoolean();
 
+    // === Identity and discovery (Sprint 26b) ===
+    /** Addresses that turned out to be this node (a HELLO came back with our own id). */
+    private final Set<String> selfAddresses = ConcurrentHashMap.newKeySet();
+    /** The nodeId each dialled address answered with: another name for a peer we know. */
+    private final Map<String, String> addressIds = new ConcurrentHashMap<>();
+    /** Discovered addresses whose last dial failed: when they may be tried again. */
+    private final Map<String, Retry> dialRetries = new ConcurrentHashMap<>();
+    /** Inbound sockets by peer address, so a duplicate inbound link can be closed. */
+    private final Map<String, Socket> inboundByAddress = new ConcurrentHashMap<>();
+    /** Guards "is this nodeId already linked?" + register, on both sides. */
+    private final Object linkLock = new Object();
+    private final AtomicInteger heartbeats = new AtomicInteger();
+
+    private record Retry(int failures, long notBefore) {}
+
     /**
      * Creates a new Node with default port.
      */
@@ -104,7 +124,18 @@ public class Node {
      * @param blockchain The blockchain this node validates and extends
      */
     public Node(int port, Blockchain blockchain) {
-        this.nodeId = generateNodeId();
+        this(port, blockchain, generateNodeId());
+    }
+
+    /**
+     * Creates a Node with a given id (Sprint 26b: the id kept in the data
+     * directory, see {@link #loadOrCreateNodeId}).
+     *
+     * @param nodeId this node's id, sent in every HELLO
+     */
+    public Node(int port, Blockchain blockchain, String nodeId) {
+        if (nodeId == null || nodeId.isBlank()) throw new IllegalArgumentException("nodeId is required");
+        this.nodeId = nodeId;
         this.port = port;
         this.blockchain = blockchain;
         this.running = false;
@@ -126,7 +157,7 @@ public class Node {
      * 
      * @return Unique node identifier
      */
-    private String generateNodeId() {
+    private static String generateNodeId() {
         SecureRandom random = new SecureRandom();
         byte[] bytes = new byte[8]; // 8 bytes = 16 hex chars
         random.nextBytes(bytes);
@@ -136,6 +167,39 @@ public class Node {
             hexString.append(String.format("%02x", b));
         }
         return hexString.toString();
+    }
+
+    /**
+     * THEORY: A node keeps its identity (Sprint 26b)
+     *
+     * The id lives in {@code <dataDir>/node-id}, created once: it lives and
+     * dies with the node's data. With a stable id, a node recognises itself
+     * (a HELLO that comes back with its own id) and a peer it already has a
+     * link to under another address (localhost vs 127.0.0.1).
+     *
+     * The id is a label for routing, not something to trust: anyone can send
+     * any id. Blocks and transactions are still checked on their own.
+     *
+     * @return the stored id, or a new one (written to the file) if there is
+     *         none or the file does not hold a valid id
+     */
+    public static String loadOrCreateNodeId(Path dataDir) {
+        Path file = dataDir.resolve(NetworkConfig.NODE_ID_FILE);
+        try {
+            if (Files.exists(file)) {
+                String stored = Files.readString(file, StandardCharsets.UTF_8).trim();
+                if (stored.matches(java.util.regex.Pattern.quote(NetworkConfig.NODE_ID_PREFIX) + "[0-9a-f]{16}")) {
+                    return stored;
+                }
+                System.out.println("  ! " + file + " does not hold a node id; making a new one");
+            }
+            String id = generateNodeId();
+            Files.createDirectories(dataDir);
+            Files.writeString(file, id + System.lineSeparator(), StandardCharsets.UTF_8);
+            return id;
+        } catch (IOException e) {
+            throw new java.io.UncheckedIOException("Cannot read or write " + file, e);
+        }
     }
 
     /**
@@ -205,8 +269,8 @@ public class Node {
         for (String address : targets) {
             PeerInfo seed = parsePeerAddress(address);
             if (seed == null) continue;
-            if (seed.getPort() == port && isLocalHost(seed.getHost())) continue; // skip self (local testing)
-            if (isConnected(seed.getAddress())) continue;
+            if (isSelf(seed)) continue; // skip self (local testing)
+            if (isLinked(seed.getAddress())) continue;
             try {
                 connectToPeer(seed.getHost(), seed.getPort());
                 System.out.println("  ✓ Bootstrapped to " + address);
@@ -244,6 +308,36 @@ public class Node {
         return known != null && known.getState() == PeerState.CONNECTED;
     }
 
+    /** A live link to this address, or to the node we know answers there (Sprint 26b). */
+    private boolean isLinked(String address) {
+        return isConnected(address) || connectedPeerWithId(addressIds.get(address)) != null;
+    }
+
+    /** The CONNECTED peer with this nodeId, or null. */
+    private PeerInfo connectedPeerWithId(String id) {
+        if (id == null) return null;
+        for (PeerInfo p : peerManager.getConnectedPeers()) {
+            if (id.equals(p.getNodeId())) return p;
+        }
+        return null;
+    }
+
+    /** An address that is known to be us: learned from a self-dial, or our port on this machine. */
+    private boolean isSelf(PeerInfo address) {
+        return selfAddresses.contains(address.getAddress())
+                || (address.getPort() == port && isLocalHost(address.getHost()));
+    }
+
+    /** Addresses learned to be this node (Sprint 26b). */
+    public Set<String> getSelfAddresses() {
+        return Set.copyOf(selfAddresses);
+    }
+
+    /** Links this node opened itself. */
+    public int getOutboundCount() {
+        return (int) peerManager.getConnectedPeers().stream().filter(PeerInfo::isOutbound).count();
+    }
+
     /**
      * THEORY: Keeping the links up (Sprint 26a)
      *
@@ -251,14 +345,19 @@ public class Node {
      * every persistent peer that is not connected right now, so the link comes
      * back on its own once the peer is up again. Best-effort and quiet: a peer
      * that is still down is simply tried again next time.
+     *
+     * Sprint 26b, auto-connect: then, while this node has fewer than
+     * TARGET_OUTBOUND links it opened itself (and is below MAX_PEERS), it
+     * dials DISCOVERED / DISCONNECTED addresses learned through PEERS. An
+     * address that fails waits before the next try, twice as long each time.
      */
     public void maintainConnections() {
         if (!running || !maintaining.compareAndSet(false, true)) return;
         try {
             for (String address : persistentPeers) {
                 if (!running) return;
-                if (isConnected(address)) continue;
                 PeerInfo target = parsePeerAddress(address);
+                if (isSelf(target) || isLinked(address)) continue;
                 try {
                     connectToPeer(target.getHost(), target.getPort());
                     System.out.println("  ✓ Reconnected to " + address);
@@ -266,8 +365,39 @@ public class Node {
                     // Still down (or full): try again on the next heartbeat.
                 }
             }
+
+            long now = System.currentTimeMillis();
+            for (PeerInfo candidate : peerManager.getKnownPeers()) {
+                if (!running) return;
+                if (getOutboundCount() >= NetworkConfig.TARGET_OUTBOUND || !peerManager.canAcceptMore()) return;
+                if (candidate.getState() == PeerState.CONNECTED) continue;
+                String address = candidate.getAddress();
+                if (isSelf(candidate) || isLinked(address)) continue;
+                Retry retry = dialRetries.get(address);
+                if (retry != null && now < retry.notBefore()) continue;
+                try {
+                    connectToPeer(candidate.getHost(), candidate.getPort());
+                    dialRetries.remove(address);
+                    System.out.println("  ✓ Auto-connected to discovered peer " + address);
+                } catch (Exception e) {
+                    int failures = retry == null ? 1 : retry.failures() + 1;
+                    long wait = Math.min(NetworkConfig.DIAL_BACKOFF_MAX_MS,
+                            NetworkConfig.DIAL_BACKOFF_BASE_MS << Math.min(failures - 1, 20));
+                    dialRetries.put(address, new Retry(failures, System.currentTimeMillis() + wait));
+                }
+            }
         } finally {
             maintaining.set(false);
+        }
+    }
+
+    private void maintainSoon() {
+        if (running && connectionPool != null && !connectionPool.isShutdown()) {
+            try {
+                connectionPool.submit(this::maintainConnections);
+            } catch (java.util.concurrent.RejectedExecutionException e) {
+                // stopping
+            }
         }
     }
 
@@ -298,13 +428,22 @@ public class Node {
             if (writer != null) writer.println(pingJson);
         }
 
-        // Redial persistent peers that are down, off the heartbeat thread.
-        if (running && connectionPool != null && !connectionPool.isShutdown()) {
-            try {
-                connectionPool.submit(this::maintainConnections);
-            } catch (java.util.concurrent.RejectedExecutionException e) {
-                // stopping
-            }
+        // Discovery (Sprint 26b): every few beats, ask the peers who they know.
+        if (heartbeats.incrementAndGet() % NetworkConfig.DISCOVERY_EVERY_HEARTBEATS == 0) {
+            askForPeers();
+        }
+
+        // Redial persistent peers that are down and fill outbound slots,
+        // off the heartbeat thread.
+        maintainSoon();
+    }
+
+    /** Sends GET_PEERS to every connected peer (Sprint 26b). */
+    public void askForPeers() {
+        String json = new GetPeersMessage(nodeId).toJson();
+        for (PeerInfo peer : peerManager.getConnectedPeers()) {
+            PrintWriter writer = peerWriters.get(peer.getAddress());
+            if (writer != null) writer.println(json);
         }
     }
 
@@ -377,17 +516,26 @@ public class Node {
             System.out.println("  ← Received PONG from " + context.getRemoteNodeId());
         });
 
-        // GET_PEERS -> respond with the addresses of all known peers
+        // GET_PEERS -> respond with the listening addresses of the peers we
+        // are linked to (Sprint 26b): addresses that worked, one per node,
+        // never the asker and never ourselves.
         registerHandler(MessageType.GET_PEERS, (message, context) -> {
-            List<String> addresses = peerManager.getKnownPeers().stream()
-                    .map(PeerInfo::getAddress)
-                    .toList();
+            String asker = context.getRemoteNodeId();
+            Set<String> ids = new java.util.HashSet<>();
+            List<String> addresses = new ArrayList<>();
+            for (PeerInfo p : peerManager.getConnectedPeers()) {
+                String id = p.getNodeId();
+                if (id == null || id.equals(asker) || id.equals(nodeId) || !ids.add(id)) continue;
+                addresses.add(p.getAddress());
+            }
             context.sendMessage(new PeersMessage(nodeId, addresses));
             System.out.println("  → Sent PEERS (" + addresses.size() + ") to "
                     + context.getRemoteNodeId());
         });
 
-        // PEERS -> record received addresses as DISCOVERED peers (no auto-connect)
+        // PEERS -> record new addresses as DISCOVERED peers, then fill the
+        // outbound slots from them (Sprint 26b). Our own addresses and nodes
+        // we are already linked to are skipped.
         registerHandler(MessageType.PEERS, (message, context) -> {
             List<String> received = ((PeersMessage) message).getPeers();
             if (received == null) return;
@@ -395,10 +543,12 @@ public class Node {
             int added = 0;
             for (String address : received) {
                 PeerInfo info = parseAddress(address);
-                if (info != null && peerManager.addPeer(info)) added++;
+                if (info == null || isSelf(info) || isLinked(info.getAddress())) continue;
+                if (peerManager.addPeer(info)) added++;
             }
             System.out.println("  ← Received PEERS (" + received.size() + "), added "
                     + added + " new");
+            if (added > 0) maintainSoon();
         });
 
         // NEW_BLOCK -> validate, append, and re-gossip if newly accepted
@@ -608,6 +758,7 @@ public class Node {
                 ":" + clientSocket.getPort();
         
         PeerInfo peerInfo = null;
+        PrintWriter linkWriter = null;
         inboundSockets.add(clientSocket);
         
         try {
@@ -641,18 +792,33 @@ public class Node {
 
             String host = clientSocket.getInetAddress().getHostAddress();
             int peerPort = peerHello.getPort();
-            PeerInfo inbound = new PeerInfo(host, peerPort);
-            inbound.markConnected(peerHello.getNodeId());
-            // register() replaces a stale DISCONNECTED entry (a peer that
-            // restarted and dials us again); a live link or a full node says no.
-            if (!peerManager.register(inbound)) {
-                System.out.println("  ✗ Refused inbound link from " + inbound.getAddress()
-                        + " (already connected or MAX_PEERS)");
+
+            // Our own id came back (Sprint 26b): we dialled ourselves. Our
+            // HELLO reply tells the dialling side (also us); do not register.
+            if (nodeId.equals(peerHello.getNodeId())) {
+                System.out.println("  ✗ Inbound link is from this node itself; closing");
                 return;
             }
-            peerInfo = inbound;
 
-            peerWriters.put(peerInfo.getAddress(), writer);
+            PeerInfo inbound = new PeerInfo(host, peerPort);
+            inbound.markConnected(peerHello.getNodeId());
+            inbound.setOutbound(false);
+            // register() replaces a stale DISCONNECTED entry (a peer that
+            // restarted and dials us again); a live link or a full node says no.
+            // A second link from a node we already know is settled by the
+            // dialling side (see connectToPeer), so both ends agree on which
+            // link survives.
+            synchronized (linkLock) {
+                if (!peerManager.register(inbound)) {
+                    System.out.println("  ✗ Refused inbound link from " + inbound.getAddress()
+                            + " (already connected or MAX_PEERS)");
+                    return;
+                }
+                peerInfo = inbound;
+                linkWriter = writer;
+                peerWriters.put(peerInfo.getAddress(), writer);
+                inboundByAddress.put(peerInfo.getAddress(), clientSocket);
+            }
 
             // Catch up on the peer's blocks (Sprint 26a): our locator, the peer
             // answers with what follows our last common block (nothing if we
@@ -690,7 +856,10 @@ public class Node {
             try {
                 inboundSockets.remove(clientSocket);
                 if (peerInfo != null) {
-                    peerWriters.remove(peerInfo.getAddress());
+                    // Only our own entries: the address may already belong
+                    // to a newer link that replaced this one.
+                    if (linkWriter != null) peerWriters.remove(peerInfo.getAddress(), linkWriter);
+                    inboundByAddress.remove(peerInfo.getAddress(), clientSocket);
                     peerInfo.markDisconnected();
                 }
                 clientSocket.close();
@@ -726,10 +895,18 @@ public class Node {
     public Peer connectToPeer(String host, int port) throws IOException {
         String address = host + ":" + port;
 
+        // An address that answered with our own id is us (Sprint 26b).
+        if (selfAddresses.contains(address))
+            throw new IllegalStateException("That address is this node: " + address);
+
         // A live link to this address already exists. A DISCOVERED or
         // DISCONNECTED entry is no obstacle: that is a reconnect (Sprint 26a).
         if (isConnected(address))
             throw new IllegalStateException("Already connected to " + address);
+        PeerInfo sameNode = connectedPeerWithId(addressIds.get(address));
+        if (sameNode != null)
+            throw new IllegalStateException("Already connected to " + sameNode.getNodeId()
+                    + " as " + sameNode.getAddress());
 
         // Don't exceed connection limit
         if (!peerManager.canAcceptMore())
@@ -745,18 +922,45 @@ public class Node {
             throw e;
         }
 
+        // Identity (Sprint 26b): the HELLO tells us who is at this address.
+        String remoteId = peer.getRemoteNodeId();
+        if (nodeId.equals(remoteId)) {
+            peer.disconnect();
+            selfAddresses.add(address);
+            peerManager.removePeer(address);
+            throw new IllegalStateException("That address is this node: " + address);
+        }
+        if (remoteId != null) addressIds.put(address, remoteId);
+
         // Register in PeerManager (replacing a stale entry for this address)
         PeerInfo peerInfo = new PeerInfo(host, port);
-        peerInfo.markConnected(peer.getRemoteNodeId());
-        if (!peerManager.register(peerInfo)) {
-            peer.disconnect();
-            throw new IllegalStateException("Already connected to " + address);
-        }
-        // One writer per link: PrintWriter locks on itself, so the heartbeat,
-        // broadcasts and handler replies never interleave half lines.
+        peerInfo.markConnected(remoteId);
+        peerInfo.setOutbound(true);
         PrintWriter writer = new PrintWriter(peer.getOutputStream(), true);
-        peerWriters.put(peerInfo.getAddress(), writer);
-        MessageContext context = new MessageContext(writer, peer.getRemoteNodeId());
+        synchronized (linkLock) {
+            // A second link to a node we already have (another address for
+            // it, or both sides dialled at once). Keep one, the same one on
+            // both ends: a link we opened beats nothing new; between our link
+            // and theirs, the one opened by the smaller nodeId stays.
+            PeerInfo existing = connectedPeerWithId(remoteId);
+            if (existing != null) {
+                boolean keepNew = !existing.isOutbound() && nodeId.compareTo(remoteId) < 0;
+                if (!keepNew) {
+                    peer.disconnect();
+                    throw new IllegalStateException("Already connected to " + remoteId
+                            + " as " + existing.getAddress());
+                }
+                closeInbound(existing);
+            }
+            if (!peerManager.register(peerInfo)) {
+                peer.disconnect();
+                throw new IllegalStateException("Already connected to " + address);
+            }
+            // One writer per link: PrintWriter locks on itself, so the heartbeat,
+            // broadcasts and handler replies never interleave half lines.
+            peerWriters.put(peerInfo.getAddress(), writer);
+        }
+        MessageContext context = new MessageContext(writer, remoteId);
 
         // Start listening for messages from this peer
         peer.startListening(new MessageListener() {
@@ -792,8 +996,29 @@ public class Node {
         // we're connected (blocks: Sprint 26a, by our locator).
         writer.println(new GetMempoolMessage(nodeId).toJson());
         writer.println(new GetBlocksMessage(nodeId, blockchain.getBlockLocator()).toJson());
+        // ... and on who else is out there (Sprint 26b; Bitcoin: getaddr).
+        writer.println(new GetPeersMessage(nodeId).toJson());
 
         return peer;
+    }
+
+    /**
+     * Drops an inbound link that lost to a newer one (Sprint 26b). The entry
+     * is marked at once, so the new link can take its address.
+     */
+    private void closeInbound(PeerInfo link) {
+        link.markDisconnected();
+        String address = link.getAddress();
+        peerWriters.remove(address);
+        Socket socket = inboundByAddress.remove(address);
+        if (socket != null) {
+            try {
+                socket.close();
+            } catch (IOException e) {
+                // closing anyway
+            }
+        }
+        System.out.println("  ✗ Closed duplicate inbound link from " + address);
     }
 
     /**

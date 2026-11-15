@@ -49,7 +49,7 @@ in the middle dies.
 | Milestone | Title | Branch | Status |
 |-----------|-------|--------|--------|
 | **26a** | Joining: peer arguments, connect API, reconnect | `sprint26a/joining` | ✅ Done (#375, #376) |
-| **26b** | Identity and discovery | `sprint26b/identity-discovery` | ⬜ Planned (#377, #378) |
+| **26b** | Identity and discovery | `sprint26b/identity-discovery` | ✅ Done (#377, #378) |
 | **26c** | Mempool both ways, dashboard peers, live network, docs | `sprint26c/live-network` | ⬜ Planned (#379, #380) |
 
 ---
@@ -74,16 +74,16 @@ in the middle dies.
 
 ### Deliverables
 
-- [ ] Persistent `nodeId` in `<dataDir>/node-id` (created once)
-- [ ] Handshake by identity: a HELLO carrying OUR nodeId = we dialled
+- [x] Persistent `nodeId` in `<dataDir>/node-id` (created once)
+- [x] Handshake by identity: a HELLO carrying OUR nodeId = we dialled
       ourselves (closed, address remembered as self); a second link to a
       nodeId we are already connected to is closed (localhost vs 127.0.0.1)
-- [ ] Discovery: the heartbeat asks connected peers for `GET_PEERS`; `PEERS`
+- [x] Discovery: the heartbeat asks connected peers for `GET_PEERS`; `PEERS`
       advertises only listening addresses we have connected to (not the
       asker, not ourselves); DISCOVERED peers are dialled while outbound
       links < 4 (never above `MAX_PEERS`); a peer that fails is retried later
       with a back-off
-- [ ] Tests: same nodeId after a restart; self-dial refused; duplicate link
+- [x] Tests: same nodeId after a restart; self-dial refused; duplicate link
       closed; A-B + C-B: A finds C and connects; the limit holds
 
 ---
