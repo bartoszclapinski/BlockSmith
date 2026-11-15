@@ -7,7 +7,7 @@
 | **Sprint** | 25 |
 | **Title** | Loose Ends: Contract IDs, Coinbase Height, Key Rotation |
 | **Phase** | Hardening (after the roadmap) |
-| **Status** | 📋 Planned |
+| **Status** | ✅ Complete (2026-11-15) |
 | **Depends On** | Sprint 14 (contracts), Sprint 16 (tx_index), Sprint 19 (sequence rule), Sprint 24 (keystore) |
 
 > **Why:** two items on the deferred list looked cosmetic. A probe on master
@@ -52,9 +52,9 @@ funds to a new key in one step.
 
 | Milestone | Title | Branch | Status |
 |-----------|-------|--------|--------|
-| **25a** | Contract ids bound to their deploy | `sprint25a/contract-ids` | ⬜ Planned (#364, #365) |
-| **25b** | Unique coinbases + index by position | `sprint25b/coinbase-height` | ⬜ Planned (#366, #367) |
-| **25c** | Move funds to a new key + docs | `sprint25c/move-funds` | ⬜ Planned (#368, #369) |
+| **25a** | Contract ids bound to their deploy | `sprint25a/contract-ids` | ✅ PR #371 (#364, #365) |
+| **25b** | Unique coinbases + index by position | `sprint25b/coinbase-height` | ✅ PR #372 (#366, #367) |
+| **25c** | Move funds to a new key + docs | `sprint25c/move-funds` | ✅ PR #373 (#368, #369) |
 
 ---
 
@@ -148,4 +148,4 @@ also stops one row from overwriting another.
 
 ---
 
-*Created: 2026-11-14 | Sprint 25 Planning*
+*Created: 2026-11-14 | Sprint 25 Planning | Completed: 2026-11-15*

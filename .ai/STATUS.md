@@ -9,9 +9,9 @@
 | Field | Value |
 |-------|-------|
 | **Phase** | 4 - Production Features - ✅ COMPLETE (all 4 phases done) |
-| **Current Sprint** | 25 (Loose Ends: contract ids, coinbase height, key rotation) - Planned |
-| **Current Milestone** | 24c Complete (Every signing flow under encryption) |
-| **Status** | Sprint 24 complete (24a-24c): browser keys stored only encrypted under a passphrase (PBKDF2 + AES-GCM), unlock on demand, encrypted backups. Next: see the candidates in the notes |
+| **Current Sprint** | 25 (Loose Ends: contract ids, coinbase height, key rotation) - Complete |
+| **Current Milestone** | 25c Complete (Move funds to a new key) |
+| **Status** | Sprint 25 complete (25a-25c): contract ids bound to their deploy (front-running closed), the block height in every coinbase, move funds to a new key. Next: see the candidates in the notes |
 
 ---
 
@@ -64,7 +64,7 @@ Hardening (after the roadmap)
 ├── Sprint 22: Signatures    ✅ COMPLETE (22a ✅, 22b ✅, 22c ✅)
 ├── Sprint 23: Multisig keys ✅ COMPLETE (23a ✅, 23b ✅, 23c ✅)
 ├── Sprint 24: Keystore      ✅ COMPLETE (24a ✅, 24b ✅, 24c ✅)
-└── Sprint 25: Loose ends    📋 PLANNED (25a ⬜, 25b ⬜, 25c ⬜)
+└── Sprint 25: Loose ends    ✅ COMPLETE (25a ✅, 25b ✅, 25c ✅)
 ```
 
 ---
@@ -135,9 +135,11 @@ Hardening (after the roadmap)
 | SignatureRuleTest | 8 | ✅ |
 | ApiSigningTest | 6 | ✅ |
 | WebCryptoInteropTest | 4 | ✅ |
-| DashboardKeystoreTest | 4 | ✅ |
+| DashboardKeystoreTest | 5 | ✅ |
 | KeystoreInteropTest | 3 | ✅ |
-| **Total** | **435** | ✅ |
+| ContractIdTest | 5 | ✅ |
+| CoinbaseHeightTest | 4 | ✅ |
+| **Total** | **445** | ✅ |
 
 Last test run: `mvn test` - All passing
 
@@ -337,6 +339,9 @@ Design handoff (prototype + README) lives in `.ai/design/UIUX redesign project/`
 - [x] Browser keys stored only encrypted under a passphrase; unlock on demand, auto-lock (Sprint 24a)
 - [x] Encrypted backups, change passphrase; a browser backup opens in Java (Sprint 24b)
 - [x] Every signing flow verified live under encryption (Sprint 24c)
+- [x] Contract ids bound to their deploy: a pending deploy can no longer be front-run (Sprint 25a)
+- [x] Block height in every coinbase; tx_index keyed by position (Sprint 25b)
+- [x] Move funds to a new key; once-plaintext keys flagged (Sprint 25c)
 
 ---
 
@@ -345,7 +350,7 @@ Design handoff (prototype + README) lives in `.ai/design/UIUX redesign project/`
 | Item | Value |
 |------|-------|
 | **Current Branch** | `master` |
-| **Last Commit** | Sprint 24 complete (PR #360, #361, #362) |
+| **Last Commit** | Sprint 25 complete (PR #371, #372, #373) |
 | **Tag** | `v1.0.0` (Phase 1) |
 | **Main Branch** | `master` |
 
@@ -469,12 +474,22 @@ Design handoff (prototype + README) lives in `.ai/design/UIUX redesign project/`
    - **Keys that were ever stored in plain text (before Sprint 24) should be
      treated as exposed if an old profile copy may exist: move the funds**
 
-11. **Next candidates** (no sprint planned yet):
+11. **Sprint 25 COMPLETE** - Loose Ends (2026-11-15)
+   - Probe: Mallory front-ran Alice's pending contract deploy with her own
+     deploy to the same id, and Alice's 30 was stuck for good; two
+     same-millisecond rewards shared an id and the index kept one
+   - 25a (PR #371): contract id = SHA-256(funder | script | amount |
+     sequence), checked by every node (**breaking** for chains with older
+     deploys)
+   - 25b (PR #372): block height in every coinbase (BIP34), tx_index keyed by
+     position, old index migrated
+   - 25c (PR #373): "Move funds to a new key", flags for once-plaintext keys
+
+12. **Next candidates** (no sprint planned yet):
    - Persistent `nodeId` + auto-connect to discovered peers (network)
-   - "Move funds to a new key" helper (closes the old-plaintext gap)
    - A bonus feature from `roadmap.md` (SPV light client, explorer app)
 
-12. **Deferred / future work**
+13. **Deferred / future work**
    - Gossip auto-connect to DISCOVERED peers (needs MAX_PEERS guarding)
    - Self-identification filtering in peer lists
    - Mempool request is sent on outbound connect only; inbound side does not
@@ -491,4 +506,4 @@ Design handoff (prototype + README) lives in `.ai/design/UIUX redesign project/`
 
 ---
 
-*Last updated: 2026-11-14 | Sprint 24 Complete (Encrypted Browser Keystore) - roadmap done, hardening in progress*
+*Last updated: 2026-11-15 | Sprint 25 Complete (Loose Ends) - roadmap done, hardening in progress*
