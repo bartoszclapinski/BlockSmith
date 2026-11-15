@@ -6,7 +6,7 @@
 <title>BlockSmith</title>
 <meta name="description" content="BlockSmith: a working blockchain built from scratch in Java. Proof-of-Work, ECDSA wallets, a P2P network, a REST API, a web dashboard, a script VM for smart contracts, and multisig.">
 <meta property="og:title" content="BlockSmith: a blockchain built from scratch in Java">
-<meta property="og:description" content="Proof-of-Work, ECDSA wallets, P2P gossip, REST API, web dashboard, smart contracts, multisig, crash-safe persistence, self-adjusting difficulty and a fee market. 25 sprints, 445 tests.">
+<meta property="og:description" content="Proof-of-Work, ECDSA wallets, P2P gossip, REST API, web dashboard, smart contracts, multisig, crash-safe persistence, self-adjusting difficulty and a fee market. 26 sprints, 455 tests.">
 <meta property="og:image" content="assets/dashboard-dark.png">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23e0894c'/%3E%3Cpath d='M9 22l7-7m-3-4l4-4 6 6-4 4z' stroke='%2320120a' stroke-width='2.6' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -347,7 +347,7 @@
       <div class="blk tip"><b>#2</b>00009c51…182f<br>tip</div>
     </div>
     <div class="wrap">
-      <span class="eyebrow">All 4 phases complete · 445 tests passing</span>
+      <span class="eyebrow">All 4 phases complete · 455 tests passing</span>
       <h1>A blockchain, <em>forged</em> from scratch in Java.</h1>
       <p class="lead">
         BlockSmith is a working cryptocurrency built to understand how Bitcoin and Ethereum work under the hood:
@@ -364,9 +364,9 @@
       </div>
 
       <div class="stats">
-        <div class="stat"><b>25</b><span>sprints shipped</span></div>
-        <div class="stat"><b>445</b><span>JUnit tests, all green</span></div>
-        <div class="stat"><b>~8.8k</b><span>lines of Java (+11.1k in tests)</span></div>
+        <div class="stat"><b>26</b><span>sprints shipped</span></div>
+        <div class="stat"><b>455</b><span>JUnit tests, all green</span></div>
+        <div class="stat"><b>~9.4k</b><span>lines of Java (+11.8k in tests)</span></div>
         <div class="stat"><b>0</b><span>blockchain libraries used</span></div>
       </div>
     </div>
@@ -493,11 +493,13 @@
           </ul>
         </article>
         <article class="card layer">
-          <header><h3>P2P network</h3><span class="when">Sprints 8–11, 21</span></header>
+          <header><h3>P2P network</h3><span class="when">Sprints 8–11, 21, 26</span></header>
           <p>Nodes talk JSON over raw TCP sockets and agree on one chain.</p>
           <ul>
             <li>HELLO handshake, PING/PONG heartbeat, dead-peer eviction</li>
-            <li>Peer discovery and seed-node bootstrap</li>
+            <li>Join with <code>--peer host:port</code> or from the dashboard; restarted peers are dialled again</li>
+            <li>A persistent node id: a node knows itself and drops a second link to the same peer</li>
+            <li>Peer discovery with auto-connect, up to 4 links of its own</li>
             <li>Block and transaction gossip that skips the peer it came from</li>
             <li>Orphan buffer for blocks that arrive before their parent</li>
             <li>Chain and mempool sync for nodes that fall behind</li>
@@ -658,7 +660,7 @@
         <article class="card phase">
           <div>
             <h3>Phase 4 · Production</h3>
-            <div class="meta">Nov 2026 · 445 tests</div>
+            <div class="meta">Nov 2026 · 455 tests</div>
             <div class="status"><span class="badge ok">complete</span></div>
           </div>
           <div class="sprints">
@@ -670,7 +672,7 @@
         </article>
       </div>
       <div class="bar" role="img" aria-label="All 19 planned sprints shipped"><span style="width: 100%"></span></div>
-      <p class="caption">All 19 planned sprints shipped, plus Sprints 20–25 (thread safety, fork choice, required signatures, client-side multisig, encrypted keystore, loose ends).</p>
+      <p class="caption">All 19 planned sprints shipped, plus Sprints 20–26 (thread safety, fork choice, required signatures, client-side multisig, encrypted keystore, loose ends, networking for real).</p>
     </div>
   </section>
 
@@ -691,7 +693,7 @@
         <div class="card">
           <h3>Run the tests and the console demo</h3>
           <p>The demo mines blocks, compares difficulties, moves coins and shows tamper detection in the terminal. Custom ports: <code style="white-space: nowrap">-Dexec.args="&lt;p2p&gt; &lt;api&gt;"</code>.</p>
-<div class="term"><span class="p">$ </span>mvn test   <span class="c"># 445 tests</span>
+<div class="term"><span class="p">$ </span>mvn test   <span class="c"># 455 tests</span>
 <span class="p">$ </span>mvn exec:java \
     -Dexec.mainClass=com.blocksmith.BlockSmithDemo</div>
         </div>

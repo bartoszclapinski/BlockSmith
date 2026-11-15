@@ -39,9 +39,9 @@
 | **Test Framework** | JUnit 5 |
 | **Serialization** | Gson 2.10.1 |
 | **Current Phase** | Phase 4: Production Features — ✅ Complete (all 4 phases done) |
-| **Current Sprint** | Sprint 25 (Loose Ends, hardening) — Complete |
-| **Current Milestone** | 25c Complete; next: see candidates in STATUS.md |
-| **Total Tests** | 445 (all passing) |
+| **Current Sprint** | Sprint 26 (Networking for Real, hardening) — Complete |
+| **Current Milestone** | 26c Complete; next: Sprint 27 (block explorer) |
+| **Total Tests** | 455 (all passing) |
 | **Main Branch** | `master` |
 
 ---
@@ -132,7 +132,7 @@ BlockSmith/
 │   └── BlockSmithNode.java           # ✅ Complete (runnable node: P2P + API + dashboard, Sprint 13a)
 │
 ├── src/main/resources/public/        # Web dashboard (Sprint 13-15, redesigned PR #157/#158): index.html, app.js, style.css
-├── src/test/java/com/blocksmith/     # 445 unit tests
+├── src/test/java/com/blocksmith/     # 455 unit tests
 ├── pom.xml                           # Maven configuration (Gson, JUnit, Javalin)
 └── README.md                         # Public documentation
 ```
@@ -196,12 +196,14 @@ BlockSmith/
 
 **Sprint 25: Loose Ends** — a probe on a deferred "cosmetic" item showed that a pending contract deploy could be front-run: Mallory deployed to Alice's `CONTRACT:<id>` first and Alice's 30 was stuck behind Mallory's contract. 25a: `Blockchain.contractIdFor(funder, lockingScript, amount, sequence)`, every deploy must pay to its own id (mempool and block rules; breaking for chains with older deploys). 25b: the block height in every coinbase (`sequence`, BIP34); `tx_index` keyed by (block, position), old index rebuilt. 25c: "Move funds to a new key" (old key signs, then marked `retiredTo`); keys that were once plaintext carry `plaintextBefore`.
 
+**Sprint 26: Networking for Real** — a probe showed two `BlockSmithNode` processes could not connect at all. 26a: `--peer host:port` (repeatable) and `-Dblocksmith.peers`, `POST /api/network/peers` (localhost only), persistent peers redialled by the heartbeat, `GET_BLOCKS` from both sides on connect, `stop()` closes inbound sockets; `BlockSmithNode.parseArgs` + `launch` so tests start nodes like `main`. 26b: the id in `<dataDir>/node-id`; a HELLO with our own id = self-dial (remembered); a second link to a known id is closed by the dialler (our own link wins, else the smaller id's); `GET_PEERS` on connect and every 3rd heartbeat; `maintainConnections` dials discovered peers while outbound < 4 (back-off). 26c: both sides pull the mempool; dashboard Peers card. README has "Run a network of nodes".
+
 ---
 
 ## What's NOT Implemented Yet
 
 ### Roadmap complete, hardening in progress
-- All planned sprints (0-19) are done; Sprints 20 (thread safety), 21 (fork choice), 22 (required signatures), 23 (client-side multisig), 24 (encrypted browser keystore) and 25 (loose ends) too. Next candidates: persistent nodeId + peer auto-connect, or a bonus feature (SPV, explorer)
+- All planned sprints (0-19) are done; Sprints 20 (thread safety), 21 (fork choice), 22 (required signatures), 23 (client-side multisig), 24 (encrypted browser keystore), 25 (loose ends) and 26 (networking for real) too. Next: Sprint 27 (block explorer), then the project closes
 
 ### Deferred / known follow-ups
 - Mempool request is sent on outbound connect only; inbound side does not yet pull the peer's mempool
@@ -330,7 +332,10 @@ mvn exec:java -Dexec.mainClass=com.blocksmith.BlockSmithDemo
 | KeystoreInteropTest | 3 | A browser keystore backup opens in Java; wrong passphrase / moved entry fail (Sprint 24b) |
 | ContractIdTest | 5 | Front-run deploy refused (mempool, block), wrong id / no sequence, bump keeps the id (Sprint 25a) |
 | CoinbaseHeightTest | 4 | Same-id rewards both in history, height in coinbases, wrong height, old index migrated (Sprint 25b) |
-| **Total** | **445** | All passing ✅ |
+| JoiningTest | 3 | `--peer` nodes share blocks, reconnect after either side restarts, connect API codes (Sprint 26a) |
+| IdentityDiscoveryTest | 5 | Id across restarts, self-dial, duplicate links (both tie-break outcomes), discovery, outbound limit and back-off (Sprint 26b) |
+| NetworkPanelTest | 2 | Dialled side pulls the mempool; dashboard Peers card and link directions (Sprint 26c) |
+| **Total** | **455** | All passing ✅ |
 
 ---
 
@@ -341,7 +346,7 @@ mvn exec:java -Dexec.mainClass=com.blocksmith.BlockSmithDemo
 - **Doc branches**: `docs/{description}` (e.g., `docs/sprint11-complete`)
 - **Commits**: One per issue, format: `feat(scope): description #NN` — never add `Co-Authored-By`
 - **PRs**: created with `gh`, include `Closes #NN` lines; merged with a **regular merge commit** (`gh pr merge N --merge`, not squash) so the one-commit-per-issue history stays on master (decided 2026-11-11; #130-#278 were squash-merged); then ff-only pull to sync local master
-- **Latest**: Sprint 25 complete (Loose Ends, PR #371, #372, #373); roadmap done, hardening in progress
+- **Latest**: Sprint 26 complete (Networking for Real, PR #382, #383, #384); roadmap done, hardening in progress
 - **Maven path**: run `mvn` from `F:\Repos\Java\BlockSmith` (capital J); from a lowercase path Jetty 404s static files and 3 dashboard tests fail
 
 ---
@@ -354,9 +359,9 @@ mvn exec:java -Dexec.mainClass=com.blocksmith.BlockSmithDemo
 | `CONVENTIONS.md` | Need full code style rules, THEORY comment format, test conventions |
 | `STATUS.md` | Need exact current status, implementation table, feature checklist |
 | `roadmap.md` | Need full project phases and timeline |
-| `sprints/sprint25/sprint-plan.md` | Most recent sprint's milestones, issues, acceptance criteria |
-| `sprints/sprint25/sprint-log.md` | What was completed in the latest sprint |
+| `sprints/sprint26/sprint-plan.md` | Most recent sprint's milestones, issues, acceptance criteria |
+| `sprints/sprint26/sprint-log.md` | What was completed in the latest sprint |
 
 ---
 
-*Last updated: 2026-11-15 | Sprint 25 Complete (Loose Ends) — roadmap done, hardening in progress*
+*Last updated: 2026-11-15 | Sprint 26 Complete (Networking for Real) — roadmap done, hardening in progress*

@@ -7,7 +7,7 @@
 | **Sprint** | 26 |
 | **Title** | Networking for Real: Joining, Identity, Discovery |
 | **Phase** | Hardening (after the roadmap) |
-| **Status** | 🔄 In progress |
+| **Status** | ✅ Complete (2026-11-15) |
 | **Depends On** | Sprints 8-11 (P2P layer), Sprint 21 (sync), Sprint 25 (release v4.6.0) |
 
 > **Why:** the deferred list said "nodeId is random per start" and "no
@@ -48,9 +48,9 @@ in the middle dies.
 
 | Milestone | Title | Branch | Status |
 |-----------|-------|--------|--------|
-| **26a** | Joining: peer arguments, connect API, reconnect | `sprint26a/joining` | ✅ Done (#375, #376) |
-| **26b** | Identity and discovery | `sprint26b/identity-discovery` | ✅ Done (#377, #378) |
-| **26c** | Mempool both ways, dashboard peers, live network, docs | `sprint26c/live-network` | ✅ Done (#379, #380) |
+| **26a** | Joining: peer arguments, connect API, reconnect | `sprint26a/joining` | ✅ PR #382 (#375, #376) |
+| **26b** | Identity and discovery | `sprint26b/identity-discovery` | ✅ PR #383 (#377, #378) |
+| **26c** | Mempool both ways, dashboard peers, live network, docs | `sprint26c/live-network` | ✅ PR #384 (#379, #380) |
 
 ---
 
@@ -136,4 +136,4 @@ still checked on their own.
 
 ---
 
-*Created: 2026-11-15 | Sprint 26 Planning*
+*Created: 2026-11-15 | Sprint 26 Planning | Completed: 2026-11-15*
