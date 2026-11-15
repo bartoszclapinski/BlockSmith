@@ -129,9 +129,30 @@ class DashboardKeystoreTest {
         assertEquals(2, count, "signText signs; checkKeyPair only probes a key being imported");
         assertTrue(functionBody(js, "signAndSubmit").contains("await signText(address, template.signatureData)"));
         // the callers: send, bump, hashlock + multisig deploys, multisig claim, member signing
-        assertEquals(4, js.split("signAndSubmit\\(", -1).length - 2, "send, bump, two deploys");
+        assertEquals(5, js.split("signAndSubmit\\(", -1).length - 2, "send, bump, two deploys, move funds");
         assertEquals(2, js.split("await signText\\(local\\.address|signText\\(local\\.address", -1).length - 1,
                 "claim drawer + member drawer");
+    }
+
+    @Test
+    @DisplayName("Move funds: a fresh key, the whole spendable balance minus the fee, signed by the old key")
+    void dashboardScript_moveFunds_signedByOldKeyToFreshKey() throws Exception {
+        String js = get("/app.js");
+        String move = functionBody(js, "moveFundsToNewKey");
+        assertTrue(move.contains("Math.floor((spendable - fee) * 1e8) / 1e8"), "Rounded down: never more than allowed");
+        assertTrue(move.contains("info.balance - (info.pendingOutgoing || 0)"), "Pending payments are not spendable");
+        int fresh = move.indexOf("createBrowserWallet(");
+        int prepare = move.indexOf("/api/transactions/prepare");
+        int sign = move.indexOf("signAndSubmit(template, oldAddress)");
+        int retire = move.indexOf("retireKey(oldAddress, fresh)");
+        assertTrue(fresh >= 0 && fresh < prepare && prepare < sign && sign < retire,
+                "New key, then the payment to it, signed by the OLD key, then the old key is retired");
+        assertTrue(move.contains("removeKeys([fresh])"), "A failed move leaves no orphan key");
+
+        assertTrue(functionBody(js, "migrateLegacy").contains("{ plaintextBefore: true }"), "Migrated keys are flagged");
+        assertTrue(functionBody(js, "importKeys").contains("flags: { plaintextBefore: true }"), "So are plaintext imports");
+        assertTrue(functionBody(js, "changePassphrase").contains("Object.assign({}, e, { iv: box.iv, ciphertext: box.ciphertext })"),
+                "A new passphrase keeps the label and the flags");
     }
 
     @Test
