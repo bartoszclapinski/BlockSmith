@@ -115,13 +115,22 @@ function saveStore(store) { localStorage.setItem(KEYSTORE, JSON.stringify(store)
 
 function loadLegacy() { return readJson(LEGACY_KEYSTORE) || {}; }
 
-/** Public view of every key here: {address: {publicKey, label}}. Never a secret. */
+/**
+ * Public view of every key here: {address: {publicKey, label, plaintextBefore,
+ * retiredTo}}. Never a secret. A plaintext (Sprint 22-23) key counts as
+ * plaintextBefore from the start.
+ */
 function loadKeys() {
     const out = {};
     const legacy = loadLegacy();
-    Object.keys(legacy).forEach(function (a) { out[a] = { publicKey: legacy[a].publicKey, label: legacy[a].label }; });
+    Object.keys(legacy).forEach(function (a) {
+        out[a] = { publicKey: legacy[a].publicKey, label: legacy[a].label, plaintextBefore: true };
+    });
     const store = loadStore();
-    if (store) Object.keys(store.keys).forEach(function (a) { out[a] = { publicKey: store.keys[a].publicKey, label: store.keys[a].label }; });
+    if (store) Object.keys(store.keys).forEach(function (a) {
+        const e = store.keys[a];
+        out[a] = { publicKey: e.publicKey, label: e.label, plaintextBefore: e.plaintextBefore, retiredTo: e.retiredTo };
+    });
     return out;
 }
 
@@ -222,12 +231,18 @@ async function unlockKeystore(passphrase) {
     touchVault();
 }
 
-/** Encrypts a private JWK into the keystore; memory keeps a non-extractable copy. */
-async function storeKey(address, publicKey, jwk, label) {
+/**
+ * Encrypts a private JWK into the keystore; memory keeps a non-extractable
+ * copy. {@code flags} (Sprint 25c): plaintextBefore (the key once existed in
+ * plain text), retiredTo (its funds were moved to that address).
+ */
+async function storeKey(address, publicKey, jwk, label, flags) {
     if (!vault.aes) throw new Error("Unlock your keys first");
     const box = await seal(vault.aes, JSON.stringify(jwk), address);
     const store = loadStore();
-    store.keys[address] = { publicKey: publicKey, label: label, iv: box.iv, ciphertext: box.ciphertext };
+    const f = flags || {};
+    store.keys[address] = { publicKey: publicKey, label: label, plaintextBefore: f.plaintextBefore || undefined,
+        retiredTo: f.retiredTo || undefined, iv: box.iv, ciphertext: box.ciphertext };
     saveStore(store);
     vault.keys[address] = await crypto.subtle.importKey("jwk", jwk, EC, false, ["sign"]);
 }
@@ -239,7 +254,7 @@ async function migrateLegacy() {
     if (!addresses.length) return;
     for (const address of addresses) {
         const e = legacy[address];
-        if (!loadStore().keys[address]) await storeKey(address, e.publicKey, e.privateKey, e.label);
+        if (!loadStore().keys[address]) await storeKey(address, e.publicKey, e.privateKey, e.label, { plaintextBefore: true });
     }
     localStorage.removeItem(LEGACY_KEYSTORE);
     toast("Encrypted " + addresses.length + " key" + (addresses.length === 1 ? "" : "s") + " that were stored in plain text");
@@ -383,6 +398,56 @@ function labelKey(address, label) {
     saveStore(store);
 }
 
+/** Marks {@code address} as retired: its funds went to {@code to} (Sprint 25c). The key is kept. */
+function retireKey(address, to) {
+    const store = loadStore();
+    const e = store && store.keys[address];
+    if (!e) return;
+    e.retiredTo = to;
+    e.label = (e.label ? e.label + " · " : "") + "retired → " + shortHash(to);
+    saveStore(store);
+}
+
+/**
+ * Moves everything spendable from {@code oldAddress} to a new key (Sprint 25c).
+ *
+ * THEORY: Key rotation
+ *
+ * Encryption protects a key from now on; it cannot take back a copy that
+ * already exists. Sprint 24 measured that keys stored in plain text before
+ * the migration stay in the browser's files (LevelDB keeps old records
+ * until compaction). A key that may have been copied is retired the way
+ * wallets do it: make a new key and send it everything. Whoever holds the
+ * old key then holds an empty address.
+ *
+ *   amount = floor((balance - pending outgoing - fee) * 1e8) / 1e8
+ *
+ * Rounded DOWN, so binary fractions never make amount + fee exceed what the
+ * node allows; at most 0.00000001 stays behind. The old key signs (it owns
+ * the funds), through the keystore like every other signature. The old key
+ * is kept, marked retired: money sent to it later can be moved again.
+ */
+async function moveFundsToNewKey(oldAddress, fee) {
+    const info = await fetchJson("/api/wallet/" + encodeURIComponent(oldAddress));
+    const spendable = info.balance - (info.pendingOutgoing || 0);
+    const amount = Math.floor((spendable - fee) * 1e8) / 1e8;
+    if (!(amount > 0)) {
+        throw new Error("Nothing to move: " + formatAmount(spendable) + " BSC spendable, the fee is " + formatAmount(fee));
+    }
+    await ensureUnlocked();
+    const fresh = await createBrowserWallet("moved from " + shortHash(oldAddress));
+    try {
+        const template = await postJson("/api/transactions/prepare",
+            { sender: oldAddress, recipient: fresh, amount: amount, fee: fee });
+        const tx = await signAndSubmit(template, oldAddress);           // the OLD key signs
+        retireKey(oldAddress, fresh);
+        return { address: fresh, amount: amount, fee: fee, tx: tx };
+    } catch (e) {
+        removeKeys([fresh]);                                           // nothing moved: no orphan key
+        throw e;
+    }
+}
+
 /** SPKI keys share a long common prefix (the curve), so show their tail. */
 function keyTail(publicKeyHex) {
     return "…" + String(publicKeyHex || "").slice(-12);
@@ -399,7 +464,8 @@ function keyBackup(address) {
     const e = store && store.keys[address];
     if (!e) return null;
     return JSON.stringify({ blocksmith: "key-backup", version: 1, kdf: store.kdf, address: address,
-        publicKey: e.publicKey, label: e.label, iv: e.iv, ciphertext: e.ciphertext });
+        publicKey: e.publicKey, label: e.label, plaintextBefore: e.plaintextBefore, retiredTo: e.retiredTo,
+        iv: e.iv, ciphertext: e.ciphertext });
 }
 
 /** The whole keystore as an encrypted backup (Sprint 24b): every key, its labels, the KDF and check value. */
@@ -451,10 +517,13 @@ async function importKeys(text, backupPassphrase) {
                     ? "The backup does not open: wrong passphrase, or the backup was changed"
                     : "The key for " + shortHash(address) + " does not open: the backup was changed");
             }
-            found.push({ address: address, publicKey: e.publicKey, label: e.label, jwk: jwk });
+            found.push({ address: address, publicKey: e.publicKey, label: e.label, jwk: jwk,
+                flags: { plaintextBefore: e.plaintextBefore, retiredTo: e.retiredTo } });
         }
     } else if (backup.publicKey && backup.privateKey) {
-        found.push({ address: null, publicKey: backup.publicKey, label: backup.label, jwk: backup.privateKey });
+        // It sat in a file in plain text: whoever saw that file has the key (Sprint 25c).
+        found.push({ address: null, publicKey: backup.publicKey, label: backup.label, jwk: backup.privateKey,
+            flags: { plaintextBefore: true } });
     } else {
         throw new Error("Not a BlockSmith key backup");
     }
@@ -462,7 +531,7 @@ async function importKeys(text, backupPassphrase) {
 
     for (const k of found) k.address = await checkKeyPair(k.jwk, k.publicKey, k.address);   // all checked before any is stored
     await ensureUnlocked();
-    for (const k of found) await storeKey(k.address, k.publicKey, k.jwk, k.label);
+    for (const k of found) await storeKey(k.address, k.publicKey, k.jwk, k.label, k.flags);
     return found.map(function (k) { return k.address; });
 }
 
@@ -490,7 +559,7 @@ async function changePassphrase(current, next) {
         const e = store.keys[address];
         const jwkText = await unseal(oldAes, e, address);
         const box = await seal(aes, jwkText, address);
-        keys[address] = { publicKey: e.publicKey, label: e.label, iv: box.iv, ciphertext: box.ciphertext };
+        keys[address] = Object.assign({}, e, { iv: box.iv, ciphertext: box.ciphertext });   // label and flags kept
         unlocked[address] = await crypto.subtle.importKey("jwk", JSON.parse(jwkText), EC, false, ["sign"]);
     }
     saveStore({ version: 1, kdf: kdf, check: await seal(aes, CHECK_TEXT, "check"), keys: keys });   // one write
@@ -810,8 +879,11 @@ function renderBalance(balanceInfo) {
     if (balanceInfo) {
         amount.textContent = Number(balanceInfo.balance).toFixed(1);
         const pending = balanceInfo.pendingOutgoing;
+        const key = loadKeys()[state.activeAddress];
         addr.textContent = state.activeAddress + (pending ? "  (−" + formatAmount(pending) + " pending)" : "")
-            + (hasKey(state.activeAddress) ? "" : "  · read-only (no key in this browser)");
+            + (!key ? "  · read-only (no key in this browser)"
+                : key.retiredTo ? "  · retired key (funds moved to " + shortHash(key.retiredTo) + ")"
+                : key.plaintextBefore ? "  · this key was once stored in plain text: move its funds (Wallet)" : "");
     } else {
         amount.textContent = "—";
         addr.textContent = state.activeAddress;
@@ -1194,6 +1266,55 @@ function openWalletDrawer() {
                 }).catch(function (e) { err.show(e.message); });
             });
             form.appendChild(exportBtn);
+        }
+
+        // Move funds to a new key (Sprint 25c).
+        if (hasKey(state.activeAddress)) {
+            const active = state.activeAddress;
+            const key = loadKeys()[active];
+            if (key.plaintextBefore && !key.retiredTo) {
+                const warn = el("div", "readout ks-exposed");
+                warn.appendChild(el("div", "readout-label", "This key was once stored in plain text"));
+                warn.appendChild(el("p", "note", "Before Sprint 24 (or as a plaintext export) it sat unencrypted in a file, and "
+                    + "the browser may still keep that copy. Treat it as exposed: move its funds to a new key."));
+                form.appendChild(warn);
+            }
+            if (key.retiredTo) {
+                form.appendChild(el("p", "note", "Retired: its funds were moved to " + shortHash(key.retiredTo)
+                    + ". Anything sent here later can be moved again."));
+            }
+            const moveBtn = el("button", "seg-btn", "Move funds to a new key");
+            moveBtn.type = "button";
+            moveBtn.addEventListener("click", function () {
+                err.hide();
+                Promise.all([fetchJson("/api/wallet/" + encodeURIComponent(active)), fetchJson("/api/fees/estimate")])
+                    .then(function (r) {
+                        const fee = r[1].normal.fee;
+                        const spendable = r[0].balance - (r[0].pendingOutgoing || 0);
+                        const amount = Math.floor((spendable - fee) * 1e8) / 1e8;
+                        if (!(amount > 0)) throw new Error("Nothing to move: " + formatAmount(spendable) + " BSC spendable, the fee is " + formatAmount(fee));
+                        const box = el("div", "drawer-form mv-confirm");
+                        const what = el("div", "readout");
+                        what.appendChild(el("div", "readout-label", "A new key gets everything from " + shortHash(active)
+                            + " (fee " + formatAmount(fee) + " BSC). The old key stays, marked retired."));
+                        what.appendChild(el("div", "readout-value", formatAmount(amount) + " BSC"));
+                        box.appendChild(what);
+                        const go = submitButton("Move " + formatAmount(amount) + " BSC", function () {
+                            err.hide();
+                            go.disabled = true;
+                            moveFundsToNewKey(active, fee).then(function (moved) {
+                                activate(moved.address, "Funds moved to a new key");
+                                pushFeed("dot-amber", "Key retired", shortHash(active) + " → " + shortHash(moved.address));
+                                renderFeed();
+                                box.replaceWith(el("p", "note", "Moved " + formatAmount(moved.amount) + " BSC to " + moved.address
+                                    + " (mine to settle). The old key is kept, marked retired."));
+                            }).catch(function (e) { go.disabled = false; err.show(e.message); });
+                        });
+                        box.appendChild(go);
+                        moveBtn.replaceWith(box);
+                    }).catch(function (e) { err.show(e.message); });
+            });
+            form.appendChild(moveBtn);
         }
 
         // The whole keystore (Sprint 24b): one encrypted backup, and the passphrase.

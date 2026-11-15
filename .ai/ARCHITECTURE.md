@@ -376,7 +376,9 @@ mining, and `isChainValid()`, which replays the chain onto a fresh `Blockchain`)
 the work was done, not that the block is allowed. Mining sorts the mempool by fee rate (stable, so
 equal rates keep arrival order), fills the block up to the limits, drops stale txs, and only then
 builds the coinbase (reward + fees). Any subset of the mempool is a valid block, because every pending
-tx was admitted against confirmed balances only.
+tx was admitted against confirmed balances only. Since Sprint 25b the coinbase carries the block height in
+its `sequence` (Bitcoin's BIP34), so no two coinbases are alike; a coinbase that states a height must state
+its own block's (older blocks without one stay valid).
 
 ---
 
@@ -446,6 +448,12 @@ not read them), a keylogger, or a weak passphrase (600 000 PBKDF2 rounds slow gu
 in `Local Storage/leveldb/000003.log` after migration, and after one more open/close. Removing a localStorage entry
 writes a deletion marker; LevelDB drops the old record only when it compacts, which the page cannot trigger. If an
 old copy of the profile may exist, treat those keys as exposed: make new ones and move the funds.
+
+**Move funds to a new key (Sprint 25c).** Wallet drawer: a new key, then one transfer of
+`floor((balance - pending outgoing - fee) * 1e8) / 1e8` (rounded down, so it always fits) signed by the OLD key
+through the keystore; the old key stays, marked `retiredTo`. Keys that ever existed in plain text (migrated from
+`bs_keys`, or imported from a plaintext export) carry `plaintextBefore`, and the balance card and Wallet drawer
+say so until their funds are moved. Labels and flags survive passphrase changes and backups.
 
 **Recovery without the dashboard** (what `KeystoreInteropTest` does with a backup from a real browser): PBKDF2WithHmacSHA256
 (passphrase, salt, iterations, 256 bits) -> AES/GCM/NoPadding with the 12-byte iv and the address (UTF-8) as additional
@@ -549,7 +557,7 @@ to everyone except the sender); blocks with an unknown parent wait in a bounded 
 |-------|------|
 | `ChainStore` | Interface: `saveBlock`, `loadBlocks`, `savePending`, `removePending`, `loadPending`; optional indexed lookups (`isIndexed`, block by hash, tx by id, txs by address) and `backup` |
 | `NoOpChainStore` | Default for `new Blockchain()`: remembers nothing |
-| `H2ChainStore` | Embedded H2 via JDBC. Tables `blocks(idx, hash, previous_hash, json)`, `pending_tx(seq, tx_id, json)`, `tx_index(tx_id, block_idx, pos, sender, recipient, amount)` with indexes on sender / recipient / block_idx. A block and its index rows are written in one DB transaction. `backup(zip)` = `BACKUP TO`; static `restoreBackup(zip, dir)` |
+| `H2ChainStore` | Embedded H2 via JDBC. Tables `blocks(idx, hash, previous_hash, json)`, `pending_tx(seq, tx_id, json)`, `tx_index(block_idx, pos, tx_id, sender, recipient, amount)` keyed by position (Sprint 25b: pre-25b coinbases can share an id), with indexes on tx_id / sender / recipient / block_idx; a lookup by id returns the earliest; an old index keyed by tx_id is dropped on open and refilled by the restore. A block and its index rows are written in one DB transaction. `backup(zip)` = `BACKUP TO`; static `restoreBackup(zip, dir)` |
 | `StorageException` | Unchecked wrapper for storage failures |
 
 **Rules**:
@@ -597,6 +605,13 @@ Writes (tx, mined block) are broadcast to peers.
 script, claim sends FROM it with unlocking data. `Blockchain` derives the contract registry
 from blocks (so all nodes converge) and checks claims with the VM. A multisig is a contract
 whose lock is `CHECKMULTISIG`.
+
+**Contract ids (Sprint 25a)**: `id = Blockchain.contractIdFor(funder, lockingScript, amount, sequence)` =
+SHA-256 of the four joined with `|`; every deploy carries a sequence and must pay to `CONTRACT:` + its own
+id (mempool and block rules). Before, the client wrote any id it liked: a probe front-ran Alice's pending
+deploy with Mallory's own deploy to the same id, and the registry (first deploy wins) left Alice's 30 stuck.
+Now Mallory's deploy hashes to another id; two deploys with one id would need one (sender, sequence) pair,
+which confirms once; a fee bump keeps the sequence and the id. Like Ethereum's creator + nonce address.
 
 ---
 

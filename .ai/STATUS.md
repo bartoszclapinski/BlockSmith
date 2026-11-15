@@ -482,16 +482,12 @@ Design handoff (prototype + README) lives in `.ai/design/UIUX redesign project/`
    - Browser keys are encrypted under a passphrase (Sprint 24), but a
      script running while unlocked can still ask them to sign; no hardware
      wallet. Plaintext keys from before Sprint 24 stay in the browser's
-     files after migration (LevelDB keeps them until compaction): a "move
-     funds to a new key" helper would close that
+     files after migration; the dashboard flags them and moves their funds
+     to a new key (Sprint 25c), it cannot erase the old copy
    - `nodeId` is random per start (not persisted with the chain)
    - Side branches are kept in memory only (re-learned from peers after a
      restart); no headers-first sync
    - WebSocket push for the dashboard (currently 4s polling)
-   - Contract deploy uses `System.currentTimeMillis()` in the id seed; fine for
-     uniqueness but not reproducible across a re-mine
-   - Two coinbases with the same id (same miner, reward and millisecond)
-     overwrite each other's row in `tx_index`
 
 ---
 
