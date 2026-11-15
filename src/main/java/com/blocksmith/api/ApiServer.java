@@ -131,6 +131,7 @@ public class ApiServer {
         app.get("/api/wallet/{address}/transactions", this::getWalletTransactions);
         app.post("/api/wallet/create", this::postWalletCreate);
         app.get("/api/network/peers", this::getPeers);
+        app.post("/api/network/peers", this::postPeer);
 
         // Contract endpoints (Milestone 14c).
         app.get("/api/contracts", ctx -> json(ctx, blockchain.atomically(this::contractsList)));
@@ -303,6 +304,53 @@ public class ApiServer {
             peers.add(m);
         }
         json(ctx, peers);
+    }
+
+    /**
+     * Connects to a peer: {@code {"address": "host:port"}} (Sprint 26a).
+     *
+     * <p>Like {@code -addnode} in Bitcoin: the peer is kept, so the heartbeat
+     * dials it again if the link drops. Only from localhost, like the admin
+     * endpoints: otherwise anyone who can reach the API could make the node
+     * open connections to any address. 400 for a bad address, 409 when
+     * already connected (or the node is full), 502 when the peer cannot be
+     * reached.
+     */
+    private void postPeer(Context ctx) {
+        if (!isLoopback(ctx.ip())) {
+            ctx.status(403);
+            json(ctx, error("Connecting to peers is only available from localhost"));
+            return;
+        }
+        JsonObject body = jsonBody(ctx);
+        if (body == null) return;
+        String address = body.has("address") && body.get("address").isJsonPrimitive()
+                ? body.get("address").getAsString() : null;
+        PeerInfo target = Node.parsePeerAddress(address);
+        if (target == null) {
+            ctx.status(400);
+            json(ctx, error("address must be host:port (port 1-65535)"));
+            return;
+        }
+        com.blocksmith.network.Peer peer;
+        try {
+            peer = node.connectToPeer(target.getHost(), target.getPort());
+        } catch (IllegalStateException e) {
+            ctx.status(409);
+            json(ctx, error(e.getMessage()));
+            return;
+        } catch (java.io.IOException e) {
+            ctx.status(502);
+            json(ctx, error("Could not reach " + target.getAddress() + ": " + e.getMessage()));
+            return;
+        }
+        node.addPersistentPeer(target.getAddress());
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("address", target.getAddress());
+        m.put("nodeId", peer.getRemoteNodeId());
+        m.put("state", "CONNECTED");
+        ctx.status(201);
+        json(ctx, m);
     }
 
     /** Sum of pending transactions sent by {@code address}. */

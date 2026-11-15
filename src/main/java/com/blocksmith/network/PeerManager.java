@@ -129,6 +129,23 @@ public class PeerManager {
      * @param address the peer address in "host:port" format
      * @return true if the peer is known
      */
+    /**
+     * Registers a live link (Sprint 26a). Unlike {@link #addPeer}, this
+     * replaces an entry that is not CONNECTED (DISCOVERED, or DISCONNECTED
+     * after the peer restarted), so a peer can be reached again.
+     *
+     * @return false if this address already has a CONNECTED entry, or the
+     *         node is at MAX_PEERS
+     */
+    public synchronized boolean register(PeerInfo info) {
+        if (info == null) return false;
+        PeerInfo existing = peers.get(info.getAddress());
+        if (existing != null && existing.getState() == PeerState.CONNECTED) return false;
+        if (info.getState() == PeerState.CONNECTED && !canAcceptMore()) return false;
+        peers.put(info.getAddress(), info);
+        return true;
+    }
+
     public boolean isKnown(String address) {
         return peers.containsKey(address);
     }
