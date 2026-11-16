@@ -276,6 +276,20 @@ mvn exec:java
 ```
 Optional ports (P2P, API): `mvn exec:java -Dexec.args="8335 7070"`
 
+### Explore the chain
+Open the dashboard and click **Explorer** (or any block card). Every view has its own link:
+
+| Link | Shows |
+|------|-------|
+| `http://localhost:7070/#/blocks` | chain totals and all blocks, newest first |
+| `http://localhost:7070/#/block/12` | block 12 (or `#/block/<hash>`): header, previous / next, transactions |
+| `http://localhost:7070/#/tx/<id>` | a transaction: status, confirmations, block, amount, fee |
+| `http://localhost:7070/#/address/<address>` | an address: balance, received, sent, history; a contract address shows the contract |
+
+The search field takes a block height, a block hash, a transaction id or an address. The
+same lookups over the API: `GET /api/explorer/search?q=...`, `/api/explorer/blocks?limit=20&before=41`,
+`/api/explorer/address/<address>`, `/api/explorer/stats` (Sprint 27).
+
 ### Run a network of nodes
 Each node needs its own ports and data directory. Give a new node the address of
 any node already running; it finds the others by itself (Sprint 26):
@@ -329,7 +343,7 @@ BlockSmith/
 │   │   ├── HashUtil.java       # SHA-256 hashing
 │   │   ├── SignatureUtil.java  # ECDSA sign/verify + hex (Sprint 15a)
 │   │   ├── BlockchainConfig.java # Configuration constants
-│   │   └── BlockExplorer.java  # Chain viewer (TODO)
+│   │   └── BlockExplorer.java  # Explorer queries: pages, views, search, totals (Sprint 27)
 │   ├── network/                # P2P networking (Sprint 8)
 │   │   ├── MessageType.java    # Network message types
 │   │   ├── Message.java        # Base message class

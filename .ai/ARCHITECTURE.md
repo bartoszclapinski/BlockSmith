@@ -290,21 +290,35 @@ byte[] hash = digest.digest(input.getBytes(StandardCharsets.UTF_8));
 
 ---
 
-### BlockExplorer.java ⬜ (stub only)
+### BlockExplorer.java ✅ (Sprint 27)
 
-> Still an empty placeholder. Its role (browsing blocks, balances, the mempool) is covered
-> in practice by the REST API + web dashboard (Sprints 12-13). Implement or remove later.
+**Purpose**: the read side of the chain. Read-only questions the way a person asks them
+(by height, hash, id or address, a page at a time). It was an empty stub from Sprint 0 to
+Sprint 26; the planned `print...` methods became queries that return records, served by
+the API and shown by the dashboard. It never changes the chain.
 
-**Planned Purpose**: Interactive blockchain viewer.
-
-**Planned Methods**:
 | Method | Returns | Description |
 |--------|---------|-------------|
-| `printChainSummary()` | `void` | Overview of entire chain |
-| `printBlockDetails(index)` | `void` | Details of specific block |
-| `printTransactionHistory(addr)` | `void` | All txs for an address |
-| `printAddressBalance(addr)` | `void` | Balance of an address |
-| `printPendingTransactions()` | `void` | Show mempool |
+| `blockPage(before, limit)` | `BlockPage` | Block summaries, newest first, below the cursor height (`limit` 1-100); `nextBefore` for the next page |
+| `blockView(index)` / `blockView(hash)` | `BlockView` | A block + confirmations + next block's hash; null if not on the active chain |
+| `summarize(block)` | `BlockSummary` | Count, size, fees, miner (coinbase recipient), reward |
+| `transactionView(id)` / `describe(lookup)` | `TransactionView` | A transaction + block hash, block time, position; for a pending one its place in the mining order |
+| `addressView(address, offset, limit)` | `AddressView` | Balance, pending outgoing, counts, received, sent, one page of history, the contract at a `CONTRACT:` address |
+| `search(query)` | `SearchResult` | Height (or `#height`), block hash, transaction id, contract id / address, address; null for nothing |
+| `stats()` | `ChainStats` | Height, transactions, coins issued, chain bytes, pending, contracts |
+
+**Rules**
+- Every answer is built inside `Blockchain.atomically`, so one reply never mixes two states
+  of the chain.
+- Confirmations, the next hash and balances are not stored in any block; they are computed
+  from the chain around it.
+- Paging is by cursor (a height), not by page number: "the 20 blocks below 41" stays the
+  same when a block is mined; "page 2" does not.
+- `coinsIssued` = coinbase amounts - fees (a coinbase pays reward + fees, and the fees
+  already existed) = the sum of every balance, contracts included.
+- `stats()` keeps its sums and reads only the blocks added since the last call; if the
+  remembered tip is no longer on the chain (a reorg) it counts again from genesis.
+- Only the active chain: a block on a side branch is not found.
 
 ---
 
@@ -583,6 +597,25 @@ Still not done: addresses are not checked for reachability before they are adver
 inbound peer behind NAT is advertised under the address it dialled from), and there is no
 ban score for peers that send invalid data.
 
+### 🔎 Explorer in the dashboard (Sprint 27)
+
+Views inside the one page, chosen by the address bar, so the back button, a reload and a
+pasted link all land on the same view:
+
+| Link | View | Reads |
+|------|------|-------|
+| `#/blocks` | Totals; blocks newest first, "Load older blocks" | `/api/explorer/stats`, `/api/explorer/blocks` |
+| `#/block/<height or hash>` | Header with previous / next links, its transactions | `/api/blocks/{index}` or `/hash/{hash}` |
+| `#/tx/<id>` | Status, confirmations, block, from, to, amount, fee, size; pending: place in the mempool | `/api/transactions/{id}` |
+| `#/address/<address>` | Balance, received, sent, history by pages; a `CONTRACT:` address also shows the contract | `/api/explorer/address/{address}` |
+
+`onRoute()` (on `hashchange` and at load) hides the deck or the explorer; `loadExplorer`
+builds the view and drops the answer if the reader already left. An open view reloads when
+the poll sees the tip or the mempool change. The search field and the palette ("Search the
+chain", "Explorer") ask `/api/explorer/search` and open what it names. The dashboard's own
+poll reads `/api/explorer/blocks?limit=6`; before Sprint 27 it downloaded every block with
+every transaction every 4 seconds.
+
 ---
 
 ## 📦 Package: `com.blocksmith.storage` (Sprint 16)
@@ -612,6 +645,7 @@ Writes (tx, mined block) are broadcast to peers.
 | Method | Path | Purpose |
 |--------|------|---------|
 | GET | `/api/blocks`, `/api/blocks/latest`, `/api/blocks/{index}`, `/api/blocks/hash/{hash}` | Read the chain (by hash: Sprint 16c); each block adds `sizeBytes` and `totalFees` (Sprint 18d) |
+| GET | `/api/explorer/blocks?limit=&before=`, `/api/explorer/address/{address}?limit=&offset=`, `/api/explorer/search?q=`, `/api/explorer/stats` | Explorer (Sprint 27): block summaries by cursor; an address with totals, a page of history and its contract; one search (`{type, ...}`, 404 nothing, 400 empty); chain totals. Since 27 a single block also has `confirmations`, `nextHash`, `miner`, `reward`, `transactionCount`, and a transaction `blockHash`, `blockTimestamp`, `position`, `sizeBytes`, `feeRate` (pending: `mempoolPosition`, `mempoolSize`) |
 | GET | `/api/network/status`, `/api/network/peers`, `/api/network/difficulty` | Node stats (live `difficulty`, `target`, `blocksUntilRetarget`, `maxBlockBytes`, `maxBlockTransactions`...), peer list, difficulty epochs (Sprint 17d) |
 | POST | `/api/transactions/prepare`, `/api/contracts/prepare`, `/api/transactions/{id}/bump/prepare` | Build a transfer / deploy / bump to sign: `templateId`, `signatureData`, the tx (Sprint 22b) |
 | POST / GET | `/api/transactions`, `/api/transactions/{id}` | Submit a signed template {templateId, signature, publicKey} (or, on an unsigned test network, a plain transfer); 400 says why / look up a tx (+ `status`, `blockIndex`, `confirmations`) |

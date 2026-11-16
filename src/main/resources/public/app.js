@@ -1310,6 +1310,10 @@ async function buildTxView(id) {
         kv(list, "Mined", when(tx.blockTimestamp));
     } else {
         kv(list, "Confirmations", "0: waiting in the mempool for a block");
+        if (tx.mempoolPosition != null) {
+            kv(list, "Place in the mempool", tx.mempoolPosition + " of " + tx.mempoolSize
+                + " by fee rate (a miner takes the best fee per byte first)");
+        }
     }
     kv(list, "Created", when(tx.timestamp));
     kv(list, "From", addressNode(tx.sender, true));
@@ -1346,6 +1350,24 @@ async function buildAddressView(address) {
     if (a.pendingOutgoing > 0) kv(list, "Leaving (pending)", coins(a.pendingOutgoing));
     p.appendChild(list);
     view.appendChild(p);
+
+    // A contract's address (Sprint 27c): what the coins are locked behind.
+    if (a.contract) {
+        const c = a.contract;
+        const cp = panel("Contract");
+        cp.id = "x-contract";
+        const cl = el("div", "x-list");
+        const open = c.status === "OPEN";
+        kv(cl, "Status", el("span", "x-pill " + (open ? "wait" : "ok"), open ? "open" : c.status.toLowerCase()));
+        kv(cl, "Kind", contractType(c.lockingScript).label.toLowerCase());
+        kv(cl, "Locked", coins(c.amount));
+        kv(cl, "Locking script", c.lockingScript);
+        kv(cl, "Funded by", addressNode(c.funder, true));
+        kv(cl, "Deployed in", link(blockLink(c.creationHeight), "#" + c.creationHeight));
+        kv(cl, "Claimed by", c.claimer ? addressNode(c.claimer, true) : "nobody yet");
+        cp.appendChild(cl);
+        view.appendChild(cp);
+    }
 
     const history = panel("History");
     if (!total) {
@@ -1410,6 +1432,7 @@ const COMMANDS = [
     { icon: "⪉", label: "Multisig wallet", hint: "Deploy an M-of-N contract from member keys", run: function () { openDrawer("deploy", { deployType: "multi" }); } },
     { icon: "✎", label: "Multisig member", hint: "Member keys · sign another member's claim", run: function () { openDrawer("member"); } },
     { icon: "⇄", label: "Connect to peer", hint: "Join another node by its host:port", run: function () { closeOverlay(); document.getElementById("peer-address").focus(); } },
+    { icon: "⌕", label: "Explorer", hint: "Blocks, transactions and addresses · or type a height, hash or address here", run: function () { closeOverlay(); location.hash = "#/blocks"; } },
 ];
 
 function filteredCommands() {
@@ -2282,6 +2305,7 @@ const TOUR = [
     { sel: "feed", title: "Activity feed", body: "Events as they happen: blocks mined, transactions submitted, contracts deployed, and peers joining." },
     { sel: "actions", title: "Quick actions", body: "Send a transaction, create a wallet (its key stays in this browser), or deploy a contract — each opens a side panel; anything you spend is signed here." },
     { sel: "side", title: "Balance & contracts", body: "Your active-wallet balance and the open contracts (multisig / hashlock). Click a contract to claim it: a multisig needs its members' signatures." },
+    { sel: "explore", title: "Explorer", body: "Every block, transaction and address can be opened: click a block card, or go in here and search by height, hash, transaction id or address. Each view has its own link." },
     { sel: "peers", title: "Peers", body: "The nodes this one is linked to: → we dialled them, ← they dialled us. Type another node's host:port to join it; the node also finds more peers by itself." },
 ];
 
@@ -2293,6 +2317,8 @@ function tourOptedOut() {
 
 function startTour() {
     if (tour.active) return;
+    // The tour points at the dashboard; leave an explorer view first (Sprint 27c).
+    if (explorer.route) { location.hash = "#/"; onRoute(); }
     closeOverlay();            // a palette/drawer would sit under the dim; clear it
     tour.active = true;
     tour.step = 0;

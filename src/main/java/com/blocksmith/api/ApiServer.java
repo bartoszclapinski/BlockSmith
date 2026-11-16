@@ -752,6 +752,10 @@ public class ApiServer {
             if (view.position() != null) o.addProperty("position", view.position());
         }
         o.addProperty("confirmations", view.confirmations());
+        if (view.mempoolPosition() != null) {
+            o.addProperty("mempoolPosition", view.mempoolPosition());
+            o.addProperty("mempoolSize", view.mempoolSize());
+        }
         o.addProperty("sizeBytes", tx.sizeBytes());
         o.addProperty("feeRate", tx.feeRate());
         return o;
@@ -811,6 +815,7 @@ public class ApiServer {
         o.addProperty("offset", view.offset());
         o.addProperty("limit", view.limit());
         o.add("transactions", txs);
+        if (view.contract() != null) o.add("contract", gson.toJsonTree(contractInfo(view.contract())));
         json(ctx, o);
     }
 
