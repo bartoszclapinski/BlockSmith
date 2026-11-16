@@ -45,13 +45,14 @@
 
     <!-- MAIN -->
     <main class="main">
-        <div class="main-inner">
+        <div id="deck" class="main-inner">
 
             <!-- CHAIN HERO -->
             <section class="hero" data-tour="chain">
                 <div class="hero-head">
                     <span class="hero-title">The chain</span>
                     <span id="hero-meta" class="hero-meta mono"></span>
+                    <a id="explore-link" class="hero-explore" href="#/blocks" data-tour="explore">Explorer &rarr;</a>
                     <button id="mine-btn" class="btn-accent" type="button">
                         <span aria-hidden="true">&#9935;</span> Mine block
                     </button>
@@ -81,6 +82,7 @@
                         <div class="card-label">Balance</div>
                         <div class="balance-value"><span id="balance-amount">&mdash;</span> <span class="balance-unit">BSC</span></div>
                         <div id="balance-address" class="mono balance-address">no active wallet</div>
+                        <a id="balance-explore" class="x-link balance-explore" href="#/blocks" hidden>history in the explorer &rarr;</a>
                     </div>
                     <div class="panel contracts-card">
                         <div class="card-label">Open contracts</div>
@@ -97,6 +99,19 @@
                 </section>
             </div>
 
+        </div>
+
+        <!-- EXPLORER (Sprint 27b): shown instead of the deck for #/blocks, #/block/N, #/tx/ID, #/address/A -->
+        <div id="explorer" class="main-inner explorer" hidden>
+            <div class="x-head">
+                <a class="x-back" href="#/">&larr; Dashboard</a>
+                <a class="x-home" href="#/blocks">Explorer</a>
+                <form id="explorer-search" class="x-search" autocomplete="off">
+                    <input id="explorer-query" class="mono" type="search" placeholder="Block height, block hash, transaction id or address" aria-label="Search the chain" spellcheck="false">
+                    <button class="btn-accent" type="submit">Search</button>
+                </form>
+            </div>
+            <div id="explorer-body"></div>
         </div>
     </main>
 

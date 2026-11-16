@@ -275,7 +275,18 @@ body {
 }
 .hero-title { font-weight: 700; font-size: 15px; }
 .hero-meta { font: 500 11.5px var(--font-mono); color: var(--muted); }
-.hero-head .btn-accent { margin-left: auto; }
+.hero-head .hero-explore { margin-left: auto; }
+.hero-explore {
+    font-weight: 600;
+    font-size: 12.5px;
+    color: var(--accent);
+    text-decoration: none;
+    padding: 8px 12px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    white-space: nowrap;
+}
+.hero-explore:hover { border-color: var(--accent); background: var(--tint); }
 
 .chain-row {
     display: flex;
@@ -291,6 +302,10 @@ body {
     border-radius: 12px;
     padding: 14px;
 }
+a.block { display: block; text-decoration: none; color: inherit; }
+a.block:hover { border-color: var(--accent); }
+a.genesis { display: block; text-decoration: none; }
+a.genesis:hover { border-color: var(--accent); color: var(--accent); }
 .block-older {
     width: 160px;
     background: var(--chip);
@@ -872,6 +887,116 @@ body {
 .palette-list::-webkit-scrollbar-thumb { background: var(--soft); border-radius: 4px; }
 
 /* Narrow screens: stack the bottom grid, let it grow. */
+/* ===== Explorer (Sprint 27b) ===== */
+.main-inner[hidden] { display: none; }
+.explorer { margin-top: 0; margin-bottom: auto; max-width: 1180px; }
+.x-head { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.x-back, .x-home { text-decoration: none; font-weight: 600; font-size: 12.5px; white-space: nowrap; }
+.x-back { color: var(--muted); }
+.x-back:hover { color: var(--accent); }
+.x-home { color: var(--text); font-size: 15px; font-weight: 700; }
+.x-search { display: flex; gap: 8px; flex: 1; min-width: 240px; }
+.x-search input {
+    flex: 1;
+    min-width: 0;
+    font-size: 12.5px;
+    padding: 9px 12px;
+    border-radius: 9px;
+    border: 1px solid var(--border);
+    background: var(--card);
+    color: inherit;
+    outline: none;
+}
+.x-search input:focus { border-color: var(--accent); }
+.x-view { display: flex; flex-direction: column; gap: 16px; }
+.x-panel { min-width: 0; }
+.x-title { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+.x-title h1 { font-size: 19px; font-weight: 700; margin: 0; }
+.x-title .x-nav { margin-left: auto; display: flex; gap: 14px; font-size: 12.5px; font-weight: 600; }
+.x-link { color: var(--accent); text-decoration: none; }
+.x-link:hover { text-decoration: underline; }
+.x-dim { color: var(--muted2); }
+.x-tag, .x-pill {
+    font: 700 9.5px var(--font-mono);
+    padding: 2px 7px;
+    border-radius: 4px;
+    background: var(--chip);
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: .4px;
+    white-space: nowrap;
+}
+.x-pill.ok { color: var(--green); background: var(--hash-tag-bg); }
+.x-pill.wait { color: var(--amber); background: var(--tint); }
+.x-pill.in { color: var(--green); background: var(--hash-tag-bg); }
+.x-pill.out { color: var(--accent); background: var(--tint); }
+
+/* Chain totals */
+.x-stats { display: grid; grid-template-columns: repeat(6, 1fr); gap: 12px; }
+.x-stat { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 13px 15px; min-width: 0; }
+.x-stat-label { font: 600 10px var(--font-mono); color: var(--muted); text-transform: uppercase; letter-spacing: .6px; }
+.x-stat-value { font-size: 19px; font-weight: 700; margin-top: 3px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.x-stat-unit { font-size: 11px; font-weight: 500; color: var(--muted); }
+
+/* Label / value lines of a block, a transaction, an address */
+.x-kv { display: grid; grid-template-columns: 170px 1fr; gap: 12px; padding: 9px 0; border-bottom: 1px solid var(--divider); }
+.x-kv:last-child { border-bottom: none; }
+.x-k { font-size: 12px; color: var(--muted); }
+.x-v { font: 500 12.5px var(--font-mono); color: var(--text-soft); min-width: 0; overflow-wrap: anywhere; }
+
+/* Lists: blocks, a block's transactions, an address's history */
+.x-scroll { overflow-x: auto; }
+.x-table { width: 100%; border-collapse: collapse; font: 500 12px var(--font-mono); }
+.x-table th {
+    text-align: left;
+    font: 600 10px var(--font-mono);
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: .6px;
+    padding: 0 12px 8px 0;
+    white-space: nowrap;
+}
+.x-table td { padding: 9px 12px 9px 0; border-top: 1px solid var(--divider); white-space: nowrap; color: var(--text-soft); }
+.x-table th.num, .x-table td.num { text-align: right; }
+.x-table th:last-child, .x-table td:last-child { padding-right: 0; }
+.x-table tr:hover td { background: var(--tint); }
+.x-more, .x-pager button {
+    margin-top: 12px;
+    padding: 9px 14px;
+    border-radius: 9px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text-soft);
+    font-family: inherit;
+    font-weight: 600;
+    font-size: 12.5px;
+    cursor: pointer;
+}
+.x-more { width: 100%; }
+.x-more:hover, .x-pager button:hover { border-color: var(--accent); background: var(--tint); }
+.x-more:disabled, .x-pager button:disabled { opacity: .45; cursor: default; }
+.x-more[hidden] { display: none; }
+.x-pager { display: flex; align-items: center; gap: 12px; }
+.x-pager span { font: 500 11.5px var(--font-mono); color: var(--muted); margin-top: 12px; }
+.x-empty { font-size: 13px; color: var(--muted); padding: 18px 0; }
+.balance-explore { display: inline-block; font-size: 11px; margin-top: 6px; }
+.balance-explore[hidden] { display: none; }
+
+@media (max-width: 1100px) {
+    .x-stats { grid-template-columns: repeat(3, 1fr); }
+}
+@media (max-width: 640px) {
+    .x-stats { grid-template-columns: repeat(2, 1fr); }
+    .x-kv { grid-template-columns: 1fr; gap: 2px; }
+    .x-table .opt { display: none; }
+    .x-table { font-size: 11px; }
+    .x-table th, .x-table td { padding-right: 8px; }
+    .explorer { padding: 14px; }
+    .x-panel { padding: 14px; }
+    .x-search { flex-basis: 100%; }
+    .hero-meta { display: none; }
+}
+
 @media (max-width: 900px) {
     .grid { grid-template-columns: 1fr; height: auto; }
     .feed .scroll-col { max-height: 220px; }

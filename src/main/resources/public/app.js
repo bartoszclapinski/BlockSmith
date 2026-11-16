@@ -810,8 +810,8 @@ function renderSync(status, ok) {
     }
 }
 
-function renderHero(status, blocks) {
-    const tipIndex = blocks.length ? blocks[blocks.length - 1].index : 0;
+function renderHero(status, page) {
+    const tipIndex = page.height;
     // Live difficulty (Sprint 17d): leading-zero equivalent of the next target.
     const difficulty = typeof status.difficulty === "number" ? status.difficulty.toFixed(2) : status.difficulty;
     const retarget = status.blocksUntilRetarget != null
@@ -823,18 +823,20 @@ function renderHero(status, blocks) {
     const row = document.getElementById("chain-row");
     row.replaceChildren();
 
-    // Newest first, up to 6 cards.
-    const shown = blocks.slice(-6).reverse();
+    // Newest first, up to 6 cards: the page already comes in that order (Sprint 27b).
+    const shown = page.blocks;
     shown.forEach(function (block, i) {
         if (i > 0) row.appendChild(el("div", "conn"));
         const isTip = i === 0;
-        const card = el("div", "block " + (isTip ? "block-tip" : "block-older"));
+        // A link (Sprint 27b): each card opens its block in the explorer.
+        const card = el("a", "block " + (isTip ? "block-tip" : "block-older"));
+        card.href = blockLink(block.index);
         const top = el("div", "block-top");
         top.appendChild(el("span", "block-num", "#" + block.index));
         if (isTip) top.appendChild(el("span", "tip-badge", "TIP"));
         card.appendChild(top);
         card.appendChild(el("div", "block-hash", shortHash(block.hash)));
-        const txCount = Array.isArray(block.transactions) ? block.transactions.length : 0;
+        const txCount = block.transactionCount || 0;
         // Size and fees (Sprint 18d) instead of the nonce: what a block holds, not how it was mined.
         const fees = typeof block.totalFees === "number" && block.totalFees > 0
             ? " · fees " + formatAmount(block.totalFees) : "";
@@ -847,7 +849,9 @@ function renderHero(status, blocks) {
     const oldestShown = shown.length ? shown[shown.length - 1].index : 0;
     if (oldestShown > 0) {
         row.appendChild(el("div", "conn"));
-        row.appendChild(el("div", "genesis", "genesis ···"));
+        const all = el("a", "genesis", "all blocks ···");
+        all.href = "#/blocks";
+        row.appendChild(all);
     }
 }
 
@@ -968,6 +972,430 @@ async function onPeerConnect(event) {
     }
 }
 
+// ===== explorer (Sprint 27b) =====
+//
+// Views inside the dashboard, each with its own link: #/blocks,
+// #/block/<height or hash>, #/tx/<id>, #/address/<address>. The address bar
+// is the state: the back button, a reload and a pasted link all land on the
+// same view.
+
+const BLOCK_PAGE = 20;
+const HISTORY_PAGE = 25;
+
+const explorer = {
+    route: null,        // { view, arg }, or null for the dashboard
+    blocks: [],         // block summaries loaded so far, newest first
+    nextBefore: null,   // cursor for the next older page; null once genesis is loaded
+    offset: 0,          // first row of the address history on screen
+    seq: 0,             // drops the answer for a view the reader already left
+};
+
+/** "#/block/12" -> { view: "block", arg: "12" }; anything else is the dashboard. */
+function parseRoute(hash) {
+    const m = /^#\/(blocks|block|tx|address)(?:\/(.+))?$/.exec(hash || "");
+    if (!m) return null;
+    if (m[1] === "blocks") return { view: "blocks", arg: null };
+    if (!m[2]) return null;
+    let arg = m[2];
+    try { arg = decodeURIComponent(arg); } catch (e) {}
+    return { view: m[1], arg: arg };
+}
+
+function blockLink(indexOrHash) { return "#/block/" + encodeURIComponent(indexOrHash); }
+function txLink(id) { return "#/tx/" + encodeURIComponent(id); }
+function addressLink(address) { return "#/address/" + encodeURIComponent(address); }
+
+/** An in-page link; its text is set with textContent like everything from the chain. */
+function link(href, text, className) {
+    const a = el("a", className || "x-link", text);
+    a.href = href;
+    return a;
+}
+
+/** An address as a link. COINBASE is where new coins come from, not an address. */
+function addressNode(address, full) {
+    if (!address) return el("span", "x-dim", "—");
+    if (address === "COINBASE") return el("span", "x-tag", "coinbase");
+    const a = link(addressLink(address), full ? address : shortHash(address));
+    a.title = address;
+    return a;
+}
+
+function when(ts) {
+    const age = relTime(ts);
+    return new Date(ts).toLocaleString() + " (" + (age === "now" ? "just now" : age + " ago") + ")";
+}
+
+function coins(x) { return formatAmount(x) + " BSC"; }
+
+/** One "label: value" line. The value is text or a node. */
+function kv(list, label, value) {
+    const row = el("div", "x-kv");
+    row.appendChild(el("div", "x-k", label));
+    const v = el("div", "x-v");
+    if (value instanceof Node) v.appendChild(value);
+    else v.textContent = value;
+    row.appendChild(v);
+    list.appendChild(row);
+    return v;
+}
+
+/** A table: headers are [text, class]; returns its node and the body to fill. */
+function table(headers) {
+    const wrap = el("div", "x-scroll");
+    const t = el("table", "x-table");
+    const head = el("tr");
+    headers.forEach(function (h) { head.appendChild(el("th", h[1] || null, h[0])); });
+    const thead = el("thead");
+    thead.appendChild(head);
+    t.appendChild(thead);
+    const body = el("tbody");
+    t.appendChild(body);
+    wrap.appendChild(t);
+    return { node: wrap, body: body };
+}
+
+function cell(row, content, className) {
+    const td = el("td", className || null);
+    if (content instanceof Node) td.appendChild(content);
+    else td.textContent = content;
+    row.appendChild(td);
+    return td;
+}
+
+function panel(label) {
+    const p = el("div", "panel x-panel");
+    if (label) p.appendChild(el("div", "panel-label", label));
+    return p;
+}
+
+function titleRow(text) {
+    const row = el("div", "x-title");
+    row.appendChild(el("h1", null, text));
+    return row;
+}
+
+/** Shows the view the address bar names, or the dashboard. */
+function onRoute() {
+    const route = parseRoute(location.hash);
+    explorer.route = route;
+    document.getElementById("deck").hidden = !!route;
+    document.getElementById("explorer").hidden = !route;
+    if (!route) {
+        document.title = "BlockSmith Dashboard";
+        return;
+    }
+    closeOverlay();
+    explorer.offset = 0;
+    loadExplorer(true);
+}
+
+/**
+ * Loads the current view. {@code fresh} is a navigation (show "Loading",
+ * scroll to the top); otherwise it is the poll refreshing what is on screen.
+ */
+async function loadExplorer(fresh) {
+    const route = explorer.route;
+    if (!route) return;
+    const token = ++explorer.seq;
+    const body = document.getElementById("explorer-body");
+    if (fresh) {
+        body.replaceChildren(el("div", "x-empty", "Loading…"));
+        document.querySelector(".main").scrollTop = 0;
+    }
+    let view;
+    try {
+        if (route.view === "blocks") view = await buildBlocksView(fresh);
+        else if (route.view === "block") view = await buildBlockView(route.arg);
+        else if (route.view === "tx") view = await buildTxView(route.arg);
+        else view = await buildAddressView(route.arg);
+    } catch (e) {
+        if (!fresh) return;            // a failed background refresh keeps what is shown
+        view = notFoundView(e.message);
+    }
+    if (token !== explorer.seq) return;
+    body.replaceChildren(view);
+}
+
+function notFoundView(message) {
+    document.title = "Not found · BlockSmith";
+    const view = el("div", "x-view");
+    const p = panel(null);
+    p.appendChild(titleRow("Nothing here"));
+    p.appendChild(el("div", "x-empty", message));
+    p.appendChild(link("#/blocks", "See the latest blocks"));
+    view.appendChild(p);
+    return view;
+}
+
+/** Looks a string up on the chain and opens what it names. */
+async function explorerSearch(query) {
+    const q = (query || "").trim();
+    if (!q) {
+        toast("Type a block height, a block hash, a transaction id or an address", true);
+        return;
+    }
+    try {
+        const found = await fetchJson("/api/explorer/search?q=" + encodeURIComponent(q));
+        if (found.type === "block") location.hash = blockLink(found.blockIndex);
+        else if (found.type === "transaction") location.hash = txLink(found.transactionId);
+        else location.hash = addressLink(found.address);
+        document.getElementById("explorer-query").value = "";
+    } catch (e) {
+        toast(e.message, true);
+    }
+}
+
+// ----- blocks -----
+
+function statTile(label, value, unit) {
+    const tile = el("div", "x-stat");
+    tile.appendChild(el("div", "x-stat-label", label));
+    const v = el("div", "x-stat-value", value);
+    if (unit) v.appendChild(el("span", "x-stat-unit", " " + unit));
+    tile.appendChild(v);
+    return tile;
+}
+
+function blockRow(b) {
+    const row = el("tr");
+    cell(row, link(blockLink(b.index), "#" + b.index));
+    const hash = link(blockLink(b.index), shortHash(b.hash));
+    hash.title = b.hash;
+    cell(row, hash);
+    cell(row, relTime(b.timestamp)).title = new Date(b.timestamp).toLocaleString();
+    cell(row, String(b.transactionCount), "num");
+    cell(row, formatBytes(b.sizeBytes), "num opt");
+    cell(row, formatAmount(b.totalFees), "num opt");
+    cell(row, addressNode(b.miner), "opt");
+    return row;
+}
+
+async function buildBlocksView(fresh) {
+    const results = await Promise.all([
+        fetchJson("/api/explorer/stats"),
+        fetchJson("/api/explorer/blocks?limit=" + BLOCK_PAGE)
+    ]);
+    const stats = results[0], page = results[1];
+    // A refresh keeps the older pages the reader already loaded, if they still join up.
+    const lowest = page.blocks.length ? page.blocks[page.blocks.length - 1].index : 0;
+    const older = fresh ? [] : explorer.blocks.filter(function (b) { return b.index < lowest; });
+    if (older.length && older[0].index === lowest - 1) {
+        explorer.blocks = page.blocks.concat(older);
+    } else {
+        explorer.blocks = page.blocks;
+        explorer.nextBefore = page.nextBefore == null ? null : page.nextBefore;
+    }
+    document.title = "Blocks · BlockSmith";
+
+    const view = el("div", "x-view");
+    const strip = el("div", "x-stats");
+    strip.id = "x-stats";
+    strip.appendChild(statTile("Height", String(stats.height)));
+    strip.appendChild(statTile("Transactions", String(stats.transactions)));
+    strip.appendChild(statTile("Coins issued", formatAmount(stats.coinsIssued), "BSC"));
+    strip.appendChild(statTile("Chain size", formatBytes(stats.chainBytes)));
+    strip.appendChild(statTile("Pending", String(stats.pendingTransactions)));
+    strip.appendChild(statTile("Contracts", stats.openContracts + " open", "of " + stats.contracts));
+    view.appendChild(strip);
+
+    const p = panel("Blocks");
+    const t = table([["Height"], ["Hash"], ["Age"], ["Txs", "num"], ["Size", "num opt"], ["Fees", "num opt"], ["Mined by", "opt"]]);
+    t.body.id = "x-blocks";
+    explorer.blocks.forEach(function (b) { t.body.appendChild(blockRow(b)); });
+    p.appendChild(t.node);
+    const more = el("button", "x-more", "Load older blocks");
+    more.type = "button";
+    more.id = "x-older";
+    more.hidden = explorer.nextBefore == null;
+    more.addEventListener("click", function () { loadOlderBlocks(t.body, more); });
+    p.appendChild(more);
+    view.appendChild(p);
+    return view;
+}
+
+/** The next page down: the blocks below the lowest one shown (a cursor, not a page number). */
+async function loadOlderBlocks(body, button) {
+    if (explorer.nextBefore == null) return;
+    button.disabled = true;
+    try {
+        const page = await fetchJson("/api/explorer/blocks?limit=" + BLOCK_PAGE + "&before=" + explorer.nextBefore);
+        explorer.blocks = explorer.blocks.concat(page.blocks);
+        explorer.nextBefore = page.nextBefore == null ? null : page.nextBefore;
+        page.blocks.forEach(function (b) { body.appendChild(blockRow(b)); });
+        button.hidden = explorer.nextBefore == null;
+    } catch (e) {
+        toast(e.message, true);
+    } finally {
+        button.disabled = false;
+    }
+}
+
+// ----- one block -----
+
+async function buildBlockView(arg) {
+    const byHeight = /^\d+$/.test(arg);
+    const b = await fetchJson(byHeight ? "/api/blocks/" + arg : "/api/blocks/hash/" + encodeURIComponent(arg));
+    document.title = "Block #" + b.index + " · BlockSmith";
+
+    const view = el("div", "x-view");
+    const p = panel(null);
+    const title = titleRow("Block #" + b.index);
+    const nav = el("div", "x-nav");
+    if (b.index > 0) nav.appendChild(link(blockLink(b.index - 1), "← #" + (b.index - 1)));
+    if (b.nextHash) nav.appendChild(link(blockLink(b.index + 1), "#" + (b.index + 1) + " →"));
+    title.appendChild(nav);
+    p.appendChild(title);
+
+    const list = el("div", "x-list");
+    kv(list, "Hash", b.hash);
+    kv(list, "Confirmations", String(b.confirmations));
+    kv(list, "Mined", when(b.timestamp));
+    kv(list, "Mined by", b.miner ? addressNode(b.miner, true) : "nobody (the genesis block)");
+    kv(list, "Coinbase paid", b.miner ? coins(b.reward) + (b.totalFees > 0 ? " (fees " + formatAmount(b.totalFees) + " included)" : "") : "—");
+    kv(list, "Transactions", String(b.transactionCount));
+    kv(list, "Size", formatBytes(b.sizeBytes) + " (" + b.sizeBytes + " bytes)");
+    kv(list, "Nonce", String(b.nonce));
+    kv(list, "Merkle root", b.merkleRoot || "—");
+    kv(list, "Previous block", b.index > 0 ? link(blockLink(b.index - 1), b.previousHash) : "none: this is the first block");
+    kv(list, "Next block", b.nextHash ? link(blockLink(b.index + 1), b.nextHash) : "none yet: this is the tip");
+    p.appendChild(list);
+    view.appendChild(p);
+
+    const txs = panel("Transactions in this block");
+    if (!b.transactions.length) {
+        txs.appendChild(el("div", "x-empty", b.data ? "No transactions. Message: " + b.data : "No transactions"));
+    } else {
+        const t = table([["#", "opt"], ["Id"], ["From"], ["To"], ["Amount", "num"], ["Fee", "num opt"]]);
+        t.body.id = "x-block-txs";
+        b.transactions.forEach(function (tx, i) {
+            const row = el("tr");
+            cell(row, String(i), "opt");
+            const id = link(txLink(tx.transactionId), shortHash(tx.transactionId));
+            id.title = tx.transactionId;
+            cell(row, id);
+            cell(row, addressNode(tx.sender));
+            cell(row, addressNode(tx.recipient));
+            cell(row, formatAmount(tx.amount), "num");
+            cell(row, formatAmount(tx.fee || 0), "num opt");
+            t.body.appendChild(row);
+        });
+        txs.appendChild(t.node);
+    }
+    view.appendChild(txs);
+    return view;
+}
+
+// ----- one transaction -----
+
+async function buildTxView(id) {
+    const tx = await fetchJson("/api/transactions/" + encodeURIComponent(id));
+    document.title = "Transaction " + shortHash(tx.transactionId) + " · BlockSmith";
+    const confirmed = tx.status === "confirmed";
+
+    const view = el("div", "x-view");
+    const p = panel(null);
+    const title = titleRow("Transaction");
+    title.appendChild(el("span", "x-pill " + (confirmed ? "ok" : "wait"), tx.status));
+    p.appendChild(title);
+
+    const list = el("div", "x-list");
+    kv(list, "Id", tx.transactionId);
+    if (confirmed) {
+        kv(list, "Confirmations", String(tx.confirmations));
+        const where = el("span");
+        where.appendChild(link(blockLink(tx.blockIndex), "#" + tx.blockIndex));
+        where.appendChild(document.createTextNode(" · position " + tx.position + " · " + tx.blockHash));
+        kv(list, "Block", where);
+        kv(list, "Mined", when(tx.blockTimestamp));
+    } else {
+        kv(list, "Confirmations", "0: waiting in the mempool for a block");
+    }
+    kv(list, "Created", when(tx.timestamp));
+    kv(list, "From", addressNode(tx.sender, true));
+    kv(list, "To", addressNode(tx.recipient, true));
+    kv(list, "Amount", coins(tx.amount));
+    kv(list, "Fee", coins(tx.fee || 0) + (tx.fee > 0 ? " (" + formatRate(tx.feeRate) + ")" : ""));
+    kv(list, "Size", tx.sizeBytes + " bytes");
+    if (tx.sequence != null) kv(list, tx.sender === "COINBASE" ? "Height in coinbase" : "Sequence", String(tx.sequence));
+    kv(list, "Signature", tx.signature ? "signed by the sender's key" : (tx.sender === "COINBASE" ? "none: a coinbase has no sender" : "none"));
+    if (tx.lockingScript) kv(list, "Locking script", tx.lockingScript);
+    if (tx.unlockingScript) kv(list, "Unlocking script", tx.unlockingScript);
+    p.appendChild(list);
+    view.appendChild(p);
+    return view;
+}
+
+// ----- one address -----
+
+async function buildAddressView(address) {
+    const a = await fetchJson("/api/explorer/address/" + encodeURIComponent(address)
+        + "?limit=" + HISTORY_PAGE + "&offset=" + explorer.offset);
+    document.title = "Address " + shortHash(a.address) + " · BlockSmith";
+    const total = a.transactionCount + a.pendingCount;
+
+    const view = el("div", "x-view");
+    const p = panel(null);
+    p.appendChild(titleRow("Address"));
+    const list = el("div", "x-list");
+    kv(list, "Address", a.address);
+    kv(list, "Balance", coins(a.balance));
+    kv(list, "Received", coins(a.totalReceived));
+    kv(list, "Sent", coins(a.totalSent) + " (amounts and fees)");
+    kv(list, "Transactions", a.transactionCount + " confirmed" + (a.pendingCount ? ", " + a.pendingCount + " pending" : ""));
+    if (a.pendingOutgoing > 0) kv(list, "Leaving (pending)", coins(a.pendingOutgoing));
+    p.appendChild(list);
+    view.appendChild(p);
+
+    const history = panel("History");
+    if (!total) {
+        history.appendChild(el("div", "x-empty", "This address has not sent or received anything."));
+    } else {
+        // On a phone the direction column goes: the sign of the amount says it.
+        const t = table([["Id"], ["Block"], ["Age", "opt"], ["", "opt"], ["With"], ["Amount", "num"], ["Fee", "num opt"]]);
+        t.body.id = "x-history";
+        a.transactions.forEach(function (tx) {
+            const row = el("tr");
+            const id = link(txLink(tx.transactionId), shortHash(tx.transactionId));
+            id.title = tx.transactionId;
+            cell(row, id);
+            cell(row, tx.status === "confirmed" ? link(blockLink(tx.blockIndex), "#" + tx.blockIndex) : el("span", "x-pill wait", "pending"));
+            cell(row, relTime(tx.blockTimestamp || tx.timestamp), "opt");
+            const out = tx.sender === a.address;
+            const self = out && tx.recipient === a.address;
+            cell(row, el("span", "x-pill " + (out ? "out" : "in"), self ? "self" : out ? "out" : "in"), "opt");
+            cell(row, addressNode(out ? tx.recipient : tx.sender));
+            cell(row, (out && !self ? "−" : "+") + formatAmount(tx.amount), "num");
+            cell(row, out ? formatAmount(tx.fee || 0) : "", "num opt");
+            t.body.appendChild(row);
+        });
+        history.appendChild(t.node);
+
+        const pager = el("div", "x-pager");
+        const newer = el("button", null, "← Newer");
+        newer.type = "button";
+        newer.disabled = a.offset === 0;
+        newer.addEventListener("click", function () { explorer.offset = Math.max(0, a.offset - HISTORY_PAGE); loadExplorer(true); });
+        const olderBtn = el("button", null, "Older →");
+        olderBtn.type = "button";
+        olderBtn.disabled = a.offset + a.transactions.length >= total;
+        olderBtn.addEventListener("click", function () { explorer.offset = a.offset + HISTORY_PAGE; loadExplorer(true); });
+        pager.appendChild(newer);
+        pager.appendChild(olderBtn);
+        pager.appendChild(el("span", null, (a.offset + 1) + "–" + (a.offset + a.transactions.length) + " of " + total));
+        if (total > HISTORY_PAGE) history.appendChild(pager);
+    }
+    view.appendChild(history);
+    return view;
+}
+
+/** The balance card links to the active wallet's history. */
+function renderBalanceLink() {
+    const a = document.getElementById("balance-explore");
+    a.hidden = !state.activeAddress;
+    if (state.activeAddress) a.href = addressLink(state.activeAddress);
+}
+
 // ===== command palette =====
 
 let paletteActive = 0;
@@ -987,7 +1415,10 @@ const COMMANDS = [
 function filteredCommands() {
     const q = paletteQuery.trim().toLowerCase();
     if (!q) return COMMANDS;
-    return COMMANDS.filter(function (c) { return (c.label + " " + c.hint).toLowerCase().indexOf(q) !== -1; });
+    const typed = paletteQuery.trim();
+    // Whatever is typed can also be looked up on the chain (Sprint 27b).
+    return COMMANDS.filter(function (c) { return (c.label + " " + c.hint).toLowerCase().indexOf(q) !== -1; })
+        .concat([{ icon: "⌕", label: "Search the chain", hint: typed, run: function () { closeOverlay(); explorerSearch(typed); } }]);
 }
 
 function openPalette() {
@@ -1988,15 +2419,15 @@ function positionTour() {
 // ===== poll loop =====
 
 async function refresh() {
-    let status, peers, blocks, contracts;
+    let status, peers, page, contracts;
     try {
         const results = await Promise.all([
             fetchJson("/api/network/status"),
             fetchJson("/api/network/peers"),
-            fetchJson("/api/blocks"),
+            fetchJson("/api/explorer/blocks?limit=6"),
             fetchJson("/api/contracts")
         ]);
-        status = results[0]; peers = results[1]; blocks = results[2]; contracts = results[3];
+        status = results[0]; peers = results[1]; page = results[2]; contracts = results[3];
     } catch (e) {
         state.reachable = false;
         renderSync(null, false);
@@ -2004,8 +2435,8 @@ async function refresh() {
     }
 
     state.reachable = true;
-    const tipIndex = blocks.length ? blocks[blocks.length - 1].index : 0;
-    const tipHash = blocks.length ? blocks[blocks.length - 1].hash : "";
+    const tipIndex = page.height;
+    const tipHash = page.blocks.length ? page.blocks[0].hash : "";
 
     // Feed derivation from the previous snapshot.
     const contractStatus = {};
@@ -2018,6 +2449,9 @@ async function refresh() {
         reorgs: status.reorgs || 0, lastReorg: status.lastReorg || null,
         contracts: contracts, contractStatus: contractStatus,
     };
+    // What an open explorer view shows changes with the tip (confirmations,
+    // new blocks) and with the mempool (a pending transaction appears).
+    const moved = !state.prev || state.prev.tipHash !== tipHash || state.prev.pending !== snapshot.pending;
     deriveFeed(snapshot);
     state.prev = snapshot;
 
@@ -2028,11 +2462,13 @@ async function refresh() {
     }
 
     renderSync(status, true);
-    renderHero(status, blocks);
+    renderHero(status, page);
     renderFeed();
     renderBalance(balanceInfo);
     renderContracts(contracts);
     renderPeers(peers);
+    renderBalanceLink();
+    if (moved && explorer.route) loadExplorer(false);
 }
 
 // ===== wiring =====
@@ -2057,6 +2493,11 @@ function wire() {
     document.addEventListener("keydown", touchVault, true);
     document.getElementById("mine-btn").addEventListener("click", doMine);
     document.getElementById("peer-form").addEventListener("submit", onPeerConnect);
+    document.getElementById("explorer-search").addEventListener("submit", function (e) {
+        e.preventDefault();
+        explorerSearch(document.getElementById("explorer-query").value);
+    });
+    window.addEventListener("hashchange", onRoute);
     // Click the balance address to track any existing address (multi-address node).
     document.getElementById("balance-address").addEventListener("click", function () {
         const input = window.prompt("Track an address in the balance card:", state.activeAddress || "");
@@ -2096,6 +2537,7 @@ renderLock();
 if (keystoreState() === "legacy") {
     toast("Your keys are stored in plain text: click ⚠ Encrypt keys to protect them with a passphrase", true);
 }
+onRoute();   // a link opened directly lands on its view
 refresh();
 setInterval(refresh, REFRESH_MS);
 
