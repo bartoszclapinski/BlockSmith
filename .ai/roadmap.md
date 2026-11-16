@@ -42,7 +42,7 @@ Transform BlockSmith from an educational blockchain into a **fully functional di
 │                                                                     │
 │  BONUS: Advanced Features                       ░░░░░░░░░░░░ 0%     │
 │  ├── Light Clients (SPV)                         ⬜ Optional        │
-│  ├── Blockchain Explorer Web App                 ⬜ Optional        │
+│  ├── Blockchain Explorer Web App                 ✅ Sprint 27       │
 │  └── Mobile Wallet                               ⬜ Optional        │
 │                                                                     │
 └─────────────────────────────────────────────────────────────────────┘
@@ -164,6 +164,7 @@ POST /api/multisig/claim       # Assemble + submit a multisig claim
 | 24 | Encrypted Browser Keystore | Keys stored only under a passphrase (PBKDF2 + AES-GCM), unlock on demand, encrypted backups ✅ Complete |
 | 25 | Loose Ends | Contract ids bound to their deploy, block height in every coinbase, move funds to a new key ✅ Complete |
 | 26 | Networking for Real | Join from the command line or dashboard, persistent node id, discovery with auto-connect, reconnect ✅ Complete |
+| 27 | Block Explorer | Blocks by cursor, block / transaction / address views, search, totals; explorer views in the dashboard ✅ Complete (last sprint) |
 
 ---
 
@@ -172,7 +173,7 @@ POST /api/multisig/claim       # Assemble + submit a multisig claim
 | Feature | Description | Complexity |
 |---------|-------------|------------|
 | Light Clients (SPV) | Verify transactions without full chain | High |
-| Blockchain Explorer | Full web app to browse chain | Medium |
+| Blockchain Explorer | Full web app to browse chain | ✅ Done in Sprint 27 (inside the dashboard) |
 | Mobile Wallet | Android app for wallet management | High |
 | CLI Tool | Command-line interface for node management | Low |
 | Docker Support | Containerized deployment | Low |
