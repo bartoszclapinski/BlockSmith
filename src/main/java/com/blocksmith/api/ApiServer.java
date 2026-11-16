@@ -13,6 +13,7 @@ import com.blocksmith.core.Block;
 import com.blocksmith.core.Blockchain;
 import com.blocksmith.core.Transaction;
 import com.blocksmith.core.Wallet;
+import com.blocksmith.util.BlockExplorer;
 import com.blocksmith.util.BlockchainConfig;
 import com.blocksmith.util.SignatureUtil;
 import com.blocksmith.util.Target;
@@ -49,6 +50,8 @@ public class ApiServer {
 
     private final Node node;
     private final Blockchain blockchain;
+    /** Read-only lookups for the explorer endpoints (Sprint 27a). */
+    private final BlockExplorer explorer;
     private final int port;
     // Shared chain-data Gson: blocks may hold signed transactions, whose
     // PublicKey plain Gson cannot serialize (#259).
@@ -66,6 +69,7 @@ public class ApiServer {
     public ApiServer(Node node, int port) {
         this.node = node;
         this.blockchain = node.getBlockchain();
+        this.explorer = new BlockExplorer(blockchain);
         this.port = port;
     }
 
@@ -110,7 +114,8 @@ public class ApiServer {
             for (Block b : blockchain.getChain()) blocks.add(blockJson(b));
             json(ctx, blocks);
         });
-        app.get("/api/blocks/latest", ctx -> json(ctx, blockJson(blockchain.getLatestBlock())));
+        app.get("/api/blocks/latest", ctx -> json(ctx, blockViewJson(
+                blockchain.atomically(() -> explorer.blockView(blockchain.getChainSize() - 1)))));
         app.get("/api/blocks/{index}", this::getBlockByIndex);
         app.get("/api/blocks/hash/{hash}", this::getBlockByHash);
         app.get("/api/network/status", ctx -> json(ctx, status()));
@@ -144,6 +149,12 @@ public class ApiServer {
         app.post("/api/multisig/create", this::postMultiSigCreate);
         app.post("/api/multisig/claim/prepare", this::postMultiSigClaimPrepare);
         app.post("/api/multisig/claim", this::postMultiSigClaim);
+
+        // Explorer endpoints (Sprint 27a): a page at a time, and one search.
+        app.get("/api/explorer/blocks", this::getExplorerBlocks);
+        app.get("/api/explorer/address/{address}", this::getExplorerAddress);
+        app.get("/api/explorer/search", this::getExplorerSearch);
+        app.get("/api/explorer/stats", ctx -> json(ctx, explorerStats()));
 
         // Admin endpoints (Milestone 16d).
         app.post("/api/admin/backup", this::postBackup);
@@ -228,13 +239,13 @@ public class ApiServer {
      */
     private void getTransactionById(Context ctx) {
         String id = ctx.pathParam("id");
-        Blockchain.TransactionLookup found = blockchain.findTransaction(id);
+        BlockExplorer.TransactionView found = explorer.transactionView(id);
         if (found == null) {
             ctx.status(404);
             json(ctx, error("No transaction with id " + id));
             return;
         }
-        json(ctx, lookupJson(found));
+        json(ctx, transactionViewJson(found));
     }
 
     /** Mines the pending transactions to a miner address and broadcasts the block. */
@@ -684,24 +695,27 @@ public class ApiServer {
             return;
         }
 
-        if (index < 0 || index >= blockchain.getChainSize()) {
+        // One snapshot (Sprint 27a): the size check and the read used to be
+        // two calls, and a reorg between them could shorten the chain.
+        BlockExplorer.BlockView view = explorer.blockView(index);
+        if (view == null) {
             ctx.status(404);
             json(ctx, error("No block at index " + index));
             return;
         }
-        json(ctx, blockJson(blockchain.getBlock(index)));
+        json(ctx, blockViewJson(view));
     }
 
     /** Finds a block by hash (16c); 404 if no block on our chain has it. */
     private void getBlockByHash(Context ctx) {
         String hash = ctx.pathParam("hash");
-        Block block = blockchain.getBlockByHash(hash);
-        if (block == null) {
+        BlockExplorer.BlockView view = explorer.blockView(hash);
+        if (view == null) {
             ctx.status(404);
             json(ctx, error("No block with hash " + hash));
             return;
         }
-        json(ctx, blockJson(block));
+        json(ctx, blockViewJson(view));
     }
 
     /**
@@ -711,20 +725,184 @@ public class ApiServer {
      * fresh wallet's zero balance.
      */
     private void getWalletTransactions(Context ctx) {
-        JsonArray out = new JsonArray();
-        for (Blockchain.TransactionLookup l : blockchain.getTransactionHistory(ctx.pathParam("address"))) {
-            out.add(lookupJson(l));
-        }
-        json(ctx, out);
+        String address = ctx.pathParam("address");
+        // One snapshot: each row's block is read after the history is.
+        json(ctx, blockchain.atomically(() -> {
+            JsonArray out = new JsonArray();
+            for (Blockchain.TransactionLookup l : blockchain.getTransactionHistory(address)) {
+                out.add(transactionViewJson(explorer.describe(l)));
+            }
+            return out;
+        }));
     }
 
-    /** A transaction's JSON plus where it sits on the chain. */
-    private JsonObject lookupJson(Blockchain.TransactionLookup lookup) {
-        JsonObject o = gson.toJsonTree(lookup.transaction()).getAsJsonObject();
-        o.addProperty("status", lookup.isConfirmed() ? "confirmed" : "pending");
-        if (lookup.isConfirmed()) o.addProperty("blockIndex", lookup.blockIndex());
-        o.addProperty("confirmations", lookup.confirmations());
+    /**
+     * A transaction's JSON plus where it sits on the chain. Since Sprint 27a
+     * also its block's hash and time, its position in the block, its size
+     * and its fee rate: what a transaction page shows.
+     */
+    private JsonObject transactionViewJson(BlockExplorer.TransactionView view) {
+        Transaction tx = view.transaction();
+        JsonObject o = gson.toJsonTree(tx).getAsJsonObject();
+        o.addProperty("status", view.isConfirmed() ? "confirmed" : "pending");
+        if (view.isConfirmed()) {
+            o.addProperty("blockIndex", view.blockIndex());
+            o.addProperty("blockHash", view.blockHash());
+            o.addProperty("blockTimestamp", view.blockTimestamp());
+            if (view.position() != null) o.addProperty("position", view.position());
+        }
+        o.addProperty("confirmations", view.confirmations());
+        o.addProperty("sizeBytes", tx.sizeBytes());
+        o.addProperty("feeRate", tx.feeRate());
         return o;
+    }
+
+    // ===== 27a: EXPLORER =====
+
+    /**
+     * GET /api/explorer/blocks?limit=20&before=<height>: block summaries,
+     * newest first, without their transactions. {@code nextBefore} is the
+     * cursor for the next (older) page; it is absent once genesis was sent.
+     */
+    private void getExplorerBlocks(Context ctx) {
+        BlockExplorer.BlockPage page;
+        try {
+            page = explorer.blockPage(intQuery(ctx, "before", null),
+                    intQuery(ctx, "limit", BlockExplorer.DEFAULT_BLOCK_PAGE));
+        } catch (IllegalArgumentException e) {
+            ctx.status(400);
+            json(ctx, error(e.getMessage()));
+            return;
+        }
+        JsonArray blocks = new JsonArray();
+        for (BlockExplorer.BlockSummary s : page.blocks()) blocks.add(summaryJson(s));
+        JsonObject o = new JsonObject();
+        o.addProperty("height", page.height());
+        o.add("blocks", blocks);
+        if (page.nextBefore() != null) o.addProperty("nextBefore", page.nextBefore());
+        json(ctx, o);
+    }
+
+    /**
+     * GET /api/explorer/address/{address}?limit=25&offset=0: the address's
+     * totals and one page of its history. An address nobody used is not a
+     * 404: it has zero of everything, like a fresh wallet.
+     */
+    private void getExplorerAddress(Context ctx) {
+        BlockExplorer.AddressView view;
+        try {
+            view = explorer.addressView(ctx.pathParam("address"), intQuery(ctx, "offset", 0),
+                    intQuery(ctx, "limit", BlockExplorer.DEFAULT_HISTORY_PAGE));
+        } catch (IllegalArgumentException e) {
+            ctx.status(400);
+            json(ctx, error(e.getMessage()));
+            return;
+        }
+        JsonArray txs = new JsonArray();
+        for (BlockExplorer.TransactionView t : view.transactions()) txs.add(transactionViewJson(t));
+        JsonObject o = new JsonObject();
+        o.addProperty("address", view.address());
+        o.addProperty("balance", view.balance());
+        o.addProperty("pendingOutgoing", view.pendingOutgoing());
+        o.addProperty("transactionCount", view.transactionCount());
+        o.addProperty("pendingCount", view.pendingCount());
+        o.addProperty("totalReceived", view.totalReceived());
+        o.addProperty("totalSent", view.totalSent());
+        o.addProperty("offset", view.offset());
+        o.addProperty("limit", view.limit());
+        o.add("transactions", txs);
+        json(ctx, o);
+    }
+
+    /**
+     * GET /api/explorer/search?q=: a height, a block hash, a transaction id,
+     * a contract id or an address. Answers with what to open ({@code type}
+     * and its key), 404 when nothing on the chain matches.
+     */
+    private void getExplorerSearch(Context ctx) {
+        String q = ctx.queryParam("q");
+        BlockExplorer.SearchResult found;
+        try {
+            found = explorer.search(q);
+        } catch (IllegalArgumentException e) {
+            ctx.status(400);
+            json(ctx, error("q is required: a block height, a block hash, a transaction id or an address"));
+            return;
+        }
+        if (found == null) {
+            ctx.status(404);
+            json(ctx, error("Nothing found for " + q.trim()));
+            return;
+        }
+        JsonObject o = new JsonObject();
+        o.addProperty("type", found.type());
+        if (found.blockIndex() != null) o.addProperty("blockIndex", found.blockIndex());
+        if (found.blockHash() != null) o.addProperty("blockHash", found.blockHash());
+        if (found.transactionId() != null) {
+            o.addProperty("transactionId", found.transactionId());
+            o.addProperty("status", found.blockIndex() != null ? "confirmed" : "pending");
+        }
+        if (found.address() != null) o.addProperty("address", found.address());
+        if (found.contractId() != null) o.addProperty("contractId", found.contractId());
+        json(ctx, o);
+    }
+
+    /** GET /api/explorer/stats: the chain in numbers. */
+    private Map<String, Object> explorerStats() {
+        BlockExplorer.ChainStats s = explorer.stats();
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("height", s.height());
+        m.put("blocks", s.blocks());
+        m.put("transactions", s.transactions());
+        m.put("coinsIssued", s.coinsIssued());
+        m.put("totalFees", s.totalFees());
+        m.put("chainBytes", s.chainBytes());
+        m.put("tipTimestamp", s.tipTimestamp());
+        m.put("pendingTransactions", s.pendingTransactions());
+        m.put("contracts", s.contracts());
+        m.put("openContracts", s.openContracts());
+        return m;
+    }
+
+    /** A block in a list: no transactions, only what the row shows. */
+    private JsonObject summaryJson(BlockExplorer.BlockSummary s) {
+        JsonObject o = new JsonObject();
+        o.addProperty("index", s.index());
+        o.addProperty("hash", s.hash());
+        o.addProperty("timestamp", s.timestamp());
+        o.addProperty("transactionCount", s.transactionCount());
+        o.addProperty("sizeBytes", s.sizeBytes());
+        o.addProperty("totalFees", s.totalFees());
+        if (s.miner() != null) o.addProperty("miner", s.miner());
+        o.addProperty("reward", s.reward());
+        return o;
+    }
+
+    /**
+     * A block's JSON plus what only the chain around it knows (Sprint 27a):
+     * confirmations, the next block's hash (absent at the tip), who mined it
+     * (absent for genesis) and what the coinbase paid.
+     */
+    private JsonObject blockViewJson(BlockExplorer.BlockView view) {
+        JsonObject o = blockJson(view.block());
+        BlockExplorer.BlockSummary s = view.summary();
+        o.addProperty("transactionCount", s.transactionCount());
+        if (s.miner() != null) o.addProperty("miner", s.miner());
+        o.addProperty("reward", s.reward());
+        o.addProperty("confirmations", view.confirmations());
+        if (view.nextHash() != null) o.addProperty("nextHash", view.nextHash());
+        return o;
+    }
+
+    /** An integer query parameter, or {@code fallback} when it is absent. */
+    private static Integer intQuery(Context ctx, String name, Integer fallback) {
+        String raw = ctx.queryParam(name);
+        if (raw == null) return fallback;
+        try {
+            return Integer.parseInt(raw.trim());
+        } catch (NumberFormatException e) {
+            throw new IllegalArgumentException(name + " must be an integer");
+        }
     }
 
     // ===== HELPERS =====
