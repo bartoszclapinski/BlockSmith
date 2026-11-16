@@ -8,7 +8,7 @@ BlockSmith is a comprehensive blockchain project that goes beyond tutorials - im
 
 [![Java](https://img.shields.io/badge/Java-20+-orange.svg)](https://openjdk.org/)
 [![Maven](https://img.shields.io/badge/Maven-3.9+-blue.svg)](https://maven.apache.org/)
-[![Tests](https://img.shields.io/badge/Tests-455%20passing-brightgreen.svg)](#)
+[![Tests](https://img.shields.io/badge/Tests-470%20passing-brightgreen.svg)](#)
 [![Phase](https://img.shields.io/badge/Phase%204-Complete-brightgreen.svg)](#)
 [![Version](https://img.shields.io/badge/Version-1.0.0-blue.svg)](#)
 
@@ -122,6 +122,10 @@ BlockSmith is a comprehensive blockchain project that goes beyond tutorials - im
   - ✅ Join a network with `--peer host:port` or from the dashboard; restarted peers are reached again (Sprint 26a)
   - ✅ A node keeps its id, knows itself and duplicate links, and finds more peers on its own (Sprint 26b)
   - ✅ Pending transactions flow both ways; a Peers card in the dashboard; checked live with three processes (Sprint 26c)
+- ✅ Block explorer (Sprint 27)
+  - ✅ Explorer API: blocks a page at a time, a block and a transaction with their place on the chain, an address with its totals, one search, chain totals (Sprint 27a)
+  - ✅ Explorer views in the dashboard, each with its own link: blocks, block, transaction, address (Sprint 27b)
+  - ✅ Pending transactions and contracts in the explorer; checked end to end and live in a browser (Sprint 27c)
 
 > Upgrading from an older checkout? Chains saved before Sprint 22 contain unsigned transfers and
 > restore only up to the first one, and multisig contracts from before Sprint 23 cannot be claimed:
@@ -264,7 +268,7 @@ Average attempts: ~16^difficulty (~65,536 for difficulty 4)
 mvn clean compile
 ```
 
-### Run all tests (455 tests)
+### Run all tests (470 tests)
 ```bash
 mvn test
 ```
@@ -372,7 +376,7 @@ BlockSmith/
 │   ├── BlockSmithNode.java     # Runnable node (P2P + API + dashboard)
 │   └── BlockSmithDemo.java     # Teaching demo application
 ├── src/main/resources/public/  # Web dashboard (index.html, app.js, style.css)
-├── src/test/java/              # 455 unit tests
+├── src/test/java/              # 470 unit tests
 ├── data/                       # Node databases (H2), one folder per node: data/node-<port>/
 ├── pom.xml                     # Maven configuration
 └── README.md
@@ -453,7 +457,10 @@ BlockSmith/
 | JoiningTest | 3 | Nodes started with `--peer` share blocks and reconnect after a restart |
 | IdentityDiscoveryTest | 5 | Persistent node id, self and duplicate links, discovery and auto-connect |
 | NetworkPanelTest | 2 | Mempool pulled both ways; the dashboard's Peers card |
-| **Total** | **455** | All passing ✅ |
+| ExplorerApiTest | 8 | Explorer API: pages, views, search, totals |
+| ExplorerViewsTest | 3 | Explorer views served by the dashboard |
+| ExplorerEndToEndTest | 4 | Search everything, walk the chain, pending to confirmed, contracts |
+| **Total** | **470** | All passing ✅ |
 
 ---
 
@@ -533,6 +540,7 @@ BlockSmith/
 | Sprint 24 | Encrypted Browser Keystore | ✅ Complete (24a, 24b, 24c) |
 | Sprint 25 | Loose Ends | ✅ Complete (25a, 25b, 25c) |
 | Sprint 26 | Networking for Real | ✅ Complete (26a, 26b, 26c) |
+| Sprint 27 | Block Explorer | ✅ Complete (27a, 27b, 27c) |
 
 ---
 

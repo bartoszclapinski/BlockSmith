@@ -7,7 +7,7 @@
 | **Sprint** | 27 |
 | **Title** | Block Explorer |
 | **Phase** | Hardening (after the roadmap); the last sprint of the project |
-| **Status** | 📋 Planned |
+| **Status** | ✅ Complete (2026-11-16) |
 | **Depends On** | Sprint 12 (REST API), Sprint 13 (dashboard), Sprint 16c (transaction index), Sprint 26 (release v4.7.0) |
 
 > **Why:** the roadmap still lists "Blockchain Explorer Web App" as optional,
@@ -50,9 +50,9 @@ downloading the whole chain.
 
 | Milestone | Title | Branch | Status |
 |-----------|-------|--------|--------|
-| **27a** | Explorer queries and API | `sprint27a/explorer-api` | ⬜ (#386, #387) |
-| **27b** | Explorer in the dashboard | `sprint27b/explorer-ui` | ⬜ (#388, #389) |
-| **27c** | Pending and contracts, live check, docs | `sprint27c/explorer-live` | ⬜ (#390, #391) |
+| **27a** | Explorer queries and API | `sprint27a/explorer-api` | ✅ PR #393 (#386, #387) |
+| **27b** | Explorer in the dashboard | `sprint27b/explorer-ui` | ✅ PR #394 (#388, #389) |
+| **27c** | Pending and contracts, live check, docs | `sprint27c/explorer-live` | ✅ PR #395 (#390, #391) |
 
 ---
 
@@ -60,28 +60,28 @@ downloading the whole chain.
 
 ### Deliverables
 
-- [ ] `BlockExplorer` (the stub since Sprint 0) becomes the read-only query
+- [x] `BlockExplorer` (the stub since Sprint 0) becomes the read-only query
       class over a `Blockchain`: block page, block view, transaction view,
       address view, search, chain totals. Each answer is built from one
       snapshot of the chain (`atomically`)
-- [ ] `GET /api/explorer/blocks?limit=20&before=<height>`: block summaries,
+- [x] `GET /api/explorer/blocks?limit=20&before=<height>`: block summaries,
       newest first, without their transactions (index, hash, time, number of
       transactions, size, fees, miner, reward); `limit` 1-100; the reply
       carries the height and the cursor for the next page
-- [ ] `GET /api/blocks/{index}` and `/api/blocks/hash/{hash}` add
+- [x] `GET /api/blocks/{index}` and `/api/blocks/hash/{hash}` add
       `confirmations`, `nextHash`, `miner`, `reward`, `transactionCount`;
       `GET /api/transactions/{id}` adds `blockHash`, `blockTimestamp`,
       `position`, `sizeBytes`, `feeRate` (additions only: nothing existing
       changes)
-- [ ] `GET /api/explorer/address/{address}?limit=25&offset=0`: balance,
+- [x] `GET /api/explorer/address/{address}?limit=25&offset=0`: balance,
       pending outgoing, number of transactions, total received, total sent,
       and one page of the history
-- [ ] `GET /api/explorer/search?q=`: a height, a block hash, a transaction
+- [x] `GET /api/explorer/search?q=`: a height, a block hash, a transaction
       id, a contract id or an address, answered with `{type, ...}` (the
       thing to open); 404 when nothing matches, 400 for an empty query
-- [ ] `GET /api/explorer/stats`: height, transactions, coins issued, chain
+- [x] `GET /api/explorer/stats`: height, transactions, coins issued, chain
       size in bytes, open contracts (recomputed only when the tip changes)
-- [ ] Tests: paging walks every block exactly once; the block and
+- [x] Tests: paging walks every block exactly once; the block and
       transaction additions; address totals equal the balance; search for
       each kind and for nothing; bad parameters are 400
 
@@ -91,23 +91,23 @@ downloading the whole chain.
 
 ### Deliverables
 
-- [ ] Views inside the dashboard, each with its own link (`#/blocks`,
+- [x] Views inside the dashboard, each with its own link (`#/blocks`,
       `#/block/12`, `#/tx/<id>`, `#/address/<address>`); the browser's back
       button works; opening a link directly shows that view
-- [ ] Blocks: the totals from `/api/explorer/stats` and a list that loads
+- [x] Blocks: the totals from `/api/explorer/stats` and a list that loads
       older blocks on request
-- [ ] Block: header (hash, previous and next as links, Merkle root, nonce,
+- [x] Block: header (hash, previous and next as links, Merkle root, nonce,
       time, size, fees, miner, reward, confirmations) and its transactions
-- [ ] Transaction: status and confirmations, block (link), from and to
+- [x] Transaction: status and confirmations, block (link), from and to
       (links), amount, fee, fee rate, size
-- [ ] Address: balance, received, sent, count, history by pages
-- [ ] A search field (height / hash / transaction id / address); the same
+- [x] Address: balance, received, sent, count, history by pages
+- [x] A search field (height / hash / transaction id / address); the same
       search from the command palette
-- [ ] Everything already on the page links in: block cards, the active
+- [x] Everything already on the page links in: block cards, the active
       wallet's address
-- [ ] The dashboard polls `/api/explorer/blocks?limit=6` instead of the whole
+- [x] The dashboard polls `/api/explorer/blocks?limit=6` instead of the whole
       chain
-- [ ] Tests: the served page and script have the views, the routes and the
+- [x] Tests: the served page and script have the views, the routes and the
       search; nothing asks for `/api/blocks` without a limit
 
 ---
@@ -116,17 +116,17 @@ downloading the whole chain.
 
 ### Deliverables
 
-- [ ] A pending transaction's page says so (0 confirmations, its place in
+- [x] A pending transaction's page says so (0 confirmations, its place in
       the mempool by fee rate); a contract address shows the contract
       (status, amount, script, funder, claimer) next to its transactions
-- [ ] A palette command and a tour step for the explorer
-- [ ] End-to-end test over HTTP: mine, send, deploy; then find each of them
+- [x] A palette command and a tour step for the explorer
+- [x] End-to-end test over HTTP: mine, send, deploy; then find each of them
       by search and walk the chain from the tip to genesis through
       `previousHash` and back through `nextHash`
-- [ ] Live: a real node, the explorer driven in a browser (search each kind,
+- [x] Live: a real node, the explorer driven in a browser (search each kind,
       open a block, a transaction, an address; back button; a direct link;
       390 px without horizontal scroll; both themes; no page errors)
-- [ ] Docs: ARCHITECTURE (explorer), STATUS, README, roadmap (the optional
+- [x] Docs: ARCHITECTURE (explorer), STATUS, README, roadmap (the optional
       explorer is done), project site
 
 ---
@@ -198,4 +198,4 @@ tells the reader it changed.
 
 ---
 
-*Created: 2026-11-16 | Sprint 27 Planning*
+*Created: 2026-11-16 | Sprint 27 Planning | Completed: 2026-11-16*

@@ -8,10 +8,10 @@
 
 | Field | Value |
 |-------|-------|
-| **Phase** | 4 - Production Features - ✅ COMPLETE (all 4 phases done) |
-| **Current Sprint** | 27 (Block Explorer) - Planned |
-| **Current Milestone** | 26c Complete (Live network, dashboard peers) |
-| **Status** | Sprint 26 complete (26a-26c): nodes join a network from the command line or the dashboard, keep one id, find each other and reconnect. Next: Sprint 27 (block explorer), then the project closes |
+| **Phase** | ✅ PROJECT COMPLETE (all 4 phases, hardening Sprints 20-27) |
+| **Current Sprint** | 27 (Block Explorer) - Complete; the last sprint |
+| **Current Milestone** | 27c Complete (Explorer: pending, contracts, live check) |
+| **Status** | Sprint 27 complete (27a-27c): every block, transaction and address can be found by search and opened by a link. The project is closed (release v4.8.0); no further sprints are planned |
 
 ---
 
@@ -66,7 +66,7 @@ Hardening (after the roadmap)
 ├── Sprint 24: Keystore      ✅ COMPLETE (24a ✅, 24b ✅, 24c ✅)
 ├── Sprint 25: Loose ends    ✅ COMPLETE (25a ✅, 25b ✅, 25c ✅)
 ├── Sprint 26: Networking    ✅ COMPLETE (26a ✅, 26b ✅, 26c ✅)
-└── Sprint 27: Explorer      📋 PLANNED (27a ⬜, 27b ⬜, 27c ⬜)
+└── Sprint 27: Explorer      ✅ COMPLETE (27a ✅, 27b ✅, 27c ✅)
 ```
 
 ---
@@ -144,7 +144,10 @@ Hardening (after the roadmap)
 | JoiningTest | 3 | ✅ |
 | IdentityDiscoveryTest | 5 | ✅ |
 | NetworkPanelTest | 2 | ✅ |
-| **Total** | **455** | ✅ |
+| ExplorerApiTest | 8 | ✅ |
+| ExplorerViewsTest | 3 | ✅ |
+| ExplorerEndToEndTest | 4 | ✅ |
+| **Total** | **470** | ✅ |
 
 Last test run: `mvn test` - All passing
 
@@ -172,7 +175,7 @@ Last test run: `mvn test` - All passing
 | BlockchainConfig.java | ✅ Complete | ~56 | Constants |
 | Target.java | ✅ Complete | ~135 | 256-bit PoW target: from leading zeros, meets (never throws), difficulty display, hex (Sprint 17a) + `work(target)` (Sprint 21a) |
 | JsonUtil.java | ✅ Complete | ~60 | Shared Gson with a `PublicKey` adapter (hex X.509); used by storage, P2P messages and the API (Sprint 16a/16b, #259) |
-| BlockExplorer.java | ⬜ Stub | ~14 | Explorer role covered by the API + dashboard |
+| BlockExplorer.java | ✅ Complete | ~390 | Explorer queries: block pages, views, search, totals (Sprint 27) |
 
 ### Network Classes (`com.blocksmith.network`)
 
@@ -350,6 +353,9 @@ Design handoff (prototype + README) lives in `.ai/design/UIUX redesign project/`
 - [x] Join a network: `--peer`, connect API, reconnect to restarted peers, catch-up on connect (Sprint 26a)
 - [x] Persistent node id; self and duplicate links detected; discovery with auto-connect (Sprint 26b)
 - [x] Mempool pulled both ways; dashboard Peers card; three live processes keep one chain (Sprint 26c)
+- [x] Explorer API: blocks by cursor, block / transaction context, address view, search, totals (Sprint 27a)
+- [x] Explorer views in the dashboard with `#/` links; the poll no longer downloads the chain (Sprint 27b)
+- [x] Pending transactions and contracts in the explorer; end-to-end and live checks (Sprint 27c)
 
 ---
 
@@ -358,7 +364,7 @@ Design handoff (prototype + README) lives in `.ai/design/UIUX redesign project/`
 | Item | Value |
 |------|-------|
 | **Current Branch** | `master` |
-| **Last Commit** | Sprint 26 complete (PR #382, #383, #384) |
+| **Last Commit** | Sprint 27 complete (PR #393, #394, #395) |
 | **Tag** | `v1.0.0` (Phase 1) |
 | **Main Branch** | `master` |
 
@@ -507,10 +513,27 @@ Design handoff (prototype + README) lives in `.ai/design/UIUX redesign project/`
      live: A and C joined to B only, B killed, A's block reaches C, B back
      with the same id
 
-13. **Next** (agreed with the user): Sprint 27, a block explorer (release
-    v4.8.0); then the project closes
+13. **Sprint 27 COMPLETE** - Block Explorer (2026-11-16)
+   - Probe: the dashboard could not open a block, a transaction or an
+     address and had no search; it downloaded the whole chain every 4 s
+     (42,892 bytes for 61 blocks, `?limit` ignored); `BlockExplorer.java`
+     was an empty stub
+   - 27a (PR #393): `BlockExplorer` queries; `/api/explorer/blocks` (cursor),
+     `/address/{a}`, `/search`, `/stats`; a block adds confirmations, next
+     hash, miner, reward; a transaction adds its block's hash and time,
+     position, size, fee rate
+   - 27b (PR #394): `#/blocks`, `#/block/N`, `#/tx/<id>`, `#/address/<a>` in
+     the dashboard; search field and palette search; the poll reads 6
+     summaries
+   - 27c (PR #395): a pending transaction's place in the mempool; the
+     contract on a `CONTRACT:` address; palette command and tour step
 
-14. **Deferred / future work**
+14. **PROJECT CLOSED** (2026-11-16, release v4.8.0)
+   - Sprints 0-27, 470 tests, 4 phases plus 8 hardening sprints (20-27)
+   - No further sprints are planned. The list below is what was knowingly
+     left out, for anyone who continues
+
+15. **Not done (left out on purpose)**
    - Advertised peer addresses are not checked for reachability (an inbound
      peer behind NAT is advertised under the address it dialled from); no
      ban score for peers that send invalid data
@@ -522,7 +545,13 @@ Design handoff (prototype + README) lives in `.ai/design/UIUX redesign project/`
    - Side branches are kept in memory only (re-learned from peers after a
      restart); no headers-first sync
    - WebSocket push for the dashboard (currently 4s polling)
+   - The explorer shows the active chain only (side-branch blocks are
+     not searchable); search matches whole heights, hashes, ids and
+     addresses, not prefixes; an address's totals read its whole history
+     on every request
+   - Bonus features from the roadmap: SPV light client, mobile wallet,
+     CLI tool
 
 ---
 
-*Last updated: 2026-11-15 | Sprint 26 Complete (Networking for Real) - roadmap done, hardening in progress*
+*Last updated: 2026-11-16 | Sprint 27 Complete (Block Explorer) - project closed*
