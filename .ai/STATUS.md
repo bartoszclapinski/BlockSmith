@@ -9,7 +9,7 @@
 | Field | Value |
 |-------|-------|
 | **Phase** | 4 - Production Features - ✅ COMPLETE (all 4 phases done) |
-| **Current Sprint** | 26 (Networking for Real: joining, identity, discovery) - Complete |
+| **Current Sprint** | 27 (Block Explorer) - Planned |
 | **Current Milestone** | 26c Complete (Live network, dashboard peers) |
 | **Status** | Sprint 26 complete (26a-26c): nodes join a network from the command line or the dashboard, keep one id, find each other and reconnect. Next: Sprint 27 (block explorer), then the project closes |
 
@@ -65,7 +65,8 @@ Hardening (after the roadmap)
 ├── Sprint 23: Multisig keys ✅ COMPLETE (23a ✅, 23b ✅, 23c ✅)
 ├── Sprint 24: Keystore      ✅ COMPLETE (24a ✅, 24b ✅, 24c ✅)
 ├── Sprint 25: Loose ends    ✅ COMPLETE (25a ✅, 25b ✅, 25c ✅)
-└── Sprint 26: Networking    ✅ COMPLETE (26a ✅, 26b ✅, 26c ✅)
+├── Sprint 26: Networking    ✅ COMPLETE (26a ✅, 26b ✅, 26c ✅)
+└── Sprint 27: Explorer      📋 PLANNED (27a ⬜, 27b ⬜, 27c ⬜)
 ```
 
 ---
