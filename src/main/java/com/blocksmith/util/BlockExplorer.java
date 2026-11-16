@@ -146,10 +146,15 @@ public final class BlockExplorer {
      * A transaction and where it sits. For a pending one the block fields
      * are null and confirmations is 0.
      *
-     * @param position index inside its block (0 is the coinbase)
+     * @param position        index inside its block (0 is the coinbase)
+     * @param mempoolPosition for a pending one: its place among the pending
+     *                        transactions in the order a miner takes them
+     *                        (1 = first, best fee per byte); null once mined
+     * @param mempoolSize     for a pending one: how many are waiting
      */
     public record TransactionView(Transaction transaction, Integer blockIndex, String blockHash,
-                                  Long blockTimestamp, Integer position, int confirmations) {
+                                  Long blockTimestamp, Integer position, int confirmations,
+                                  Integer mempoolPosition, Integer mempoolSize) {
         public boolean isConfirmed() {
             return blockIndex != null;
         }
@@ -170,7 +175,15 @@ public final class BlockExplorer {
     public TransactionView describe(Blockchain.TransactionLookup lookup) {
         return blockchain.atomically(() -> {
             Transaction tx = lookup.transaction();
-            if (!lookup.isConfirmed()) return new TransactionView(tx, null, null, null, null, 0);
+            if (!lookup.isConfirmed()) {
+                // Where it stands in the queue (Sprint 27c): a miner fills a
+                // block from the best fee rate down, so the place says how
+                // soon it can get in.
+                List<Transaction> queue = blockchain.getPendingInMiningOrder();
+                int place = queue.indexOf(tx);
+                return new TransactionView(tx, null, null, null, null, 0,
+                        place < 0 ? null : place + 1, queue.size());
+            }
             Block block = blockchain.getBlock(lookup.blockIndex());
             List<Transaction> txs = block.getTransactions();
             // The same object first: two old coinbases can share an id (before Sprint 25b).
@@ -179,7 +192,7 @@ public final class BlockExplorer {
                 if (txs.get(i).getTransactionId().equals(tx.getTransactionId())) position = i;
             }
             return new TransactionView(tx, lookup.blockIndex(), block.getHash(), block.getTimestamp(),
-                    position < 0 ? null : position, lookup.confirmations());
+                    position < 0 ? null : position, lookup.confirmations(), null, null);
         });
     }
 
@@ -193,11 +206,14 @@ public final class BlockExplorer {
      * @param pendingCount     its transactions still in the mempool
      * @param totalReceived    confirmed amounts paid to it
      * @param totalSent        confirmed amounts plus fees it paid
+     * @param contract         the contract living at this address (a
+     *                         CONTRACT:... address whose deploy was mined), or null
      */
     public record AddressView(String address, double balance, double pendingOutgoing,
                               int transactionCount, int pendingCount,
                               double totalReceived, double totalSent,
-                              int offset, int limit, List<TransactionView> transactions) {}
+                              int offset, int limit, List<TransactionView> transactions,
+                              Contract contract) {}
 
     /**
      * THEORY: AN ADDRESS HAS NO RECORD OF ITS OWN
@@ -239,8 +255,13 @@ public final class BlockExplorer {
             for (int i = offset; i < history.size() && page.size() < limit; i++) {
                 page.add(describe(history.get(i)));
             }
+            // A contract's address is CONTRACT:<id> (Sprint 27c): its page also
+            // shows the condition the coins are locked behind.
+            String prefix = BlockchainConfig.CONTRACT_ADDRESS_PREFIX;
+            Contract contract = address.startsWith(prefix)
+                    ? blockchain.getContract(address.substring(prefix.length())) : null;
             return new AddressView(address, blockchain.getBalance(address), blockchain.getPendingOutgoing(address),
-                    confirmed, pending, received, sent, offset, limit, page);
+                    confirmed, pending, received, sent, offset, limit, page, contract);
         });
     }
 
