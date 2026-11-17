@@ -7,7 +7,7 @@
 | **Sprint** | 28 |
 | **Title** | Recorded Demo (the dashboard on GitHub Pages) |
 | **Phase** | Hardening (after the roadmap); reopens the project closed at v4.8.0 |
-| **Status** | 📋 Planned |
+| **Status** | ✅ Complete (2026-11-17) |
 | **Depends On** | Sprint 13 (dashboard), Sprint 22 (keys in the browser), Sprint 27 (explorer, release v4.8.0) |
 
 > **Why:** the project site (GitHub Pages, `docs/`) describes BlockSmith with
@@ -52,9 +52,9 @@ send, deploy) says so and points to running the node.
 
 | Milestone | Title | Branch | Status |
 |-----------|-------|--------|--------|
-| **28a** | Recorder | `sprint28a/demo-recorder` | ⬜ #397, #398 |
-| **28b** | Player | `sprint28b/demo-player` | ⬜ #399, #400 |
-| **28c** | Published demo, live check, docs | `sprint28c/demo-live` | ⬜ #401, #402 |
+| **28a** | Recorder | `sprint28a/demo-recorder` | ✅ PR #404 (#397, #398) |
+| **28b** | Player | `sprint28b/demo-player` | ✅ PR #405 (#399, #400) |
+| **28c** | Published demo, live check, docs | `sprint28c/demo-live` | ✅ PR #406 (#401, #402) |
 
 ---
 
@@ -62,23 +62,23 @@ send, deploy) says so and points to running the node.
 
 ### Deliverables
 
-- [ ] `com.blocksmith.demo.DemoRecorder`: starts real nodes (`Node` +
+- [x] `com.blocksmith.demo.DemoRecorder`: starts real nodes (`Node` +
       `ApiServer`, signatures required), plays a scripted session against
       the node's own HTTP API the way a browser does (prepare, sign with a
       `Wallet`, submit) and, after every step, records every answer the
       dashboard can ask for
-- [ ] The session: wallets and first blocks; transfers at different fees
+- [x] The session: wallets and first blocks; transfers at different fees
       (pending, then confirmed in fee order); a hashlock contract deployed
       and claimed; a multisig contract; a second node joining and mining; a
       reorg (a longer branch replaces a block, its transaction goes back to
       the mempool)
-- [ ] `DemoRecording`: the file format. Frames (a caption + path -> answer),
+- [x] `DemoRecording`: the file format. Frames (a caption + path -> answer),
       with every repeated part of the answers stored once; reading it back
       gives exactly the JSON the node sent
-- [ ] Runnable: `mvn exec:java -Dexec.mainClass=com.blocksmith.demo.DemoRecorder`
+- [x] Runnable: `mvn exec:java -Dexec.mainClass=com.blocksmith.demo.DemoRecorder`
       at a real pace (blocks seconds apart, the real difficulty); tests run
       the same session without the waits on an easy target
-- [ ] Tests: the session ends in the state it describes; every frame holds
+- [x] Tests: the session ends in the state it describes; every frame holds
       every fixed path; the last frame equals what the node answers at that
       moment, path by path; the file round-trips
 
@@ -88,22 +88,22 @@ send, deploy) says so and points to running the node.
 
 ### Deliverables
 
-- [ ] `index.html` loads its style and script by relative path (the node
+- [x] `index.html` loads its style and script by relative path (the node
       serves the same page at `/`)
-- [ ] `app.js` demo mode behind one object (`window.BlockSmithDemo`):
+- [x] `app.js` demo mode behind one object (`window.BlockSmithDemo`):
       `fetchJson` asks it instead of the network; the clock used for "3s
       ago" is the recording's; signing is refused before the passphrase
       dialog; the active wallet is the recording's; the tour pauses the
       replay
-- [ ] `demo.js` + `demo.css` (the player): a bar with the step's caption,
+- [x] `demo.js` + `demo.css` (the player): a bar with the step's caption,
       position, pause / step / replay and "Run it yourself"; answers looked
       up in the current frame; anything that would change the chain is
       refused with one sentence that says why and what to do; a search for
       something not in the recording answers like the node (recorded miss);
       a link to an explorer view opens the end of the recording
-- [ ] `DemoSite`: writes `docs/demo/` (the page, the dashboard's files, the
+- [x] `DemoSite`: writes `docs/demo/` (the page, the dashboard's files, the
       player, the recording)
-- [ ] Tests: the built page is the dashboard's page plus the player; the
+- [x] Tests: the built page is the dashboard's page plus the player; the
       recording answers every GET path `app.js` asks; every POST path is one
       the player refuses; nothing in demo mode writes keys
 
@@ -113,19 +113,19 @@ send, deploy) says so and points to running the node.
 
 ### Deliverables
 
-- [ ] The real recording (default parameters, real pace) committed under
+- [x] The real recording (default parameters, real pace) committed under
       `docs/demo/`; a test that fails when `docs/demo/` no longer matches the
       dashboard's sources or the API's fields (so the demo cannot go stale
       silently)
-- [ ] The project site and the README link to the demo
-- [ ] Live, from a static server under a sub-path (as on Pages): the replay
+- [x] The project site and the README link to the demo
+- [x] Live, from a static server under a sub-path (as on Pages): the replay
       runs to its end, the feed fills, every explorer view opens, search
       (hit and miss), a direct link, mine / send refused with the sentence,
       the tour, 390 px without horizontal scroll, both themes, no page
       errors, no request to `/api`
-- [ ] Live on Pages after the merge: the same checks against
+- [x] Live on Pages after the merge: the same checks against
       `https://bartoszclapinski.github.io/BlockSmith/demo/`
-- [ ] Docs: ARCHITECTURE (recorder, format, player), STATUS, README, site
+- [x] Docs: ARCHITECTURE (recorder, format, player), STATUS, README, site
 
 ---
 
@@ -199,4 +199,4 @@ blocks or transactions, so a new field in the API needs no change here.
 
 ---
 
-*Created: 2026-11-17 | Sprint 28 Planning*
+*Created: 2026-11-17 | Sprint 28 Planning | Completed: 2026-11-17*

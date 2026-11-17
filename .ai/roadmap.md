@@ -164,7 +164,8 @@ POST /api/multisig/claim       # Assemble + submit a multisig claim
 | 24 | Encrypted Browser Keystore | Keys stored only under a passphrase (PBKDF2 + AES-GCM), unlock on demand, encrypted backups ✅ Complete |
 | 25 | Loose Ends | Contract ids bound to their deploy, block height in every coinbase, move funds to a new key ✅ Complete |
 | 26 | Networking for Real | Join from the command line or dashboard, persistent node id, discovery with auto-connect, reconnect ✅ Complete |
-| 27 | Block Explorer | Blocks by cursor, block / transaction / address views, search, totals; explorer views in the dashboard ✅ Complete (last sprint) |
+| 27 | Block Explorer | Blocks by cursor, block / transaction / address views, search, totals; explorer views in the dashboard ✅ Complete |
+| 28 | Recorded Demo | The dashboard on GitHub Pages, replaying what a real node answered; recorder, player, staleness guard ✅ Complete (last sprint) |
 
 ---
 

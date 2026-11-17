@@ -39,9 +39,9 @@
 | **Test Framework** | JUnit 5 |
 | **Serialization** | Gson 2.10.1 |
 | **Current Phase** | Phase 4: Production Features — ✅ Complete (all 4 phases done) |
-| **Current Sprint** | Sprint 27 (Block Explorer) — Complete; the last sprint, the project is closed |
-| **Current Milestone** | 27c Complete; nothing planned next |
-| **Total Tests** | 470 (all passing) |
+| **Current Sprint** | Sprint 28 (Recorded Demo) — Complete; the last sprint, the project is closed |
+| **Current Milestone** | 28c Complete; nothing planned next |
+| **Total Tests** | 483 (all passing) |
 | **Main Branch** | `master` |
 
 ---
@@ -132,7 +132,7 @@ BlockSmith/
 │   └── BlockSmithNode.java           # ✅ Complete (runnable node: P2P + API + dashboard, Sprint 13a)
 │
 ├── src/main/resources/public/        # Web dashboard (Sprint 13-15, redesigned PR #157/#158): index.html, app.js, style.css
-├── src/test/java/com/blocksmith/     # 470 unit tests
+├── src/test/java/com/blocksmith/     # 483 unit tests
 ├── pom.xml                           # Maven configuration (Gson, JUnit, Javalin)
 └── README.md                         # Public documentation
 ```
@@ -200,12 +200,14 @@ BlockSmith/
 
 **Sprint 27: Block Explorer** — the last sprint. A probe showed the dashboard could not open a block, a transaction or an address, had no search, and downloaded the whole chain every 4 s. 27a: `util/BlockExplorer` (a stub until then) holds the read-only queries, each inside `Blockchain.atomically`: `blockPage` (cursor = height), `blockView` (confirmations, next hash, miner, reward), `transactionView`, `addressView` (totals + one page of history), `search`, `stats` (sums kept, recounted after a reorg); endpoints under `/api/explorer/`, and extra fields on a single block and a transaction. 27b: views in `app.js` chosen by `location.hash` (`#/blocks`, `#/block/N`, `#/tx/<id>`, `#/address/<a>`; `onRoute`, `loadExplorer`), a search field, palette search; the poll reads `/api/explorer/blocks?limit=6`. 27c: a pending transaction's `mempoolPosition`, the contract on a `CONTRACT:` address, palette command and tour step. README has "Explore the chain".
 
+**Sprint 28: Recorded Demo** — the project was closed at v4.8.0 and reopened for this: the dashboard on GitHub Pages (https://bartoszclapinski.github.io/BlockSmith/demo/) without a node. Nothing is simulated: 28a: `demo/DemoRecorder` plays a 22-step story on two real nodes over HTTP (transfers, hashlock, multisig, fee bump, a second node, a reorg) and after every step records every answer the dashboard can ask for; `DemoRecording` is the file (frames, repeated parts stored once in a pool). 28b: `src/main/demo/demo.js` sets `window.BlockSmithDemo`; in `app.js`, `const DEMO` routes `fetchJson` to it, uses the recording's clock, refuses signing and opens explanations instead of action forms; `DemoSite` builds `docs/demo`. 28c: the real recording is committed under `docs/demo`; `DemoPublishedTest` fails when it falls behind the dashboard's sources or the API's fields and prints the rebuild command (`mvn compile exec:java -Dexec.mainClass=com.blocksmith.demo.DemoSite`, `-Dexec.args=--keep` to keep the recording). **If you change `app.js`, `style.css`, `index.html` or an API field, rebuild the demo.**
+
 ---
 
 ## What's NOT Implemented Yet
 
 ### Roadmap complete, hardening in progress
-- All planned sprints (0-19) are done; Sprints 20 (thread safety), 21 (fork choice), 22 (required signatures), 23 (client-side multisig), 24 (encrypted browser keystore), 25 (loose ends), 26 (networking for real) and 27 (block explorer) too. The project is closed (release v4.8.0); what was left out on purpose is listed at the end of STATUS.md
+- All planned sprints (0-19) are done; Sprints 20 (thread safety), 21 (fork choice), 22 (required signatures), 23 (client-side multisig), 24 (encrypted browser keystore), 25 (loose ends), 26 (networking for real) 27 (block explorer) and 28 (recorded demo on GitHub Pages) too. The project is closed (release v4.9.0); what was left out on purpose is listed at the end of STATUS.md
 
 ### Deferred / known follow-ups
 - Mempool request is sent on outbound connect only; inbound side does not yet pull the peer's mempool
@@ -340,7 +342,10 @@ mvn exec:java -Dexec.mainClass=com.blocksmith.BlockSmithDemo
 | ExplorerApiTest | 8 | Block pages by cursor, block / transaction / address views, search, totals (also after a reorg), bad parameters (Sprint 27a) |
 | ExplorerViewsTest | 3 | Served page and script have the explorer views; the poll asks for one page of blocks (Sprint 27b) |
 | ExplorerEndToEndTest | 4 | Search opens everything mined, chain walked both ways, pending to confirmed, contracts (Sprint 27c) |
-| **Total** | **470** | All passing ✅ |
+| DemoRecorderTest | 5 | The recorded session: end state, every frame complete, last frame equals the node, file round-trip, feed events (Sprint 28a) |
+| DemoSiteTest | 5 | The built demo page, every read path recorded, every write refused, the seams of demo mode (Sprint 28b) |
+| DemoPublishedTest | 3 | `docs/demo` matches the sources and the API's fields today (Sprint 28c) |
+| **Total** | **483** | All passing ✅ |
 
 ---
 
@@ -351,7 +356,7 @@ mvn exec:java -Dexec.mainClass=com.blocksmith.BlockSmithDemo
 - **Doc branches**: `docs/{description}` (e.g., `docs/sprint11-complete`)
 - **Commits**: One per issue, format: `feat(scope): description #NN` — never add `Co-Authored-By`
 - **PRs**: created with `gh`, include `Closes #NN` lines; merged with a **regular merge commit** (`gh pr merge N --merge`, not squash) so the one-commit-per-issue history stays on master (decided 2026-11-11; #130-#278 were squash-merged); then ff-only pull to sync local master
-- **Latest**: Sprint 27 complete (Block Explorer, PR #393, #394, #395); the project is closed
+- **Latest**: Sprint 28 complete (Recorded Demo, PR #404, #405, #406); the project is closed
 - **Maven path**: run `mvn` from `F:\Repos\Java\BlockSmith` (capital J); from a lowercase path Jetty 404s static files and 3 dashboard tests fail
 
 ---
@@ -364,9 +369,9 @@ mvn exec:java -Dexec.mainClass=com.blocksmith.BlockSmithDemo
 | `CONVENTIONS.md` | Need full code style rules, THEORY comment format, test conventions |
 | `STATUS.md` | Need exact current status, implementation table, feature checklist |
 | `roadmap.md` | Need full project phases and timeline |
-| `sprints/sprint27/sprint-plan.md` | Most recent sprint's milestones, issues, acceptance criteria |
-| `sprints/sprint27/sprint-log.md` | What was completed in the latest sprint |
+| `sprints/sprint28/sprint-plan.md` | Most recent sprint's milestones, issues, acceptance criteria |
+| `sprints/sprint28/sprint-log.md` | What was completed in the latest sprint |
 
 ---
 
-*Last updated: 2026-11-16 | Sprint 27 Complete (Block Explorer) — project closed*
+*Last updated: 2026-11-17 | Sprint 28 Complete (Recorded Demo) — project closed*
