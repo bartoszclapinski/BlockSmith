@@ -13,9 +13,20 @@
 
 const REFRESH_MS = 4000;
 
+/**
+ * Set by demo.js on the recorded demo of the project site (Sprint 28b); null
+ * on a node. In the demo the answers come from a recording of a real node,
+ * the clock is the recording's, and nothing can be signed or changed.
+ */
+const DEMO = window.BlockSmithDemo || null;
+
+/** The moment relative ages ("3s", "2m") are counted from: the recording's clock in the demo. */
+function nowMs() { return DEMO ? DEMO.now() : Date.now(); }
+
 // ===== small helpers =====
 
 async function fetchJson(path, options) {
+    if (DEMO) return DEMO.answer(path, options);
     const res = await fetch(path, options);
     const data = await res.json().catch(function () { return null; });
     if (!res.ok) {
@@ -50,7 +61,7 @@ function shortHash(hash) {
 
 /** Compact relative age from a timestamp (ms). */
 function relTime(ts) {
-    const secs = Math.max(0, Math.round((Date.now() - ts) / 1000));
+    const secs = Math.max(0, Math.round((nowMs() - ts) / 1000));
     if (secs < 3) return "now";
     if (secs < 60) return secs + "s";
     const mins = Math.round(secs / 60);
@@ -269,6 +280,8 @@ function removeKeys(addresses) {
 
 /** Resolves once keys can sign or be added; asks for the passphrase (or a first one) if needed. */
 async function ensureUnlocked() {
+    // A recording has nothing to sign for: refuse before asking for a passphrase.
+    if (DEMO) throw new Error(DEMO.readOnly);
     if (vault.aes) {
         await migrateLegacy();
         touchVault();
@@ -747,7 +760,7 @@ function toast(message, isError) {
 // ===== activity feed (derived from poll diffs) =====
 
 function pushFeed(dot, title, meta) {
-    state.feed.unshift({ dot: dot, title: title, meta: meta, ts: Date.now() });
+    state.feed.unshift({ dot: dot, title: title, meta: meta, ts: nowMs() });
     state.feed = state.feed.slice(0, 8);
 }
 
@@ -1590,7 +1603,29 @@ function submitButton(label, onClick) {
     return btn;
 }
 
+/** What each action does on a node: shown in the recorded demo, where it cannot be done. */
+const DEMO_ACTIONS = {
+    send: ["Send transaction", "On a node, this signs a transfer with your key, here in the browser, and submits it. It waits in the mempool until a block takes it."],
+    wallet: ["Create wallet", "On a node, this makes a key pair in this browser and encrypts it under your passphrase. The node never sees the private key."],
+    deploy: ["Deploy contract", "On a node, this locks coins behind a script: a hashlock (whoever knows a secret) or a multisig (m of n signatures)."],
+    multisig: ["Multisig wallet", "On a node, this locks coins behind several public keys; a number of their owners must sign to move them."],
+    member: ["Multisig member", "On a node, a member of a multisig signs a claim here and passes the signature to the others."],
+};
+
+function openDemoDrawer(type) {
+    const action = DEMO_ACTIONS[type];
+    drawerShell(action[0], function (drawer) {
+        drawer.appendChild(el("p", "note", action[1]));
+        drawer.appendChild(el("p", "note", DEMO.readOnly));
+        const run = link(DEMO.runUrl, "Run it yourself →", "x-link");
+        run.target = "_blank";
+        run.rel = "noopener";
+        drawer.appendChild(run);
+    });
+}
+
 function openDrawer(type, opts) {
+    if (DEMO && DEMO_ACTIONS[type]) return openDemoDrawer(type);
     if (type === "send") return openSendDrawer();
     if (type === "mempool") return openMempoolDrawer();
     if (type === "wallet") return openWalletDrawer();
@@ -2321,6 +2356,7 @@ function startTour() {
     if (explorer.route) { location.hash = "#/"; onRoute(); }
     closeOverlay();            // a palette/drawer would sit under the dim; clear it
     tour.active = true;
+    if (DEMO) DEMO.hold("tour", true);     // the replay waits while the tour points at the page
     tour.step = 0;
     buildTourDom();
     window.addEventListener("resize", positionTour);
@@ -2331,6 +2367,7 @@ function startTour() {
 function endTour() {
     if (!tour.active) return;
     tour.active = false;
+    if (DEMO) DEMO.hold("tour", false);
     try {
         if (tour.remember) localStorage.setItem("bs_tour_optout", "1");
         else localStorage.removeItem("bs_tour_optout");
@@ -2556,6 +2593,15 @@ function wire() {
 // ===== boot =====
 
 try { state.activeAddress = localStorage.getItem("bs_active_address") || null; } catch (e) {}
+if (DEMO) {
+    // The recording's wallet, whatever this browser tracked before. The player
+    // asks for a refresh when a frame comes up and for a clean feed on replay.
+    state.activeAddress = DEMO.activeAddress;
+    DEMO.attach({
+        refresh: refresh,
+        restart: function () { state.prev = null; state.feed = []; refresh(); }
+    });
+}
 initTheme();
 bg.start();
 wire();

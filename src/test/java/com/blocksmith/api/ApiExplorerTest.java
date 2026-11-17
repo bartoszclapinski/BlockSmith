@@ -68,7 +68,7 @@ class ApiExplorerTest {
         assertTrue(html.contains("id=\"chain-row\""), "Needs the chain-row (blocks) mount point");
         assertTrue(html.contains("id=\"feed-list\""), "Needs the feed-list (activity) mount point");
         assertTrue(html.contains("id=\"contract-list\""), "Needs the contract-list mount point");
-        assertTrue(html.contains("/app.js"), "Should load the dashboard script");
+        assertTrue(html.contains("<script src=\"app.js\"></script>"), "Should load the dashboard script");
     }
 
     @Test
