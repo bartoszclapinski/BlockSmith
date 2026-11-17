@@ -273,6 +273,19 @@ mvn clean compile
 mvn test
 ```
 
+### Try the demo (nothing to install)
+**https://bartoszclapinski.github.io/BlockSmith/demo/** is the dashboard replaying what a real node answered
+during a recorded session: transfers at different fees, a hashlock and a multisig contract, a second node, a
+chain reorganisation, and the explorer for every block, transaction and address. Nothing in it is simulated in
+JavaScript; it is a recording, so it cannot be changed (mine, send and deploy need a node, below).
+
+Record it again after changing the dashboard or the API (Sprint 28):
+```bash
+mvn compile exec:java -Dexec.mainClass=com.blocksmith.demo.DemoSite                    # a new session, about 5 minutes
+mvn compile exec:java -Dexec.mainClass=com.blocksmith.demo.DemoSite -Dexec.args=--keep # same session, new page
+```
+`DemoPublishedTest` fails when `docs/demo/` falls behind the sources.
+
 ### Run a node with the web dashboard
 ```bash
 mvn exec:java
