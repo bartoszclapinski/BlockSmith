@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BlockSmith Demo: a recorded node</title>
+    <meta name="description" content="The BlockSmith dashboard replaying what a real node answered: blocks, transactions, contracts, a second node and a reorganisation.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="demo.css">
+    <script>
+        // Set the theme before first paint to avoid a flash of the wrong palette.
+        (function () {
+            var t;
+            try { t = localStorage.getItem("bs_theme"); } catch (e) {}
+            if (!t) t = (window.matchMedia && window.matchMedia("(prefers-color-scheme: light)").matches) ? "light" : "dark";
+            if (t === "light") document.documentElement.setAttribute("data-theme", "light");
+        })();
+    </script>
+</head>
+<body>
+<div id="app">
+    <canvas id="bg" aria-hidden="true"></canvas>
+
+    <!-- TOP BAR -->
+    <header class="topbar">
+        <div class="brand">
+            <span class="brand-mark" aria-hidden="true">&#9874;</span>BlockSmith
+        </div>
+
+        <button id="palette-trigger" class="palette-trigger" data-tour="palette" type="button">
+            <span class="palette-icon" aria-hidden="true">&#8984;</span>
+            <span class="palette-placeholder">Run a command &mdash; mine, send, deploy&hellip;</span>
+            <span class="kbd">&#8984;K</span>
+        </button>
+
+        <div id="sync" class="sync">
+            <span class="dot dot-green"></span><span id="sync-text">connecting&hellip;</span>
+        </div>
+
+        <button id="lock-btn" class="lock-btn" type="button" hidden></button>
+        <button id="theme-toggle" class="icon-btn" type="button" title="Toggle light / dark">&#9681;</button>
+        <button id="help-btn" class="icon-btn" type="button" title="Restart the tour">?</button>
+    </header>
+
+    <!-- MAIN -->
+    <main class="main">
+        <div id="deck" class="main-inner">
+
+            <!-- CHAIN HERO -->
+            <section class="hero" data-tour="chain">
+                <div class="hero-head">
+                    <span class="hero-title">The chain</span>
+                    <span id="hero-meta" class="hero-meta mono"></span>
+                    <a id="explore-link" class="hero-explore" href="#/blocks" data-tour="explore">Explorer &rarr;</a>
+                    <button id="mine-btn" class="btn-accent" type="button">
+                        <span aria-hidden="true">&#9935;</span> Mine block
+                    </button>
+                </div>
+                <div id="chain-row" class="chain-row"></div>
+            </section>
+
+            <!-- BOTTOM GRID -->
+            <div class="grid">
+                <section class="panel feed" data-tour="feed">
+                    <div class="panel-label">Activity feed</div>
+                    <div id="feed-list" class="scroll-col"></div>
+                </section>
+
+                <section class="panel actions" data-tour="actions">
+                    <div class="panel-label">Actions</div>
+                    <button class="action-btn" data-action="send" type="button"><span aria-hidden="true">&#8599;</span> Send transaction</button>
+                    <button class="action-btn" data-action="mempool" type="button"><span aria-hidden="true">&#8801;</span> Mempool</button>
+                    <button class="action-btn" data-action="wallet" type="button"><span aria-hidden="true">&#65291;</span> Create wallet</button>
+                    <button class="action-btn" data-action="deploy" type="button"><span aria-hidden="true">&#9636;</span> Deploy contract</button>
+                    <button class="action-btn" data-action="multisig" type="button"><span aria-hidden="true">&#10697;</span> Multisig wallet</button>
+                    <button class="action-btn" data-action="member" type="button"><span aria-hidden="true">&#9998;</span> Multisig member</button>
+                </section>
+
+                <section class="side" data-tour="side">
+                    <div class="panel balance-card">
+                        <div class="card-label">Balance</div>
+                        <div class="balance-value"><span id="balance-amount">&mdash;</span> <span class="balance-unit">BSC</span></div>
+                        <div id="balance-address" class="mono balance-address">no active wallet</div>
+                        <a id="balance-explore" class="x-link balance-explore" href="#/blocks" hidden>history in the explorer &rarr;</a>
+                    </div>
+                    <div class="panel contracts-card">
+                        <div class="card-label">Open contracts</div>
+                        <div id="contract-list" class="scroll-col"></div>
+                    </div>
+                    <div class="panel peers-card" data-tour="peers">
+                        <div class="card-label">Peers <span id="peer-count" class="peer-count"></span></div>
+                        <div id="peer-list" class="scroll-col"></div>
+                        <form id="peer-form" class="peer-form" autocomplete="off">
+                            <input id="peer-address" class="mono" type="text" placeholder="host:port" aria-label="Peer address (host:port)" spellcheck="false">
+                            <button id="peer-connect" class="btn-accent" type="submit">Connect</button>
+                        </form>
+                    </div>
+                </section>
+            </div>
+
+        </div>
+
+        <!-- EXPLORER (Sprint 27b): shown instead of the deck for #/blocks, #/block/N, #/tx/ID, #/address/A -->
+        <div id="explorer" class="main-inner explorer" hidden>
+            <div class="x-head">
+                <a class="x-back" href="#/">&larr; Dashboard</a>
+                <a class="x-home" href="#/blocks">Explorer</a>
+                <form id="explorer-search" class="x-search" autocomplete="off">
+                    <input id="explorer-query" class="mono" type="search" placeholder="Block height, block hash, transaction id or address" aria-label="Search the chain" spellcheck="false">
+                    <button class="btn-accent" type="submit">Search</button>
+                </form>
+            </div>
+            <div id="explorer-body"></div>
+        </div>
+    </main>
+
+    <!-- FOOTER -->
+    <footer class="footer">
+        <div class="footer-inner mono">
+            <span>BlockSmith Node</span>
+            <span class="footer-sep">&middot;</span>
+            <span id="footer-p2p">P2P &mdash;</span>
+            <span id="footer-api">API &mdash;</span>
+            <span id="footer-health" class="footer-health"><span class="dot dot-green"></span>chain healthy</span>
+        </div>
+    </footer>
+
+    <!-- Overlay roots: palette, drawer, toast, tour are built by app.js -->
+    <div id="overlay-root"></div>
+</div>
+
+<!-- The recorded demo (Sprint 28): built by DemoSite, do not edit. recording.js is what a real node
+     answered; demo.js answers the dashboard from it. app.js is the node's dashboard, unchanged. -->
+<script src="recording.js"></script>
+<script src="demo.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

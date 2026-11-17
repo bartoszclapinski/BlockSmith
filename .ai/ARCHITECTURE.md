@@ -618,6 +618,35 @@ every transaction every 4 seconds.
 
 ---
 
+## 🎬 Recorded demo: `com.blocksmith.demo`, `src/main/demo`, `docs/demo` (Sprint 28)
+
+The project site (GitHub Pages, static files only) shows the dashboard working without a
+node. Nothing is simulated: the page replays what a real node answered.
+
+```
+ recording:  DemoRecorder --HTTP--> real node (Node + ApiServer) --answers--> DemoRecording
+ building:   DemoSite: dashboard page + app.js + style.css + demo.js + demo.css + recording.js --> docs/demo
+ replaying:  app.js --fetchJson--> window.BlockSmithDemo (demo.js) --lookup(frame, path)--> recording.js
+```
+
+| Part | Role |
+|------|------|
+| `DemoRecorder` | Starts two real nodes (signatures required) and plays a 22-step story over the first one's HTTP API, signing with `Wallet`s like a browser: transfers at different fees, a hashlock and a 2-of-3 multisig contract, a fee raised on a waiting transfer, a second node joining and mining, a reorg when it returns from being offline with a longer branch. After every step it asks the node everything the dashboard can ask (fixed paths, every page of blocks, every block by height and hash, every transaction, every address page, every search that finds something) |
+| `DemoRecording` | The file: frames (`title`, `detail`, `at`, path -> answer), the node's own 404 bodies (`misses`, with what they were asked with), the active wallet. Every object or list of 80+ characters is written once in `pool` and referenced as `{"$": n}` |
+| `DemoSite` | Builds `docs/demo`: the dashboard's page plus three lines (player style, recording, player), the dashboard's files unchanged. `--keep` keeps the recording, `--fast` records in seconds on an easy target, `--out dir` |
+| `src/main/demo/demo.js` | The player. Sets `window.BlockSmithDemo` before `app.js`: `answer(path, options)` (the current frame; a POST is refused; a miss is the node's sentence with the visitor's words), `now()` (the recording's clock), `hold`, `attach`, `readOnly`, `runUrl`, `activeAddress`. Draws the bar: caption, pause / next / start again |
+| `app.js` | `const DEMO = window.BlockSmithDemo || null`: `fetchJson` asks it; `nowMs()` for relative ages; `ensureUnlocked` refuses; action buttons open an explanation; the tour holds the replay. On a node `DEMO` is null and none of this runs |
+
+**Rules**
+- The player computes nothing about the chain. A path that was not recorded is a miss.
+- Every frame is a whole state, so any explorer view is right at any moment of the replay.
+- A link to an explorer view (`demo/#/block/12`) opens the last frame, paused.
+- `docs/demo` is committed (Pages serves `docs/` from master). `DemoPublishedTest` fails when
+  it no longer equals what `DemoSite` builds from the sources, or when the fields of the
+  recorded answers differ from the API's fields today; its message gives the command.
+
+---
+
 ## 📦 Package: `com.blocksmith.storage` (Sprint 16)
 
 | Class | Role |
