@@ -8,10 +8,10 @@
 
 | Field | Value |
 |-------|-------|
-| **Phase** | ✅ PROJECT COMPLETE (all 4 phases, hardening Sprints 20-27) |
-| **Current Sprint** | 28 (Recorded Demo on GitHub Pages) - Planned; reopens the project closed at v4.8.0 |
-| **Current Milestone** | 27c Complete (Explorer: pending, contracts, live check) |
-| **Status** | Sprint 27 complete (27a-27c): every block, transaction and address can be found by search and opened by a link. The project is closed (release v4.8.0); no further sprints are planned |
+| **Phase** | ✅ PROJECT COMPLETE (all 4 phases, hardening Sprints 20-28) |
+| **Current Sprint** | 28 (Recorded Demo on GitHub Pages) - Complete; the last sprint |
+| **Current Milestone** | 28c Complete (Published demo, staleness guard, live check) |
+| **Status** | Sprint 28 complete (28a-28c): the dashboard runs on the project site, replaying what a real node answered (https://bartoszclapinski.github.io/BlockSmith/demo/). The project is closed (release v4.9.0); no further sprints are planned |
 
 ---
 
@@ -67,7 +67,7 @@ Hardening (after the roadmap)
 ├── Sprint 25: Loose ends    ✅ COMPLETE (25a ✅, 25b ✅, 25c ✅)
 ├── Sprint 26: Networking    ✅ COMPLETE (26a ✅, 26b ✅, 26c ✅)
 ├── Sprint 27: Explorer      ✅ COMPLETE (27a ✅, 27b ✅, 27c ✅)
-└── Sprint 28: Recorded Demo 📋 PLANNED (28a ⬜, 28b ⬜, 28c ⬜)
+└── Sprint 28: Recorded Demo ✅ COMPLETE (28a ✅, 28b ✅, 28c ✅)
 ```
 
 ---
@@ -148,7 +148,10 @@ Hardening (after the roadmap)
 | ExplorerApiTest | 8 | ✅ |
 | ExplorerViewsTest | 3 | ✅ |
 | ExplorerEndToEndTest | 4 | ✅ |
-| **Total** | **470** | ✅ |
+| DemoRecorderTest | 5 | ✅ |
+| DemoSiteTest | 5 | ✅ |
+| DemoPublishedTest | 3 | ✅ |
+| **Total** | **483** | ✅ |
 
 Last test run: `mvn test` - All passing
 
@@ -357,6 +360,9 @@ Design handoff (prototype + README) lives in `.ai/design/UIUX redesign project/`
 - [x] Explorer API: blocks by cursor, block / transaction context, address view, search, totals (Sprint 27a)
 - [x] Explorer views in the dashboard with `#/` links; the poll no longer downloads the chain (Sprint 27b)
 - [x] Pending transactions and contracts in the explorer; end-to-end and live checks (Sprint 27c)
+- [x] Demo recorder: a scripted session on real nodes, every answer recorded (Sprint 28a)
+- [x] Demo player: the dashboard answered from a recording, read-only (Sprint 28b)
+- [x] The demo published on GitHub Pages under `docs/demo`, guarded against going stale (Sprint 28c)
 
 ---
 
@@ -365,7 +371,7 @@ Design handoff (prototype + README) lives in `.ai/design/UIUX redesign project/`
 | Item | Value |
 |------|-------|
 | **Current Branch** | `master` |
-| **Last Commit** | Sprint 27 complete (PR #393, #394, #395) |
+| **Last Commit** | Sprint 28 complete (PR #404, #405, #406) |
 | **Tag** | `v1.0.0` (Phase 1) |
 | **Main Branch** | `master` |
 
@@ -529,12 +535,28 @@ Design handoff (prototype + README) lives in `.ai/design/UIUX redesign project/`
    - 27c (PR #395): a pending transaction's place in the mempool; the
      contract on a `CONTRACT:` address; palette command and tour step
 
-14. **PROJECT CLOSED** (2026-11-16, release v4.8.0)
-   - Sprints 0-27, 470 tests, 4 phases plus 8 hardening sprints (20-27)
+14. **Sprint 28 COMPLETE** - Recorded Demo (2026-11-17)
+   - The project was closed at v4.8.0 and reopened for one sprint: a demo
+     anyone can open without Java
+   - Probe: the site had screenshots only; the dashboard cannot be copied
+     to a static host (23 `/api` paths, absolute asset paths); one state of
+     a 33-block chain is 308 answers, 322,387 bytes; ten states with
+     repeated parts stored once are 726,840 bytes (90,673 gzipped)
+   - 28a (PR #404): `DemoRecorder` plays a 22-step story on two real nodes
+     over HTTP and records every answer after every step; `DemoRecording`
+     is the file
+   - 28b (PR #405): `demo.js` answers the dashboard's `fetchJson` from the
+     recording; `app.js` has a demo mode behind one object; every write is
+     refused with the reason; `DemoSite` builds `docs/demo`
+   - 28c (PR #406): the real recording published; `DemoPublishedTest`
+     fails when `docs/demo` falls behind the dashboard or the API
+
+15. **PROJECT CLOSED** (2026-11-17, release v4.9.0)
+   - Sprints 0-28, 483 tests, 4 phases plus 9 hardening sprints (20-28)
    - No further sprints are planned. The list below is what was knowingly
      left out, for anyone who continues
 
-15. **Not done (left out on purpose)**
+16. **Not done (left out on purpose)**
    - Advertised peer addresses are not checked for reachability (an inbound
      peer behind NAT is advertised under the address it dialled from); no
      ban score for peers that send invalid data
@@ -550,9 +572,13 @@ Design handoff (prototype + README) lives in `.ai/design/UIUX redesign project/`
      not searchable); search matches whole heights, hashes, ids and
      addresses, not prefixes; an address's totals read its whole history
      on every request
+   - The demo is a recording: nothing can be mined, sent or deployed in
+     it, and an address that was not part of the session has no page. A
+     replaced transfer (fee bump) does not show in the activity feed,
+     because the feed counts pending transactions
    - Bonus features from the roadmap: SPV light client, mobile wallet,
      CLI tool
 
 ---
 
-*Last updated: 2026-11-16 | Sprint 27 Complete (Block Explorer) - project closed*
+*Last updated: 2026-11-17 | Sprint 28 Complete (Recorded Demo) - project closed*

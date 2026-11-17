@@ -8,7 +8,7 @@ BlockSmith is a comprehensive blockchain project that goes beyond tutorials - im
 
 [![Java](https://img.shields.io/badge/Java-20+-orange.svg)](https://openjdk.org/)
 [![Maven](https://img.shields.io/badge/Maven-3.9+-blue.svg)](https://maven.apache.org/)
-[![Tests](https://img.shields.io/badge/Tests-470%20passing-brightgreen.svg)](#)
+[![Tests](https://img.shields.io/badge/Tests-483%20passing-brightgreen.svg)](#)
 [![Phase](https://img.shields.io/badge/Phase%204-Complete-brightgreen.svg)](#)
 [![Version](https://img.shields.io/badge/Version-1.0.0-blue.svg)](#)
 
@@ -126,6 +126,10 @@ BlockSmith is a comprehensive blockchain project that goes beyond tutorials - im
   - ✅ Explorer API: blocks a page at a time, a block and a transaction with their place on the chain, an address with its totals, one search, chain totals (Sprint 27a)
   - ✅ Explorer views in the dashboard, each with its own link: blocks, block, transaction, address (Sprint 27b)
   - ✅ Pending transactions and contracts in the explorer; checked end to end and live in a browser (Sprint 27c)
+- ✅ Recorded demo on GitHub Pages (Sprint 28): https://bartoszclapinski.github.io/BlockSmith/demo/
+  - ✅ Recorder: a scripted session on two real nodes, every answer recorded after every step (Sprint 28a)
+  - ✅ Player: the dashboard answered from the recording, read-only (Sprint 28b)
+  - ✅ Published under `docs/demo`, with a test that fails when it falls behind the dashboard or the API (Sprint 28c)
 
 > Upgrading from an older checkout? Chains saved before Sprint 22 contain unsigned transfers and
 > restore only up to the first one, and multisig contracts from before Sprint 23 cannot be claimed:
@@ -268,7 +272,7 @@ Average attempts: ~16^difficulty (~65,536 for difficulty 4)
 mvn clean compile
 ```
 
-### Run all tests (470 tests)
+### Run all tests (483 tests)
 ```bash
 mvn test
 ```
@@ -389,7 +393,7 @@ BlockSmith/
 │   ├── BlockSmithNode.java     # Runnable node (P2P + API + dashboard)
 │   └── BlockSmithDemo.java     # Teaching demo application
 ├── src/main/resources/public/  # Web dashboard (index.html, app.js, style.css)
-├── src/test/java/              # 470 unit tests
+├── src/test/java/              # 483 unit tests
 ├── data/                       # Node databases (H2), one folder per node: data/node-<port>/
 ├── pom.xml                     # Maven configuration
 └── README.md
@@ -473,7 +477,10 @@ BlockSmith/
 | ExplorerApiTest | 8 | Explorer API: pages, views, search, totals |
 | ExplorerViewsTest | 3 | Explorer views served by the dashboard |
 | ExplorerEndToEndTest | 4 | Search everything, walk the chain, pending to confirmed, contracts |
-| **Total** | **470** | All passing ✅ |
+| DemoRecorderTest | 5 | The recorded session, frame by frame |
+| DemoSiteTest | 5 | The demo page and the seams of demo mode |
+| DemoPublishedTest | 3 | `docs/demo` matches the dashboard and the API |
+| **Total** | **483** | All passing ✅ |
 
 ---
 
@@ -554,6 +561,7 @@ BlockSmith/
 | Sprint 25 | Loose Ends | ✅ Complete (25a, 25b, 25c) |
 | Sprint 26 | Networking for Real | ✅ Complete (26a, 26b, 26c) |
 | Sprint 27 | Block Explorer | ✅ Complete (27a, 27b, 27c) |
+| Sprint 28 | Recorded Demo | ✅ Complete (28a, 28b, 28c) |
 
 ---
 
