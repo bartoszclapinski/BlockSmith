@@ -216,7 +216,8 @@ class DemoRecorderTest {
                 recording.misses().keySet());
         for (DemoRecording.Miss miss : recording.misses().values()) {
             assertEquals(404, miss.status());
-            assertFalse(miss.body().getAsJsonObject().get("error").getAsString().isBlank());
+            assertTrue(miss.body().getAsJsonObject().get("error").getAsString().contains(miss.probe()),
+                    "the node names what was asked for, so the player can put the visitor's words there: " + miss.body());
         }
 
         // Every address page is recorded to its last row.

@@ -65,8 +65,14 @@ public record DemoRecording(long recordedAt, String activeAddress, Map<String, M
      */
     public record Frame(String title, String detail, long at, Map<String, JsonElement> answers) {}
 
-    /** An answer that is not 200: the node's own words for "not found". */
-    public record Miss(int status, JsonElement body) {}
+    /**
+     * An answer that is not 200: the node's own words for "not found".
+     *
+     * @param probe what was asked for when this was recorded; the node repeats
+     *              it in its message ("No block at index 999999"), so the
+     *              player puts what the visitor asked for in its place
+     */
+    public record Miss(int status, JsonElement body, String probe) {}
 
     /** The whole recording as one JSON object, repeated parts stored once. */
     public String toJson() {
@@ -88,6 +94,7 @@ public record DemoRecording(long recordedAt, String activeAddress, Map<String, M
             JsonObject m = new JsonObject();
             m.addProperty("status", miss.status());
             m.add("body", miss.body());
+            m.addProperty("probe", miss.probe());
             missList.add(prefix, m);
         });
         JsonObject out = new JsonObject();
@@ -119,7 +126,7 @@ public record DemoRecording(long recordedAt, String activeAddress, Map<String, M
         Map<String, Miss> misses = new LinkedHashMap<>();
         for (var m : in.getAsJsonObject("misses").entrySet()) {
             JsonObject miss = m.getValue().getAsJsonObject();
-            misses.put(m.getKey(), new Miss(miss.get("status").getAsInt(), miss.get("body")));
+            misses.put(m.getKey(), new Miss(miss.get("status").getAsInt(), miss.get("body"), miss.get("probe").getAsString()));
         }
         return new DemoRecording(in.get("recordedAt").getAsLong(), in.get("activeAddress").getAsString(),
                 misses, frames);

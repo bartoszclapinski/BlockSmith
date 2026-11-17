@@ -478,15 +478,16 @@ public final class DemoRecorder implements AutoCloseable {
     /** The node's own words for something it does not have, by the start of the path. */
     private Map<String, DemoRecording.Miss> misses() throws Exception {
         Map<String, String> probes = new LinkedHashMap<>();
-        probes.put("/api/explorer/search?q=", "/api/explorer/search?q=nothing-like-this");
-        probes.put("/api/blocks/hash/", "/api/blocks/hash/" + "0".repeat(64));
-        probes.put("/api/blocks/", "/api/blocks/999999");
-        probes.put("/api/transactions/", "/api/transactions/" + "0".repeat(64));
+        probes.put("/api/explorer/search?q=", "nothing-like-this");
+        probes.put("/api/blocks/hash/", "f".repeat(64));
+        probes.put("/api/blocks/", "999999");
+        probes.put("/api/transactions/", "e".repeat(64));
         Map<String, DemoRecording.Miss> out = new LinkedHashMap<>();
         for (var probe : probes.entrySet()) {
-            HttpResponse<String> res = get(probe.getValue());
-            if (res.statusCode() == 200) throw new IllegalStateException(probe.getValue() + " was found");
-            out.put(probe.getKey(), new DemoRecording.Miss(res.statusCode(), JsonParser.parseString(res.body())));
+            HttpResponse<String> res = get(probe.getKey() + probe.getValue());
+            if (res.statusCode() == 200) throw new IllegalStateException(probe.getKey() + probe.getValue() + " was found");
+            out.put(probe.getKey(), new DemoRecording.Miss(res.statusCode(), JsonParser.parseString(res.body()),
+                    probe.getValue()));
         }
         return out;
     }
