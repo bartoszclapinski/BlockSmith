@@ -9,7 +9,7 @@
 | Field | Value |
 |-------|-------|
 | **Phase** | ✅ PROJECT COMPLETE (all 4 phases, hardening Sprints 20-27) |
-| **Current Sprint** | 27 (Block Explorer) - Complete; the last sprint |
+| **Current Sprint** | 28 (Recorded Demo on GitHub Pages) - Planned; reopens the project closed at v4.8.0 |
 | **Current Milestone** | 27c Complete (Explorer: pending, contracts, live check) |
 | **Status** | Sprint 27 complete (27a-27c): every block, transaction and address can be found by search and opened by a link. The project is closed (release v4.8.0); no further sprints are planned |
 
@@ -66,7 +66,8 @@ Hardening (after the roadmap)
 ├── Sprint 24: Keystore      ✅ COMPLETE (24a ✅, 24b ✅, 24c ✅)
 ├── Sprint 25: Loose ends    ✅ COMPLETE (25a ✅, 25b ✅, 25c ✅)
 ├── Sprint 26: Networking    ✅ COMPLETE (26a ✅, 26b ✅, 26c ✅)
-└── Sprint 27: Explorer      ✅ COMPLETE (27a ✅, 27b ✅, 27c ✅)
+├── Sprint 27: Explorer      ✅ COMPLETE (27a ✅, 27b ✅, 27c ✅)
+└── Sprint 28: Recorded Demo 📋 PLANNED (28a ⬜, 28b ⬜, 28c ⬜)
 ```
 
 ---
