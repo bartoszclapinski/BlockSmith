@@ -227,6 +227,8 @@ class DemoSiteTest {
             assertTrue(page.contains("<link rel=\"stylesheet\" href=\"style.css\">"));
             assertTrue(page.contains("<script src=\"app.js\"></script>"));
             assertFalse(page.contains("demo.js") || page.contains("recording.js") || page.contains("demo.css"));
+            assertTrue(page.contains("<link rel=\"icon\" href=\"data:image/svg+xml,"),
+                    "an inline icon: no request for /favicon.ico, which a sub-folder on Pages cannot answer");
             assertEquals(200, get.apply("/style.css").statusCode());
             assertEquals(200, get.apply("/app.js").statusCode());
             assertEquals(404, get.apply("/demo.js").statusCode(), "the player is not part of the node");
